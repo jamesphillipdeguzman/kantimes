@@ -369,14 +369,14 @@ const DEFAULT_USER_SETTINGS = {
     },
 
     // ==========================================
-    // 🏛️ ARCHIVED REPERTOIRE (October 2026 General Conference)
+    // 🏛️ ARCHIVED REPERTOIRE (October 2026 Stake Conference)
     // ==========================================
     {
       id: "song_oct_1",
       title: "Know This, That Every Soul Is Free (#240)",
       part: "Adult Choir #1",
-      collection: "October 2026 General Conference",
-      event: "October 2026 General Conference",
+      collection: "October 2026 Stake Conference",
+      event: "October 2026 Stake Conference",
       status: "archived",
       isArchived: true,
       archived: true,
@@ -384,14 +384,14 @@ const DEFAULT_USER_SETTINGS = {
       sheetUrl: "https://www.churchofjesuschrist.org/media/music/songs/know-this-that-every-soul-is-free?crumbs=hymns&order=number&lang=eng",
       videoUrl: "https://youtu.be/6zJLchPWrdA",
       tags: ["October 2026", "Stake Conference", "Hymns"],
-      note: "Archived from October 2026 General Conference."
+      note: "Archived from October 2026 Stake Conference."
     },
     {
       id: "song_oct_2",
       title: "Rise, Ye Saints, and Temples Enter (#287)",
       part: "Adult Choir #2",
-      collection: "October 2026 General Conference",
-      event: "October 2026 General Conference",
+      collection: "October 2026 Stake Conference",
+      event: "October 2026 Stake Conference",
       status: "archived",
       isArchived: true,
       archived: true,
@@ -399,14 +399,14 @@ const DEFAULT_USER_SETTINGS = {
       sheetUrl: "https://www.churchofjesuschrist.org/media/music/songs/rise-ye-saints-and-temples-enter?crumbs=hymns&order=number&lang=eng",
       videoUrl: "https://youtu.be/6D1WFIqbVic",
       tags: ["October 2026", "Stake Conference", "Hymns"],
-      note: "Archived from October 2026 General Conference."
+      note: "Archived from October 2026 Stake Conference."
     },
     {
       id: "song_oct_3",
       title: "Choose You This Day",
       part: "Adult Choir #3",
-      collection: "October 2026 General Conference",
-      event: "October 2026 General Conference",
+      collection: "October 2026 Stake Conference",
+      event: "October 2026 Stake Conference",
       status: "archived",
       isArchived: true,
       archived: true,
@@ -434,14 +434,14 @@ const DEFAULT_USER_SETTINGS = {
         { name: "Piano", src: "kantimes-resources/Choose%20You%20This%20Day/Choose%20You%20This%20Day%20(piano).mp3" }
       ],
       tags: ["October 2026", "Stake Conference", "Choir", "Tracks"],
-      note: "Archived from October 2026 General Conference."
+      note: "Archived from October 2026 Stake Conference."
     },
     {
       id: "song_oct_4",
       title: "Holy Places",
       part: "Primary",
-      collection: "October 2026 General Conference",
-      event: "October 2026 General Conference",
+      collection: "October 2026 Stake Conference",
+      event: "October 2026 Stake Conference",
       status: "archived",
       isArchived: true,
       archived: true,
@@ -449,14 +449,14 @@ const DEFAULT_USER_SETTINGS = {
       sheetUrl: "https://www.churchofjesuschrist.org/media/music/songs/holy-places?crumbs=hymns-for-home-and-church&order=number&lang=eng",
       videoUrl: "https://www.youtube.com/watch?v=cKb_U6AkoHU",
       tags: ["October 2026", "Primary"],
-      note: "Archived from October 2026 General Conference."
+      note: "Archived from October 2026 Stake Conference."
     },
     {
       id: "song_oct_5",
       title: "I Will Walk with Jesus",
       part: "Primary",
-      collection: "October 2026 General Conference",
-      event: "October 2026 General Conference",
+      collection: "October 2026 Stake Conference",
+      event: "October 2026 Stake Conference",
       status: "archived",
       isArchived: true,
       archived: true,
@@ -464,7 +464,7 @@ const DEFAULT_USER_SETTINGS = {
       sheetUrl: "https://www.churchofjesuschrist.org/media/music/songs/i-will-walk-with-jesus?crumbs=hymns-for-home-and-church&order=number&lang=eng",
       videoUrl: "https://www.youtube.com/watch?v=oB77rD2RlPU",
       tags: ["October 2026", "Primary"],
-      note: "Archived from October 2026 General Conference."
+      note: "Archived from October 2026 Stake Conference."
     },
 
     // ==========================================
@@ -638,7 +638,7 @@ function getUserSettings(forceSync = false) {
     const storedRepVersion = parsed.repertoireVersion || "2.6.0";
     const needsMigration = forceSync || compareSemver(REPERTOIRE_VERSION, storedRepVersion) > 0 || compareSemver(APP_VERSION, storedAppVersion) > 0;
 
-    // 1. Ensure all October 2026 General Conference pieces are archived
+    // 1. Ensure all October 2026 Stake Conference pieces are archived
     let hasArchivedOctober = false;
     songs.forEach(s => {
       const isOctober = (s.id && (s.id.startsWith("song_oct_") || s.id === "song_1" || s.id === "song_2" || s.id === "song_3" || s.id === "song_4" || s.id === "song_5")) ||
@@ -647,8 +647,8 @@ function getUserSettings(forceSync = false) {
         if (!s.isArchived || s.status !== "archived") {
           hasArchivedOctober = true;
         }
-        s.event = "October 2026 General Conference";
-        s.collection = "October 2026 General Conference";
+        s.event = "October 2026 Stake Conference";
+        s.collection = "October 2026 Stake Conference";
         s.status = "archived";
         s.isArchived = true;
         s.archived = true;
