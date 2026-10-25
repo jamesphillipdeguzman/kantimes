@@ -1,6 +1,6 @@
 # Implementation Plan: Repertoire Archiving & In-Browser Audio Scratchpad
 
-Implement two new choir rehearsal features in `kantimes.netlify.app` across `index.html`, `css/style.css`, and `script.js`:
+Implement two new choir rehearsal features in `kantimes.vercel.app` across `index.html`, `css/style.css`, and `script.js`:
 1. **Repertoire Archiving via Settings (⚙️)**: Group songs by event, add a toggle for past repertoire (Oct 24–25 Stake Conference), hide archived songs from the main practice dashboard by default (post-conference mode), and present them in a collapsible "Archived / Past Conferences" section when enabled.
 2. **In-Browser Audio Scratchpad (Record & Self-Check)**: Ephemeral, 100% client-side voice recording tool (up to 5 minutes) using the browser's `MediaRecorder` API under the practice audio player with countdown timer, pulsing recording dot, immediate playback, direct download/export option to save audio to device, discard trash button, and graceful mic permission handling.
 
@@ -74,7 +74,7 @@ Implement two new choir rehearsal features in `kantimes.netlify.app` across `ind
 ## Verification Plan
 
 ### Automated / Browser Testing
-- Use `browser_subagent` to open `kantimes.netlify.app` / local web server:
+- Use `browser_subagent` to open `kantimes.vercel.app` / local web server:
   1. Open Settings modal (⚙️) -> Preferences & Repertoire tab:
      - Verify "Event Repertoire & Archives" section exists.
      - Verify `Show Past Repertoire (Oct 24–25 Stake Conference)` toggle is present and initially unchecked.

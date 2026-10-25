@@ -1,6 +1,6 @@
 # Walkthrough: Fuzzy Name Deduplication during Profile Setup
 
-Prevented duplicate records in Google Sheets and fragmented practice statistics in `kantimes.netlify.app` by implementing offline-first roster caching, string normalization, a Levenshtein and word-boundary similarity matching algorithm, and an interactive confirmation modal with profile linking.
+Prevented duplicate records in Google Sheets and fragmented practice statistics in `kantimes.vercel.app` by implementing offline-first roster caching, string normalization, a Levenshtein and word-boundary similarity matching algorithm, and an interactive confirmation modal with profile linking.
 
 ---
 
@@ -43,15 +43,15 @@ Prevented duplicate records in Google Sheets and fragmented practice statistics 
 ## 2. Verification Results
 
 ### 2.1 Algorithm Unit Test Results
-| Input Name | Existing Roster Name | Similarity | Classification |
-|:---|:---|:---:|:---:|
-| `Juan de la Cruz` | `Juan dela Cruz` | **1.00** | **MATCH** |
-| `Jonathan Smith` | `Jonathon Smith` | **0.93** | **MATCH** |
-| `Maria Elena Sotero` | `Maria Sotero` | **0.88** | **MATCH** |
-| `Maria E. Sotero` | `Maria Elena Sotero` | **0.88** | **MATCH** |
-| `Rosemarie Santos` | `Rose Marie Santos` | **1.00** | **MATCH** |
-| `David Miller` | `Daniel Miller` | **0.77** | **DISTINCT** |
-| `Pedro Gomez` | `Juan Carlos Gomez` | **0.47** | **DISTINCT** |
+| Input Name           | Existing Roster Name | Similarity | Classification |
+| :------------------- | :------------------- | :--------: | :------------: |
+| `Juan de la Cruz`    | `Juan dela Cruz`     |  **1.00**  |   **MATCH**    |
+| `Jonathan Smith`     | `Jonathon Smith`     |  **0.93**  |   **MATCH**    |
+| `Maria Elena Sotero` | `Maria Sotero`       |  **0.88**  |   **MATCH**    |
+| `Maria E. Sotero`    | `Maria Elena Sotero` |  **0.88**  |   **MATCH**    |
+| `Rosemarie Santos`   | `Rose Marie Santos`  |  **1.00**  |   **MATCH**    |
+| `David Miller`       | `Daniel Miller`      |  **0.77**  |  **DISTINCT**  |
+| `Pedro Gomez`        | `Juan Carlos Gomez`  |  **0.47**  |  **DISTINCT**  |
 
 ### 2.2 Code Structure & DOM Integrity Tests
 - Verified that all required elements (`#duplicateConfirmModal`, `#duplicateMatchedName`, `#duplicateMatchedVoice`, `#duplicateMatchAvatar`, `#btnConfirmExistingSinger`, `#btnConfirmNewSinger`) exist in `index.html`.

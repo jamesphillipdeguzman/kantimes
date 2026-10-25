@@ -1,0 +1,440 @@
+{
+  "version": "2.7.2",
+  "lastUpdated": "2026-10-25",
+  "activeCollection": "Christmas Devotional 2026",
+  "songs": [
+    {
+      "id": "hymn-1208",
+      "title": "Go Tell It on the Mountain",
+      "number": 1208,
+      "collection": "Hymns for Home and Church",
+      "status": "active",
+      "isArchived": false,
+      "archived": false,
+      "part": "All Voices",
+      "category": "Christmas / General Practice",
+      "event": "Christmas Devotional 2026",
+      "key": "F Major",
+      "timeSignature": "4/4",
+      "tempo": "Moderato / Spiritual",
+      "sourceUrl": "https://www.churchofjesuschrist.org/media/music/songs/go-tell-it-on-the-mountain?crumbs=hymns-for-home-and-church&order=number&lang=eng",
+      "sheetUrl": "https://www.churchofjesuschrist.org/media/music/songs/go-tell-it-on-the-mountain?crumbs=hymns-for-home-and-church&order=number&lang=eng",
+      "localSheetUrl": "kantimes-resources/Christmas%20Devotional%202026/go_tell_it_on_the_mountain.pdf",
+      "videoUrl": "https://www.youtube.com/watch?v=72LE487YZ-U",
+      "resources": {
+        "pdf": "kantimes-resources/Christmas Devotional 2026/go_tell_it_on_the_mountain.pdf",
+        "audio": {
+          "piano": "https://assets.churchofjesuschrist.org/ge/5t/ge5tz9qino95h64syvfbxalhf7hao0lcs5n74tyb/go_tell_it_on_the_mountain.mp3",
+          "guitar": "https://assets.churchofjesuschrist.org/gi/mx/gimxu7wa1ru8m76nk55f5g6q7n8xdhldt301hdkh/go_tell_it_on_the_mountain.mp3"
+        },
+        "video": "https://www.youtube.com/watch?v=72LE487YZ-U"
+      },
+      "audioTracks": [
+        {
+          "name": "Accompaniment (Piano)",
+          "src": "https://assets.churchofjesuschrist.org/ge/5t/ge5tz9qino95h64syvfbxalhf7hao0lcs5n74tyb/go_tell_it_on_the_mountain.mp3"
+        },
+        {
+          "name": "Guitar Accompaniment",
+          "src": "https://assets.churchofjesuschrist.org/gi/mx/gimxu7wa1ru8m76nk55f5g6q7n8xdhldt301hdkh/go_tell_it_on_the_mountain.mp3"
+        }
+      ],
+      "tags": [
+        "Christmas",
+        "Spiritual",
+        "Hymns for Home and Church"
+      ],
+      "note": "Hymns for Home and Church (#1208). Moderato / Spiritual tempo in F Major."
+    },
+    {
+      "id": "christmas-away-in-a-manger",
+      "title": "Away in a Manger (#206)",
+      "number": 206,
+      "collection": "Hymns",
+      "status": "active",
+      "isArchived": false,
+      "archived": false,
+      "part": "Congregational",
+      "category": "Christmas Devotional 2026",
+      "event": "Christmas Devotional 2026",
+      "sheetUrl": "http://sacredsheetmusic.org/music/inline_download_file?download_id=181717&name=Away_in_a_Manger.pdf",
+      "localSheetUrl": "kantimes-resources/Christmas%20Devotional%202026/Away_in_a_Manger.pdf",
+      "resources": {
+        "pdf": "kantimes-resources/Christmas Devotional 2026/Away_in_a_Manger.pdf",
+        "audio": {
+          "organ": "kantimes-resources/Christmas Devotional 2026/Away_in_a_Manger__Organ_.mp3"
+        }
+      },
+      "audioTracks": [
+        {
+          "name": "Organ Accompaniment",
+          "src": "kantimes-resources/Christmas%20Devotional%202026/Away_in_a_Manger__Organ_.mp3"
+        }
+      ],
+      "tags": [
+        "Christmas",
+        "Hymns"
+      ],
+      "note": "Hymn #206. Organ rehearsal accompaniment track available offline."
+    },
+    {
+      "id": "christmas-light-of-the-world",
+      "title": "Light of the World Hymn Medley",
+      "collection": "Christmas Devotional 2026",
+      "status": "active",
+      "isArchived": false,
+      "archived": false,
+      "part": "Stake Choir",
+      "category": "Christmas Devotional 2026",
+      "event": "Christmas Devotional 2026",
+      "localSheetUrl": "kantimes-resources/Christmas%20Devotional%202026/Light_of_the_World_Hymn_Medley.pdf",
+      "resources": {
+        "pdf": "kantimes-resources/Christmas Devotional 2026/Light_of_the_World_Hymn_Medley.pdf",
+        "audio": {
+          "piano": "kantimes-resources/Christmas Devotional 2026/Light_of_the_World_medley_piano_only.mp3"
+        }
+      },
+      "audioTracks": [
+        {
+          "name": "Piano Accompaniment",
+          "src": "kantimes-resources/Christmas%20Devotional%202026/Light_of_the_World_medley_piano_only.mp3"
+        }
+      ],
+      "tags": [
+        "Christmas",
+        "Choir Medley"
+      ],
+      "note": "Christmas Choir Medley. Piano rehearsal track available offline."
+    },
+    {
+      "id": "christmas-manger-filled-with-love",
+      "title": "A Manger Filled with Love",
+      "collection": "Christmas Devotional 2026",
+      "status": "active",
+      "isArchived": false,
+      "archived": false,
+      "part": "Stake Choir",
+      "category": "Christmas Devotional 2026",
+      "event": "Christmas Devotional 2026",
+      "localSheetUrl": "kantimes-resources/Christmas%20Devotional%202026/A%20Manger%20Filled%20with%20Love%2010-23-22.pdf",
+      "localVideoUrl": "kantimes-resources/Christmas%20Devotional%202026/A%20Manger%20Filled%20with%20Love.mp4",
+      "resources": {
+        "pdf": "kantimes-resources/Christmas Devotional 2026/A Manger Filled with Love 10-23-22.pdf",
+        "video": "kantimes-resources/Christmas Devotional 2026/A Manger Filled with Love.mp4"
+      },
+      "tags": [
+        "Christmas",
+        "Choir",
+        "Video"
+      ],
+      "note": "Special musical number with full offline rehearsal video."
+    },
+    {
+      "id": "christmas-and-there-was-light",
+      "title": "And There Was Light",
+      "collection": "Christmas Devotional 2026",
+      "status": "active",
+      "isArchived": false,
+      "archived": false,
+      "part": "Stake Choir",
+      "category": "Christmas Devotional 2026",
+      "event": "Christmas Devotional 2026",
+      "localSheetUrl": "kantimes-resources/Christmas%20Devotional%202026/And%20There%20Was%20Light.pdf",
+      "resources": {
+        "pdf": "kantimes-resources/Christmas Devotional 2026/And There Was Light.pdf"
+      },
+      "tags": [
+        "Christmas",
+        "Choir",
+        "Sheet Music"
+      ],
+      "note": "Complete PDF score available offline."
+    },
+    {
+      "id": "song_oct_1",
+      "title": "Know This, That Every Soul Is Free (#240)",
+      "part": "Adult Choir #1",
+      "collection": "October 2026 General Conference",
+      "event": "October 2026 General Conference",
+      "status": "archived",
+      "archived": true,
+      "isArchived": true,
+      "archivedDate": "2026-10-25",
+      "sheetUrl": "https://www.churchofjesuschrist.org/media/music/songs/know-this-that-every-soul-is-free?crumbs=hymns&order=number&lang=eng",
+      "videoUrl": "https://youtu.be/6zJLchPWrdA",
+      "tags": [
+        "October 2026",
+        "Stake Conference",
+        "Hymns"
+      ],
+      "note": "Archived from October 2026 General Conference."
+    },
+    {
+      "id": "song_oct_2",
+      "title": "Rise, Ye Saints, and Temples Enter (#287)",
+      "part": "Adult Choir #2",
+      "collection": "October 2026 General Conference",
+      "event": "October 2026 General Conference",
+      "status": "archived",
+      "archived": true,
+      "isArchived": true,
+      "archivedDate": "2026-10-25",
+      "sheetUrl": "https://www.churchofjesuschrist.org/media/music/songs/rise-ye-saints-and-temples-enter?crumbs=hymns&order=number&lang=eng",
+      "videoUrl": "https://youtu.be/6D1WFIqbVic",
+      "tags": [
+        "October 2026",
+        "Stake Conference",
+        "Hymns"
+      ],
+      "note": "Archived from October 2026 General Conference."
+    },
+    {
+      "id": "song_oct_3",
+      "title": "Choose You This Day",
+      "part": "Adult Choir #3",
+      "collection": "October 2026 General Conference",
+      "event": "October 2026 General Conference",
+      "status": "archived",
+      "archived": true,
+      "isArchived": true,
+      "archivedDate": "2026-10-25",
+      "sheetUrl": "https://drive.google.com/embeddedfolderview?id=1bBnCakJGBj-zfka8wVbz42_ykvipMnwU#grid",
+      "localSheetUrl": "kantimes-resources/Choose%20You%20This%20Day/Choose%20You%20This%20Day.pdf",
+      "videoUrl": "https://www.youtube.com/embed/q54H2OqWBcY?enablejsapi=1",
+      "resources": {
+        "pdf": "kantimes-resources/Choose You This Day/Choose You This Day.pdf",
+        "audio": {
+          "choir": "kantimes-resources/Choose You This Day/Choose You This Day.mp3",
+          "soprano": "kantimes-resources/Choose You This Day/Choose You This Day - SOPRANO.mp3",
+          "alto": "kantimes-resources/Choose You This Day/Choose You This Day - ALTO.mp3",
+          "tenor": "kantimes-resources/Choose You This Day/Choose You This Day - TENOR.mp3",
+          "bass": "kantimes-resources/Choose You This Day/Choose You This Day - BASS.mp3",
+          "piano": "kantimes-resources/Choose You This Day/Choose You This Day (piano).mp3"
+        }
+      },
+      "audioTracks": [
+        {
+          "name": "Full Choir",
+          "src": "kantimes-resources/Choose%20You%20This%20Day/Choose%20You%20This%20Day.mp3"
+        },
+        {
+          "name": "Soprano",
+          "src": "kantimes-resources/Choose%20You%20This%20Day/Choose%20You%20This%20Day%20-%20SOPRANO.mp3"
+        },
+        {
+          "name": "Alto",
+          "src": "kantimes-resources/Choose%20You%20This%20Day/Choose%20You%20This%20Day%20-%20ALTO.mp3"
+        },
+        {
+          "name": "Tenor",
+          "src": "kantimes-resources/Choose%20You%20This%20Day/Choose%20You%20This%20Day%20-%20TENOR.mp3"
+        },
+        {
+          "name": "Bass",
+          "src": "kantimes-resources/Choose%20You%20This%20Day/Choose%20You%20This%20Day%20-%20BASS.mp3"
+        },
+        {
+          "name": "Piano",
+          "src": "kantimes-resources/Choose%20You%20This%20Day/Choose%20You%20This%20Day%20(piano).mp3"
+        }
+      ],
+      "tags": [
+        "October 2026",
+        "Stake Conference",
+        "Choir",
+        "Tracks"
+      ],
+      "note": "Archived from October 2026 General Conference."
+    },
+    {
+      "id": "song_oct_4",
+      "title": "Holy Places",
+      "part": "Primary",
+      "collection": "October 2026 General Conference",
+      "event": "October 2026 General Conference",
+      "status": "archived",
+      "archived": true,
+      "isArchived": true,
+      "archivedDate": "2026-10-25",
+      "sheetUrl": "https://www.churchofjesuschrist.org/media/music/songs/holy-places?crumbs=hymns-for-home-and-church&order=number&lang=eng",
+      "videoUrl": "https://www.youtube.com/watch?v=cKb_U6AkoHU",
+      "tags": [
+        "October 2026",
+        "Primary"
+      ],
+      "note": "Archived from October 2026 General Conference."
+    },
+    {
+      "id": "song_oct_5",
+      "title": "I Will Walk with Jesus",
+      "part": "Primary",
+      "collection": "October 2026 General Conference",
+      "event": "October 2026 General Conference",
+      "status": "archived",
+      "archived": true,
+      "isArchived": true,
+      "archivedDate": "2026-10-25",
+      "sheetUrl": "https://www.churchofjesuschrist.org/media/music/songs/i-will-walk-with-jesus?crumbs=hymns-for-home-and-church&order=number&lang=eng",
+      "videoUrl": "https://www.youtube.com/watch?v=oB77rD2RlPU",
+      "tags": [
+        "October 2026",
+        "Primary"
+      ],
+      "note": "Archived from October 2026 General Conference."
+    },
+    {
+      "id": "song_mar_sat_1",
+      "title": "Ako ay Anak ng Diyos (#189)",
+      "part": "Congregational",
+      "collection": "March 27–28 Stake Conference",
+      "event": "March 27–28 Stake Conference",
+      "session": "Saturday Session",
+      "status": "archived",
+      "archived": true,
+      "isArchived": true,
+      "sheetUrl": "https://www.churchofjesuschrist.org/media/music/songs/i-am-a-child-of-god?crumbs=hymns&lang=tgl",
+      "videoUrl": "",
+      "note": "Opening Hymn (Saturday Session)"
+    },
+    {
+      "id": "song_mar_sat_2",
+      "title": "Thou Gracious God, Whose Mercy Lends (#1042)",
+      "part": "Stake Choir",
+      "collection": "March 27–28 Stake Conference",
+      "event": "March 27–28 Stake Conference",
+      "session": "Saturday Session",
+      "status": "archived",
+      "archived": true,
+      "isArchived": true,
+      "sheetUrl": "https://www.churchofjesuschrist.org/media/music/songs/thou-gracious-god-whose-mercy-lends?crumbs=hymns-for-home-and-church&lang=eng",
+      "videoUrl": "",
+      "note": "Special Musical Number (from Hymns for Home and Church)"
+    },
+    {
+      "id": "song_mar_sat_3",
+      "title": "Tinawag Upang sa Diyos Maglingkod (#151)",
+      "part": "Congregational",
+      "collection": "March 27–28 Stake Conference",
+      "event": "March 27–28 Stake Conference",
+      "session": "Saturday Session",
+      "status": "archived",
+      "archived": true,
+      "isArchived": true,
+      "sheetUrl": "https://www.churchofjesuschrist.org/media/music/songs/called-to-serve?crumbs=hymns&lang=tgl",
+      "videoUrl": "",
+      "note": "Congregational Hymn (Saturday Session)"
+    },
+    {
+      "id": "song_mar_sat_4",
+      "title": "Saligang Kay Tibay (#47)",
+      "part": "Congregational",
+      "collection": "March 27–28 Stake Conference",
+      "event": "March 27–28 Stake Conference",
+      "session": "Saturday Session",
+      "status": "archived",
+      "archived": true,
+      "isArchived": true,
+      "sheetUrl": "https://www.churchofjesuschrist.org/media/music/songs/how-firm-a-foundation?crumbs=hymns&lang=tgl",
+      "videoUrl": "",
+      "note": "Closing Hymn (Saturday Session)"
+    },
+    {
+      "id": "song_mar_ldr_1",
+      "title": "Lakas Mo ay Idagdag (#154)",
+      "part": "Congregational",
+      "collection": "March 27–28 Stake Conference",
+      "event": "March 27–28 Stake Conference",
+      "session": "Sunday Leadership Meeting",
+      "status": "archived",
+      "archived": true,
+      "isArchived": true,
+      "sheetUrl": "https://www.churchofjesuschrist.org/media/music/songs/put-your-shoulder-to-the-wheel?crumbs=hymns&lang=tgl",
+      "videoUrl": "",
+      "note": "Opening Hymn (Sunday Leadership)"
+    },
+    {
+      "id": "song_mar_ldr_2",
+      "title": "Magpatuloy Tayo (#148)",
+      "part": "Congregational",
+      "collection": "March 27–28 Stake Conference",
+      "event": "March 27–28 Stake Conference",
+      "session": "Sunday Leadership Meeting",
+      "status": "archived",
+      "archived": true,
+      "isArchived": true,
+      "sheetUrl": "https://www.churchofjesuschrist.org/media/music/songs/let-us-all-press-on?crumbs=hymns&lang=tgl",
+      "videoUrl": "",
+      "note": "Congregational Hymn (Sunday Leadership)"
+    },
+    {
+      "id": "song_mar_ldr_3",
+      "title": "Mahalin ang Bawat Isa (#196)",
+      "part": "Congregational",
+      "collection": "March 27–28 Stake Conference",
+      "event": "March 27–28 Stake Conference",
+      "session": "Sunday Leadership Meeting",
+      "status": "archived",
+      "archived": true,
+      "isArchived": true,
+      "sheetUrl": "https://www.churchofjesuschrist.org/media/music/songs/love-one-another?crumbs=hymns&lang=tgl",
+      "videoUrl": "",
+      "note": "Closing Hymn (Sunday Leadership)"
+    },
+    {
+      "id": "song_mar_sun_1",
+      "title": "Pag-ibig sa Tahanan (#183)",
+      "part": "Congregational",
+      "collection": "March 27–28 Stake Conference",
+      "event": "March 27–28 Stake Conference",
+      "session": "Sunday General Session",
+      "status": "archived",
+      "archived": true,
+      "isArchived": true,
+      "sheetUrl": "https://www.churchofjesuschrist.org/media/music/songs/love-at-home?crumbs=hymns&lang=tgl",
+      "videoUrl": "",
+      "note": "Opening Hymn (Sunday General Session)"
+    },
+    {
+      "id": "song_mar_sun_2",
+      "title": "Because (#1039)",
+      "part": "Stake Choir",
+      "collection": "March 27–28 Stake Conference",
+      "event": "March 27–28 Stake Conference",
+      "session": "Sunday General Session",
+      "status": "archived",
+      "archived": true,
+      "isArchived": true,
+      "sheetUrl": "https://www.churchofjesuschrist.org/media/music/songs/because?crumbs=hymns-for-home-and-church&lang=eng",
+      "videoUrl": "",
+      "note": "Special Musical Number (from Hymns for Home and Church)"
+    },
+    {
+      "id": "song_mar_sun_3",
+      "title": "Salamat O Diyos, sa Aming Propeta (#15)",
+      "part": "Congregational",
+      "collection": "March 27–28 Stake Conference",
+      "event": "March 27–28 Stake Conference",
+      "session": "Sunday General Session",
+      "status": "archived",
+      "archived": true,
+      "isArchived": true,
+      "sheetUrl": "https://www.churchofjesuschrist.org/media/music/songs/we-thank-thee-o-god-for-a-prophet?crumbs=hymns&lang=tgl",
+      "videoUrl": "",
+      "note": "Congregational Hymn (Sunday General Session)"
+    },
+    {
+      "id": "song_mar_sun_4",
+      "title": "Patnubayan Ka Nawa ng Diyos (#90)",
+      "part": "Congregational",
+      "collection": "March 27–28 Stake Conference",
+      "event": "March 27–28 Stake Conference",
+      "session": "Sunday General Session",
+      "status": "archived",
+      "archived": true,
+      "isArchived": true,
+      "sheetUrl": "https://www.churchofjesuschrist.org/media/music/songs/god-be-with-you-till-we-meet-again?crumbs=hymns&lang=tgl",
+      "videoUrl": "",
+      "note": "Closing Hymn (Sunday General Session)"
+    }
+  ]
+}

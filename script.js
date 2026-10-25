@@ -3,8 +3,8 @@
 // ==========================================================================
 
 // --- APPLICATION & REPERTOIRE VERSION ---
-const APP_VERSION = "2.6.0";
-const REPERTOIRE_VERSION = "2.6.0";
+const APP_VERSION = "2.7.2";
+const REPERTOIRE_VERSION = "2.7.2";
 
 // Helper: Semantic version comparison (returns >0 if v1 > v2, <0 if v1 < v2, 0 if equal)
 function compareSemver(v1, v2) {
@@ -231,42 +231,200 @@ function getLeaderboardAvatarHtml(avatarFile, singerName) {
 
 // --- USER SETTINGS & DEFAULT CHOIR REPERTOIRE ---
 const DEFAULT_USER_SETTINGS = {
-  targetDate: "Stake Choir Prep • Oct 24–25",
+  targetDate: "Christmas Devotional & Current Practice",
   timerMinutes: 15,
   showPastRepertoire: false,
   songs: [
     // ==========================================
-    // 🌟 ACTIVE REPERTOIRE (Oct 24–25 Prep)
+    // 🌟 ACTIVE REPERTOIRE (Christmas Devotional 2026 / Current Practice)
+    // ==========================================
+    {
+      id: "hymn-1208",
+      title: "Go Tell It on the Mountain",
+      number: 1208,
+      collection: "Hymns for Home and Church",
+      status: "active",
+      isArchived: false,
+      archived: false,
+      part: "All Voices",
+      category: "Christmas / General Practice",
+      event: "Christmas Devotional 2026",
+      key: "F Major",
+      timeSignature: "4/4",
+      tempo: "Moderato / Spiritual",
+      sourceUrl: "https://www.churchofjesuschrist.org/media/music/songs/go-tell-it-on-the-mountain?crumbs=hymns-for-home-and-church&order=number&lang=eng",
+      sheetUrl: "https://www.churchofjesuschrist.org/media/music/songs/go-tell-it-on-the-mountain?crumbs=hymns-for-home-and-church&order=number&lang=eng",
+      localSheetUrl: "kantimes-resources/Christmas%20Devotional%202026/go_tell_it_on_the_mountain.pdf",
+      videoUrl: "https://www.youtube.com/watch?v=72LE487YZ-U",
+      resources: {
+        pdf: "kantimes-resources/Christmas Devotional 2026/go_tell_it_on_the_mountain.pdf",
+        audio: {
+          piano: "https://assets.churchofjesuschrist.org/ge/5t/ge5tz9qino95h64syvfbxalhf7hao0lcs5n74tyb/go_tell_it_on_the_mountain.mp3",
+          guitar: "https://assets.churchofjesuschrist.org/gi/mx/gimxu7wa1ru8m76nk55f5g6q7n8xdhldt301hdkh/go_tell_it_on_the_mountain.mp3"
+        },
+        video: "https://www.youtube.com/watch?v=72LE487YZ-U"
+      },
+      audioTracks: [
+        {
+          name: "Accompaniment (Piano)",
+          src: "https://assets.churchofjesuschrist.org/ge/5t/ge5tz9qino95h64syvfbxalhf7hao0lcs5n74tyb/go_tell_it_on_the_mountain.mp3"
+        },
+        {
+          name: "Guitar Accompaniment",
+          src: "https://assets.churchofjesuschrist.org/gi/mx/gimxu7wa1ru8m76nk55f5g6q7n8xdhldt301hdkh/go_tell_it_on_the_mountain.mp3"
+        }
+      ],
+      tags: ["Christmas", "Spiritual", "Hymns for Home and Church"],
+      note: "Hymns for Home and Church (#1208). Moderato / Spiritual tempo in F Major."
+    },
+    {
+      id: "christmas-away-in-a-manger",
+      title: "Away in a Manger (#206)",
+      number: 206,
+      collection: "Hymns",
+      status: "active",
+      isArchived: false,
+      archived: false,
+      part: "Congregational",
+      category: "Christmas Devotional 2026",
+      event: "Christmas Devotional 2026",
+      sheetUrl: "http://sacredsheetmusic.org/music/inline_download_file?download_id=181717&name=Away_in_a_Manger.pdf",
+      localSheetUrl: "kantimes-resources/Christmas%20Devotional%202026/Away_in_a_Manger.pdf",
+      resources: {
+        pdf: "kantimes-resources/Christmas Devotional 2026/Away_in_a_Manger.pdf",
+        audio: {
+          organ: "kantimes-resources/Christmas Devotional 2026/Away_in_a_Manger__Organ_.mp3"
+        }
+      },
+      audioTracks: [
+        {
+          name: "Organ Accompaniment",
+          src: "kantimes-resources/Christmas%20Devotional%202026/Away_in_a_Manger__Organ_.mp3"
+        }
+      ],
+      tags: ["Christmas", "Hymns"],
+      note: "Hymn #206. Organ rehearsal accompaniment track available offline."
+    },
+    {
+      id: "christmas-light-of-the-world",
+      title: "Light of the World Hymn Medley",
+      collection: "Christmas Devotional 2026",
+      status: "active",
+      isArchived: false,
+      archived: false,
+      part: "Stake Choir",
+      category: "Christmas Devotional 2026",
+      event: "Christmas Devotional 2026",
+      localSheetUrl: "kantimes-resources/Christmas%20Devotional%202026/Light_of_the_World_Hymn_Medley.pdf",
+      resources: {
+        pdf: "kantimes-resources/Christmas Devotional 2026/Light_of_the_World_Hymn_Medley.pdf",
+        audio: {
+          piano: "kantimes-resources/Christmas Devotional 2026/Light_of_the_World_medley_piano_only.mp3"
+        }
+      },
+      audioTracks: [
+        {
+          name: "Piano Accompaniment",
+          src: "kantimes-resources/Christmas%20Devotional%202026/Light_of_the_World_medley_piano_only.mp3"
+        }
+      ],
+      tags: ["Christmas", "Choir Medley"],
+      note: "Christmas Choir Medley. Piano rehearsal track available offline."
+    },
+    {
+      id: "christmas-manger-filled-with-love",
+      title: "A Manger Filled with Love",
+      collection: "Christmas Devotional 2026",
+      status: "active",
+      isArchived: false,
+      archived: false,
+      part: "Stake Choir",
+      category: "Christmas Devotional 2026",
+      event: "Christmas Devotional 2026",
+      localSheetUrl: "kantimes-resources/Christmas%20Devotional%202026/A%20Manger%20Filled%20with%20Love%2010-23-22.pdf",
+      localVideoUrl: "kantimes-resources/Christmas%20Devotional%202026/A%20Manger%20Filled%20with%20Love.mp4",
+      resources: {
+        pdf: "kantimes-resources/Christmas Devotional 2026/A Manger Filled with Love 10-23-22.pdf",
+        video: "kantimes-resources/Christmas Devotional 2026/A Manger Filled with Love.mp4"
+      },
+      tags: ["Christmas", "Choir", "Video"],
+      note: "Special musical number with full offline rehearsal video."
+    },
+    {
+      id: "christmas-and-there-was-light",
+      title: "And There Was Light",
+      collection: "Christmas Devotional 2026",
+      status: "active",
+      isArchived: false,
+      archived: false,
+      part: "Stake Choir",
+      category: "Christmas Devotional 2026",
+      event: "Christmas Devotional 2026",
+      localSheetUrl: "kantimes-resources/Christmas%20Devotional%202026/And%20There%20Was%20Light.pdf",
+      resources: {
+        pdf: "kantimes-resources/Christmas Devotional 2026/And There Was Light.pdf"
+      },
+      tags: ["Christmas", "Choir", "Sheet Music"],
+      note: "Complete PDF score available offline."
+    },
+
+    // ==========================================
+    // 🏛️ ARCHIVED REPERTOIRE (October 2026 General Conference)
     // ==========================================
     {
       id: "song_oct_1",
       title: "Know This, That Every Soul Is Free (#240)",
       part: "Adult Choir #1",
-      event: "Oct 24–25 Stake Conference",
-      isArchived: false,
+      collection: "October 2026 General Conference",
+      event: "October 2026 General Conference",
+      status: "archived",
+      isArchived: true,
+      archived: true,
+      archivedDate: "2026-10-25",
       sheetUrl: "https://www.churchofjesuschrist.org/media/music/songs/know-this-that-every-soul-is-free?crumbs=hymns&order=number&lang=eng",
       videoUrl: "https://youtu.be/6zJLchPWrdA",
-      note: "ℹ️ Opens in external tab. Your timer will keep running while you practice!"
+      tags: ["October 2026", "Stake Conference", "Hymns"],
+      note: "Archived from October 2026 General Conference."
     },
     {
       id: "song_oct_2",
       title: "Rise, Ye Saints, and Temples Enter (#287)",
       part: "Adult Choir #2",
-      event: "Oct 24–25 Stake Conference",
-      isArchived: false,
+      collection: "October 2026 General Conference",
+      event: "October 2026 General Conference",
+      status: "archived",
+      isArchived: true,
+      archived: true,
+      archivedDate: "2026-10-25",
       sheetUrl: "https://www.churchofjesuschrist.org/media/music/songs/rise-ye-saints-and-temples-enter?crumbs=hymns&order=number&lang=eng",
       videoUrl: "https://youtu.be/6D1WFIqbVic",
-      note: "ℹ️ Opens in external tab. Your timer will keep running while you practice!"
+      tags: ["October 2026", "Stake Conference", "Hymns"],
+      note: "Archived from October 2026 General Conference."
     },
     {
       id: "song_oct_3",
       title: "Choose You This Day",
       part: "Adult Choir #3",
-      event: "Oct 24–25 Stake Conference",
-      isArchived: false,
+      collection: "October 2026 General Conference",
+      event: "October 2026 General Conference",
+      status: "archived",
+      isArchived: true,
+      archived: true,
+      archivedDate: "2026-10-25",
       sheetUrl: "https://drive.google.com/embeddedfolderview?id=1bBnCakJGBj-zfka8wVbz42_ykvipMnwU#grid",
       localSheetUrl: "kantimes-resources/Choose%20You%20This%20Day/Choose%20You%20This%20Day.pdf",
       videoUrl: "https://www.youtube.com/embed/q54H2OqWBcY?enablejsapi=1",
+      resources: {
+        pdf: "kantimes-resources/Choose You This Day/Choose You This Day.pdf",
+        audio: {
+          choir: "kantimes-resources/Choose You This Day/Choose You This Day.mp3",
+          soprano: "kantimes-resources/Choose You This Day/Choose You This Day - SOPRANO.mp3",
+          alto: "kantimes-resources/Choose You This Day/Choose You This Day - ALTO.mp3",
+          tenor: "kantimes-resources/Choose You This Day/Choose You This Day - TENOR.mp3",
+          bass: "kantimes-resources/Choose You This Day/Choose You This Day - BASS.mp3",
+          piano: "kantimes-resources/Choose You This Day/Choose You This Day (piano).mp3"
+        }
+      },
       audioTracks: [
         { name: "Full Choir", src: "kantimes-resources/Choose%20You%20This%20Day/Choose%20You%20This%20Day.mp3" },
         { name: "Soprano", src: "kantimes-resources/Choose%20You%20This%20Day/Choose%20You%20This%20Day%20-%20SOPRANO.mp3" },
@@ -275,27 +433,38 @@ const DEFAULT_USER_SETTINGS = {
         { name: "Bass", src: "kantimes-resources/Choose%20You%20This%20Day/Choose%20You%20This%20Day%20-%20BASS.mp3" },
         { name: "Piano", src: "kantimes-resources/Choose%20You%20This%20Day/Choose%20You%20This%20Day%20(piano).mp3" }
       ],
-      note: ""
+      tags: ["October 2026", "Stake Conference", "Choir", "Tracks"],
+      note: "Archived from October 2026 General Conference."
     },
     {
       id: "song_oct_4",
       title: "Holy Places",
       part: "Primary",
-      event: "Oct 24–25 Stake Conference",
-      isArchived: false,
+      collection: "October 2026 General Conference",
+      event: "October 2026 General Conference",
+      status: "archived",
+      isArchived: true,
+      archived: true,
+      archivedDate: "2026-10-25",
       sheetUrl: "https://www.churchofjesuschrist.org/media/music/songs/holy-places?crumbs=hymns-for-home-and-church&order=number&lang=eng",
       videoUrl: "https://www.youtube.com/watch?v=cKb_U6AkoHU",
-      note: "ℹ️ Opens in external tab. Your timer will keep running while you practice!"
+      tags: ["October 2026", "Primary"],
+      note: "Archived from October 2026 General Conference."
     },
     {
       id: "song_oct_5",
       title: "I Will Walk with Jesus",
       part: "Primary",
-      event: "Oct 24–25 Stake Conference",
-      isArchived: false,
+      collection: "October 2026 General Conference",
+      event: "October 2026 General Conference",
+      status: "archived",
+      isArchived: true,
+      archived: true,
+      archivedDate: "2026-10-25",
       sheetUrl: "https://www.churchofjesuschrist.org/media/music/songs/i-will-walk-with-jesus?crumbs=hymns-for-home-and-church&order=number&lang=eng",
       videoUrl: "https://www.youtube.com/watch?v=oB77rD2RlPU",
-      note: "ℹ️ Opens in external tab. Your timer will keep running while you practice!"
+      tags: ["October 2026", "Primary"],
+      note: "Archived from October 2026 General Conference."
     },
 
     // ==========================================
@@ -469,75 +638,79 @@ function getUserSettings(forceSync = false) {
     const storedRepVersion = parsed.repertoireVersion || "2.6.0";
     const needsMigration = forceSync || compareSemver(REPERTOIRE_VERSION, storedRepVersion) > 0 || compareSemver(APP_VERSION, storedAppVersion) > 0;
 
-    // Backward compatibility: If stored songs only contained old Stake Conference pieces,
-    // merge the new active default repertoire pieces so the active dashboard is populated immediately.
-    const hasActiveSongs = songs.some(s => s.isArchived === false);
-    if (!hasActiveSongs && songs.every(s => s.id === "song_1" || s.id === "song_2" || s.id === "song_3" || s.id === "song_4" || s.id === "song_5")) {
-      const activeDefaults = DEFAULT_USER_SETTINGS.songs.filter(s => !s.isArchived);
-      songs = [...activeDefaults, ...songs];
-    }
+    // 1. Ensure all October 2026 General Conference pieces are archived
+    let hasArchivedOctober = false;
+    songs.forEach(s => {
+      const isOctober = (s.id && (s.id.startsWith("song_oct_") || s.id === "song_1" || s.id === "song_2" || s.id === "song_3" || s.id === "song_4" || s.id === "song_5")) ||
+        (s.event && (s.event.includes("Oct 24–25") || s.event.includes("October 2026") || s.event.includes("Stake Choir Prep")));
+      if (isOctober) {
+        if (!s.isArchived || s.status !== "archived") {
+          hasArchivedOctober = true;
+        }
+        s.event = "October 2026 General Conference";
+        s.collection = "October 2026 General Conference";
+        s.status = "archived";
+        s.isArchived = true;
+        s.archived = true;
+        s.archivedDate = s.archivedDate || "2026-10-25";
+      }
+    });
 
-    // Dynamic Synchronization of Default Repertoire Fields (YouTube Links, Sheet Links, Audio Tracks)
+    // 2. Ensure all active default pieces (Christmas Devotional 2026 / Current Practice) exist and are active
+    const activeDefaults = DEFAULT_USER_SETTINGS.songs.filter(d => !d.isArchived);
+    let hasAddedActiveDefaults = false;
+
+    activeDefaults.forEach(defSong => {
+      const existing = songs.find(s => s.id === defSong.id || s.title === defSong.title);
+      if (existing) {
+        if (existing.isArchived) {
+          existing.isArchived = false;
+          existing.archived = false;
+          existing.status = "active";
+          existing.event = defSong.event;
+          existing.collection = defSong.collection;
+          hasAddedActiveDefaults = true;
+        }
+      } else {
+        // Place active songs at top of list
+        const lastActiveIdx = songs.map(s => !s.isArchived).lastIndexOf(true);
+        if (lastActiveIdx !== -1) {
+          songs.splice(lastActiveIdx + 1, 0, JSON.parse(JSON.stringify(defSong)));
+        } else {
+          songs.unshift(JSON.parse(JSON.stringify(defSong)));
+        }
+        hasAddedActiveDefaults = true;
+      }
+    });
+
+    // 3. Dynamic Synchronization of Default Repertoire Fields (YouTube Links, Sheet Links, Audio Tracks, Resources)
     songs = songs.map(s => {
       const def = DEFAULT_USER_SETTINGS.songs.find(d => d.id === s.id || d.title === s.title);
       if (def) {
-        // Automatically sync YouTube links (videoUrl) whenever missing or upon version update / forceSync
-        if (def.videoUrl) {
-          if (!s.videoUrl || needsMigration) {
-            s.videoUrl = def.videoUrl;
-          }
-        }
-        // Automatically sync sheet links whenever missing or upon version update / forceSync
-        if (def.sheetUrl) {
-          if (!s.sheetUrl || needsMigration) {
-            s.sheetUrl = def.sheetUrl;
-          }
-        }
-        // Sync audioTracks and localSheetUrl
-        if (def.audioTracks) {
-          if (!s.audioTracks || needsMigration) {
-            s.audioTracks = def.audioTracks;
-          }
-        }
-        if (def.localSheetUrl) {
-          if (!s.localSheetUrl || needsMigration) {
-            s.localSheetUrl = def.localSheetUrl;
-          }
-        }
-        if (def.note && (!s.note || needsMigration)) {
-          s.note = def.note;
-        }
-        if (!s.event && def.event) s.event = def.event;
-        if (!s.session && def.session) s.session = def.session;
-        if (s.isArchived === undefined && def.isArchived !== undefined) s.isArchived = def.isArchived;
-      }
-      if (!s.event) {
-        s.event = (s.title && s.title.includes("Oct 24–25")) ? "Oct 24–25 Stake Conference" : "Active Repertoire";
-      }
-      if (s.isArchived === undefined) {
-        s.isArchived = (s.event === "Oct 24–25 Stake Conference");
+        const hasOutdatedVideo = s.videoUrl && (s.videoUrl.includes("0wLgYc-8Tmg") || s.videoUrl !== def.videoUrl && s.id === "hymn-1208");
+        const hasOutdatedAwaySheet = (s.id === "christmas-away-in-a-manger" || s.title.includes("Away in a Manger")) && s.sheetUrl && s.sheetUrl.includes("churchofjesuschrist.org");
+
+        if (def.videoUrl && (!s.videoUrl || needsMigration || hasOutdatedVideo)) s.videoUrl = def.videoUrl;
+        if (def.sheetUrl && (!s.sheetUrl || needsMigration || hasOutdatedAwaySheet)) s.sheetUrl = def.sheetUrl;
+        if (def.audioTracks && (!s.audioTracks || needsMigration)) s.audioTracks = def.audioTracks;
+        if (def.localSheetUrl && (!s.localSheetUrl || needsMigration)) s.localSheetUrl = def.localSheetUrl;
+        if (def.localVideoUrl && (!s.localVideoUrl || needsMigration)) s.localVideoUrl = def.localVideoUrl;
+        if (def.resources && (!s.resources || needsMigration || hasOutdatedVideo)) s.resources = def.resources;
+        if (def.note && (!s.note || needsMigration)) s.note = def.note;
+        if (!s.event || (needsMigration && def.event)) s.event = def.event;
+        if (!s.collection || (needsMigration && def.collection)) s.collection = def.collection;
+        if (def.archivedDate && (needsMigration || !s.archivedDate)) s.archivedDate = def.archivedDate;
+        if (def.status && (needsMigration || !s.status)) s.status = def.status;
       }
       return s;
     });
 
-    // Automatically insert any newly added default pieces that aren't yet in stored songs
-    const existingIds = new Set(songs.map(s => s.id));
-    const existingTitles = new Set(songs.map(s => s.title));
-
-    DEFAULT_USER_SETTINGS.songs.forEach(defSong => {
-      if (!existingIds.has(defSong.id) && !existingTitles.has(defSong.title)) {
-        if (defSong.isArchived) {
-          songs.push(JSON.parse(JSON.stringify(defSong)));
-        } else {
-          const lastActiveIdx = songs.map(s => !s.isArchived).lastIndexOf(true);
-          if (lastActiveIdx !== -1) {
-            songs.splice(lastActiveIdx + 1, 0, JSON.parse(JSON.stringify(defSong)));
-          } else {
-            songs.unshift(JSON.parse(JSON.stringify(defSong)));
-          }
-        }
+    // 4. Update Target Date if it was the old conference date
+    if (parsed.targetDate === "Stake Choir Prep • Oct 24–25" || !parsed.targetDate || needsMigration) {
+      if (parsed.targetDate === "Stake Choir Prep • Oct 24–25" || !parsed.targetDate) {
+        parsed.targetDate = DEFAULT_USER_SETTINGS.targetDate;
       }
-    });
+    }
 
     const result = {
       targetDate: parsed.targetDate !== undefined ? parsed.targetDate : DEFAULT_USER_SETTINGS.targetDate,
@@ -548,10 +721,8 @@ function getUserSettings(forceSync = false) {
       repertoireVersion: REPERTOIRE_VERSION
     };
 
-    // If migrations occurred or versions updated, write back to localStorage immediately
-    if (needsMigration || !parsed.appVersion || !parsed.repertoireVersion) {
-      saveUserSettings(result);
-    }
+    // Always persist to keep storage current and clean
+    saveUserSettings(result);
 
     return result;
   } catch (e) {
@@ -569,7 +740,7 @@ function applyHeaderTargetDate() {
   const settings = getUserSettings();
   const el = document.getElementById("headerSubtitle");
   if (el) {
-    el.innerText = settings.targetDate || "Stake Choir Prep • Oct 24–25";
+    el.innerText = settings.targetDate || "Christmas Devotional & Current Practice";
   }
 }
 
@@ -719,6 +890,8 @@ function populateSongSelectDropdown() {
   if (!matched && visibleSongs.length > 0) {
     select.value = visibleSongs[0].title;
     localStorage.setItem("kantime_target_song", visibleSongs[0].title);
+    localStorage.setItem("kantimes_target_song", visibleSongs[0].title);
+    renderSelectedSongResource(visibleSongs[0].title);
   }
 }
 
@@ -1322,8 +1495,9 @@ function renderSelectedSongResource(songKey) {
 
   let actionsHtml = "";
 
-  if (song.localSheetUrl) {
-    actionsHtml += `<button class="btn-link" type="button" onclick="openResourceModal('${escapeHtml(song.title)} (Local Sheet)', '${escapeHtml(song.localSheetUrl)}', 'doc')">🎼 Preview Sheet (Offline PDF) <span class="badge-cached-offline">Offline Ready</span></button> `;
+  const localPdf = song.localSheetUrl || (song.resources && song.resources.pdf) || "";
+  if (localPdf) {
+    actionsHtml += `<button class="btn-link" type="button" onclick="openResourceModal('${escapeHtml(song.title)} (Local Sheet)', '${escapeHtml(localPdf)}', 'doc')">🎼 Preview Sheet (Offline PDF) <span class="badge-cached-offline">Offline Ready</span></button> `;
   }
 
   if (song.sheetUrl) {
@@ -1338,16 +1512,29 @@ function renderSelectedSongResource(songKey) {
     }
   }
 
-  if (song.videoUrl) {
+  const localVideo = song.localVideoUrl || (song.resources && song.resources.video && song.resources.video.endsWith('.mp4') ? song.resources.video : "");
+  if (localVideo) {
+    actionsHtml += `<button class="btn-link" type="button" onclick="openResourceModal('${escapeHtml(song.title)} (Video)', '${escapeHtml(localVideo)}', 'video')">▶️ Rehearsal Video <span class="badge-cached-offline">Offline Ready</span></button> `;
+  } else if (song.videoUrl) {
     const offlineBadge = isOffline ? ` <span class="badge-offline-req">⚠️ Requires Internet</span>` : "";
     const embedUrl = formatYouTubeEmbedUrl(song.videoUrl);
     actionsHtml += `<button class="btn-link ${isOffline ? 'link-disabled-offline' : ''}" type="button" onclick="${isOffline ? "showToast('YouTube streaming requires an active internet connection.')" : `openResourceModal('${escapeHtml(song.title)} (Video)', '${escapeHtml(embedUrl)}', 'video')`}">▶️ Watch Video${offlineBadge}</button> `;
   }
 
   let localAudioHtml = "";
-  if (song.audioTracks && song.audioTracks.length > 0) {
+  let tracks = (song.audioTracks && song.audioTracks.length > 0) ? song.audioTracks : [];
+  if (tracks.length === 0 && song.resources && song.resources.audio) {
+    if (typeof song.resources.audio === 'object') {
+      tracks = Object.keys(song.resources.audio).map(k => {
+        const name = k.charAt(0).toUpperCase() + k.slice(1);
+        return { name: name, src: song.resources.audio[k] };
+      });
+    }
+  }
+
+  if (tracks && tracks.length > 0) {
     let pillsHtml = "";
-    song.audioTracks.forEach((track, idx) => {
+    tracks.forEach((track, idx) => {
       const isActive = idx === 0 ? "active" : "";
       pillsHtml += `<button type="button" class="audio-part-pill ${isActive}" onclick="selectAudioTrack('${escapeHtml(track.src)}', this)">${escapeHtml(track.name)}</button>`;
     });
@@ -1363,7 +1550,7 @@ function renderSelectedSongResource(songKey) {
           <div class="local-audio-part-selector" role="group" aria-label="Select Voice Part Track">
             ${pillsHtml}
           </div>
-          <audio id="activeLocalAudio" class="local-audio-element" controls preload="metadata" src="${escapeHtml(song.audioTracks[0].src)}">
+          <audio id="activeLocalAudio" class="local-audio-element" controls preload="metadata" src="${escapeHtml(tracks[0].src)}">
             Your browser does not support local audio playback.
           </audio>
         </div>
@@ -1371,7 +1558,13 @@ function renderSelectedSongResource(songKey) {
   }
 
   let embedHtml = "";
-  if (song.videoUrl) {
+  if (localVideo) {
+    embedHtml = `
+        <div style="margin-top: 12px; border-radius: 8px; overflow: hidden; background: #000;">
+          <video controls playsinline preload="metadata" src="${escapeHtml(localVideo)}" style="width: 100%; display: block; max-height: 420px; border-radius: 8px;"></video>
+        </div>
+      `;
+  } else if (song.videoUrl) {
     if (isOffline) {
       embedHtml = `
           <div style="margin-top: 12px; padding: 14px; background: #fffbeb; border: 1px dashed #fde68a; border-radius: 8px; text-align: center; color: #92400e; font-size: 0.82rem;">
@@ -2440,8 +2633,17 @@ function restoreTimerState() {
   const savedTargetEnd = localStorage.getItem("kantime_target_end");
   const btn = document.getElementById("timerBtn");
   const savedSong = localStorage.getItem("kantime_target_song");
-  if (savedSong && document.getElementById("targetSong")) {
-    document.getElementById("targetSong").value = savedSong;
+  const targetSelect = document.getElementById("targetSong");
+  if (targetSelect) {
+    if (savedSong && Array.from(targetSelect.options).some(o => o.value === savedSong)) {
+      targetSelect.value = savedSong;
+    } else if (targetSelect.options.length > 0) {
+      targetSelect.selectedIndex = 0;
+      if (targetSelect.value) {
+        localStorage.setItem("kantime_target_song", targetSelect.value);
+        localStorage.setItem("kantimes_target_song", targetSelect.value);
+      }
+    }
   }
 
   if (savedTargetEnd) {
@@ -4071,18 +4273,23 @@ function renderArchivedRepertoireSection() {
           ? `<span class="part-badge" data-voice="${escapeHtml(song.part)}">${escapeHtml(song.part)}</span>`
           : `<span class="part-badge" style="background:#f1f5f9; color:#475569;">All Parts</span>`;
 
-        const eventLabel = song.event ? escapeHtml(song.event) : "Past Conference";
-        const hasAudioTracks = song.audioTracks && song.audioTracks.length > 0;
+        const eventLabel = song.collection ? escapeHtml(song.collection) : (song.event ? escapeHtml(song.event) : "Past Conference");
+        const archiveDateTag = song.archivedDate ? `<span class="badge-archived-date" style="font-size:0.72rem; color:var(--text-muted); margin-left:2px;">• ${escapeHtml(song.archivedDate)}</span>` : "";
+        const hasAudioTracks = (song.audioTracks && song.audioTracks.length > 0) || (song.resources && song.resources.audio);
         const tracksBadge = hasAudioTracks ? `<span class="badge-cached-offline">🎧 Tracks</span>` : "";
 
         let linksHtml = "";
-        if (song.localSheetUrl) {
-          linksHtml += `<button type="button" class="btn-link" style="font-size:0.75rem; padding:0;" onclick="openResourceModal('${escapeHtml(song.title)} (Local Sheet)', '${escapeHtml(song.localSheetUrl)}', 'doc')">🎼 PDF</button>`;
+        const localPdf = song.localSheetUrl || (song.resources && song.resources.pdf);
+        if (localPdf) {
+          linksHtml += `<button type="button" class="btn-link" style="font-size:0.75rem; padding:0;" onclick="openResourceModal('${escapeHtml(song.title)} (Local Sheet)', '${escapeHtml(localPdf)}', 'doc')">🎼 PDF</button>`;
         } else if (song.sheetUrl) {
           linksHtml += `<button type="button" class="btn-link" style="font-size:0.75rem; padding:0;" onclick="openResourceModal('${escapeHtml(song.title)} (Sheet)', '${escapeHtml(song.sheetUrl)}', 'doc')">🎼 Sheet</button>`;
         }
 
-        if (song.videoUrl) {
+        const localVid = song.localVideoUrl || (song.resources && song.resources.video);
+        if (localVid) {
+          linksHtml += `<button type="button" class="btn-link" style="font-size:0.75rem; padding:0;" onclick="openResourceModal('${escapeHtml(song.title)} (Video)', '${escapeHtml(localVid)}', 'video')">▶️ Video</button>`;
+        } else if (song.videoUrl) {
           const embed = formatYouTubeEmbedUrl(song.videoUrl);
           linksHtml += `<button type="button" class="btn-link" style="font-size:0.75rem; padding:0;" onclick="openResourceModal('${escapeHtml(song.title)} (Video)', '${escapeHtml(embed)}', 'video')">▶️ Video</button>`;
         }
@@ -4093,6 +4300,7 @@ function renderArchivedRepertoireSection() {
               <div class="archived-song-badges">
                 <span class="badge-event">🏷️ ${eventLabel}</span>
                 <span class="badge-archived-pill">Archived</span>
+                ${archiveDateTag}
                 ${partBadge}
                 ${tracksBadge}
               </div>

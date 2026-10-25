@@ -42,7 +42,7 @@ Resolve mobile PDF export clipping/duplication issues using isolated DOM cloning
   - Clone only tutorial steps content into a temporary 700px off-screen container.
   - Completely exclude modal headers, close button (`✕`), tab buttons, language toggle pills, and the PDF export button.
   - Prepend clean header:
-    - `"KanTime: Choir Member Quick Guide • Stake Choir Prep"`
+    - `"Kantimes: Choir Member Quick Guide • Stake Choir Prep"`
     - Subtitle with target date, choir member info, and print date.
   - Append clean footer:
     - `"Developed for Iloilo Stake Choir | Built by James Phillip De Guzman"`

@@ -1,6 +1,6 @@
 # Fuzzy Name Deduplication & Google Apps Script Guard
 
-Comprehensive documentation for choir member profile deduplication in `kantimes.netlify.app`, including client-side fuzzy similarity matching, roster caching, interactive confirmation modal, and backend Google Apps Script deduplication safety checks.
+Comprehensive documentation for choir member profile deduplication in `kantimes.vercel.app`, including client-side fuzzy similarity matching, roster caching, interactive confirmation modal, and backend Google Apps Script deduplication safety checks.
 
 ---
 

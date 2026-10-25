@@ -8,14 +8,14 @@
 
   <!-- Open Graph / Facebook Messenger Preview -->
   <meta property="og:type" content="website">
-  <meta property="og:url" content="https://kantimes.netlify.app/">
+  <meta property="og:url" content="https://kantimes.vercel.app/">
   <meta property="og:title" content="🎶 Kantimes | Stake Choir Practice Hub">
   <meta property="og:description"
     content="Access hymn repertoire, practice tracks, and track your daily 15-minute practice sessions for Oct 24–25!">
 
   <!-- Open Graph Image with explicit dimensions & cache buster -->
-  <meta property="og:image" content="https://kantimes.netlify.app/images/kantimes-og-image.jpg?v=2.6.0">
-  <meta property="og:image:secure_url" content="https://kantimes.netlify.app/images/kantimes-og-image.jpg?v=2.6.0">
+  <meta property="og:image" content="https://kantimes.vercel.app/images/kantimes-og-image.jpg?v=2.7.2">
+  <meta property="og:image:secure_url" content="https://kantimes.vercel.app/images/kantimes-og-image.jpg?v=2.7.2">
   <meta property="og:image:type" content="image/jpeg">
   <meta property="og:image:width" content="1200">
   <meta property="og:image:height" content="630">
@@ -24,8 +24,8 @@
   <meta name="twitter:card" content="summary_large_image">
   <meta name="twitter:title" content="🎶 Kantimes | Stake Choir Practice Hub">
   <meta name="twitter:description"
-    content="Access hymn repertoire, practice tracks, and track your daily 15-minute practice sessions for Oct 24–25!">
-  <meta name="twitter:image" content="https://kantimes.netlify.app/images/kantimes-og-image.jpg?v=2.6.0">
+    content="Access hymn repertoire, practice tracks, and track your daily 15-minute practice sessions!">
+  <meta name="twitter:image" content="https://kantimes.vercel.app/images/kantimes-og-image.jpg?v=2.7.2">
 
   <meta name="theme-color" content="#1e3a8a">
   <link rel="manifest" href="/manifest.json">
@@ -37,7 +37,7 @@
   <meta name="apple-mobile-web-app-title" content="Kantimes">
   <link rel="icon" type="image/png" sizes="192x192" href="/images/icon-192.png">
   <link rel="icon" type="image/x-icon" href="/images/favicon.ico">
-  <link rel="stylesheet" href="css/style.css?v=2.6.0">
+  <link rel="stylesheet" href="css/style.css?v=2.7.2">
 </head>
 
 <body>
@@ -50,8 +50,8 @@
           title="Tap to refresh app and check for new songs" aria-label="Refresh app and check for updates"
           onerror="this.style.display='none'">
         <div class="header-text">
-          <h1>Kantimes <span class="app-version-badge" title="Kantimes v2.6.0">v2.6.0</span></h1>
-          <p id="headerSubtitle">Stake Choir Prep • Oct 24–25</p>
+          <h1>Kantimes <span class="app-version-badge" title="Kantimes v2.7.2">v2.7.2</span></h1>
+          <p id="headerSubtitle">Christmas Devotional &amp; Current Practice</p>
         </div>
       </div>
       <div class="header-actions">
@@ -487,7 +487,7 @@
         </p>
       </div>
       <p class="footer-credit">&copy; <span id="footerYear"></span> James Phillip De Guzman • <span
-          class="footer-version-tag">Kantimes v2.6.0</span></p>
+          class="footer-version-tag">Kantimes v2.7.2</span></p>
     </footer>
 
     <!-- Fixed Persistent Voice Pitch Checker Overlay (Corner Card) -->
@@ -572,7 +572,7 @@
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
     <script src="lame.min.js"></script>
-    <script src="script.js?v=2.6.0"></script>
+    <script src="script.js?v=2.7.2"></script>
 
     <!-- In-App Resource Viewer Modal -->
     <div id="resourceModal" class="modal-backdrop" onclick="closeModalOnBackdrop(event)">
@@ -644,7 +644,7 @@
         <div class="modal-header">
           <div class="settings-modal-title-wrap">
             <h3 id="settingsModalTitle">⚙️ Practice Settings & Guide</h3>
-            <span class="settings-header-version">v2.6.0</span>
+            <span class="settings-header-version">v2.7.2</span>
           </div>
           <button class="modal-close-btn" type="button" onclick="closeSettingsModal()"
             aria-label="Close settings">&times;</button>
@@ -720,7 +720,7 @@
 
             <div class="settings-section">
               <label for="settingTargetDate">Stake Conference / Target Event</label>
-              <input type="text" id="settingTargetDate" placeholder="e.g. Stake Choir Prep • Oct 24–25"
+              <input type="text" id="settingTargetDate" placeholder="e.g. Christmas Devotional &amp; Current Practice"
                 oninput="handleTargetDateInput(this.value)">
               <p class="settings-hint">Updates the top header subtitle in real-time on your device.</p>
             </div>
@@ -767,7 +767,7 @@
               <label class="setting-checkbox-row" for="settingShowPastRepertoire" style="margin-top: 10px;">
                 <input type="checkbox" id="settingShowPastRepertoire"
                   onchange="handleSettingPastRepertoireToggle(this.checked)">
-                <span>Show Past Repertoire (Oct 24–25 Stake Conference)</span>
+                <span>Show Past Repertoire (October 2026 Conference &amp; Archives)</span>
               </label>
               <p class="settings-hint">When disabled (default for post-conference mode), archived pieces are hidden from
                 the active practice hub. When enabled, they appear in a collapsible "Archived / Past Conferences"
@@ -785,13 +785,15 @@
               <input type="hidden" id="editingSongId" value="">
 
               <label for="songFormTitle">Song Title *</label>
-              <input type="text" id="songFormTitle" placeholder="e.g. Choose You This Day">
+              <input type="text" id="songFormTitle" placeholder="e.g. Go Tell It on the Mountain">
 
               <label for="songFormEvent">Event / Conference Group</label>
               <input type="text" id="songFormEvent" list="eventSuggestions"
-                placeholder="e.g. Oct 24–25 Stake Conference">
+                placeholder="e.g. Christmas Devotional 2026">
               <datalist id="eventSuggestions">
-                <option value="Oct 24–25 Stake Conference"></option>
+                <option value="Christmas Devotional 2026"></option>
+                <option value="Current Practice"></option>
+                <option value="October 2026 General Conference"></option>
                 <option value="Active Repertoire"></option>
                 <option value="Sacrament Meeting"></option>
                 <option value="Easter / Christmas Program"></option>

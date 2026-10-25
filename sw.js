@@ -1,8 +1,8 @@
 // ==========================================================================
-// KanTimes PWA Service Worker (v2.6.0 — Dynamic Cache Invalidation & Network-First Core)
+// KanTimes PWA Service Worker (v2.7.2 — Dynamic Cache Invalidation & Network-First Core)
 // ==========================================================================
 
-const APP_VERSION = "2.6.0";
+const APP_VERSION = "2.7.2";
 const CACHE_NAME = `kantimes-cache-v${APP_VERSION}`;
 
 const PRECACHE_ASSETS = [
@@ -12,6 +12,7 @@ const PRECACHE_ASSETS = [
   "./script.js",
   "./manifest.json",
   "./version.json",
+  "./songs.json",
   "./lame.min.js",
   "https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js",
   // Images & Avatars
@@ -35,6 +36,16 @@ const PRECACHE_ASSETS = [
   "./images/sister-choir.jpg",
   // Local Repertoire Resources (kantimes-resources)
   "./kantimes-resources/kantimes-og-image.jpg",
+  // Christmas Devotional 2026 Resources
+  "./kantimes-resources/Christmas%20Devotional%202026/go_tell_it_on_the_mountain.pdf",
+  "./kantimes-resources/Christmas%20Devotional%202026/Away_in_a_Manger.pdf",
+  "./kantimes-resources/Christmas%20Devotional%202026/Away_in_a_Manger__Organ_.mp3",
+  "./kantimes-resources/Christmas%20Devotional%202026/Light_of_the_World_Hymn_Medley.pdf",
+  "./kantimes-resources/Christmas%20Devotional%202026/Light_of_the_World_medley_piano_only.mp3",
+  "./kantimes-resources/Christmas%20Devotional%202026/A%20Manger%20Filled%20with%20Love%2010-23-22.pdf",
+  "./kantimes-resources/Christmas%20Devotional%202026/A%20Manger%20Filled%20with%20Love.mp4",
+  "./kantimes-resources/Christmas%20Devotional%202026/And%20There%20Was%20Light.pdf",
+  // Choose You This Day (Archived Rehearsal Resources)
   "./kantimes-resources/Choose%20You%20This%20Day/Choose%20You%20This%20Day.mp3",
   "./kantimes-resources/Choose%20You%20This%20Day/Choose%20You%20This%20Day%20(piano).mp3",
   "./kantimes-resources/Choose%20You%20This%20Day/Choose%20You%20This%20Day%20-%20SOPRANO.mp3",
