@@ -8732,3 +8732,417 @@ body.piano-fullscreen-active {
   background: #182238;
   border-top-color: rgba(255, 255, 255, 0.1);
 }
+
+/* ==========================================================================
+   Practice Milestones & Weekly Pulse Card Styles
+   ========================================================================== */
+.practice-milestones-card {
+  margin-top: 20px;
+}
+
+.milestones-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 14px;
+}
+
+.milestones-title-wrap h2 {
+  margin: 0;
+  font-size: 1.15rem;
+  font-weight: 800;
+  color: var(--primary-dark, #1e3a8a);
+}
+
+.milestones-card-subtitle {
+  margin: 2px 0 0;
+  font-size: 0.76rem;
+  color: var(--text-muted, #64748b);
+}
+
+.btn-edit-identity {
+  font-size: 0.78rem;
+  font-weight: 700;
+  padding: 6px 12px;
+  border-radius: var(--radius-full, 999px);
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+/* Identity Ribbon */
+.milestones-identity-ribbon {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 14px;
+  background: linear-gradient(135deg, rgba(37, 99, 235, 0.08) 0%, rgba(59, 130, 246, 0.03) 100%);
+  border: 1px solid rgba(59, 130, 246, 0.22);
+  border-radius: 10px;
+}
+
+.identity-ribbon-left {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
+.identity-ribbon-avatar {
+  font-size: 1.35rem;
+  line-height: 1;
+  width: 38px;
+  height: 38px;
+  background: #ffffff;
+  border-radius: 50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.08);
+  flex-shrink: 0;
+}
+
+.identity-ribbon-meta {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.identity-ribbon-top {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.identity-handle-text {
+  font-size: 0.95rem;
+  font-weight: 800;
+  color: var(--primary-dark, #1d4ed8);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.identity-tag-badge {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 0.72rem;
+  font-weight: 750;
+  padding: 1px 5px;
+  border-radius: 4px;
+  background: rgba(0, 0, 0, 0.06);
+  color: var(--text-muted, #475569);
+}
+
+.identity-ribbon-sub {
+  font-size: 0.74rem;
+  color: var(--text-muted, #64748b);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.privacy-pill {
+  font-size: 0.68rem;
+  font-weight: 750;
+  padding: 3px 8px;
+  border-radius: 999px;
+  background: rgba(16, 185, 129, 0.12);
+  color: #047857;
+  border: 1px solid rgba(16, 185, 129, 0.28);
+  white-space: nowrap;
+}
+
+/* 3-Column Stats Grid */
+.milestones-stats-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+  margin-top: 14px;
+}
+
+.milestone-stat-tile {
+  background: var(--bg-card, #f8fafc);
+  border: 1px solid var(--border-color, #e2e8f0);
+  border-radius: 10px;
+  padding: 10px 8px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+}
+
+.stat-tile-label {
+  font-size: 0.68rem;
+  font-weight: 750;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--text-muted, #64748b);
+  margin-bottom: 2px;
+}
+
+.stat-tile-value {
+  font-size: 1.25rem;
+  font-weight: 800;
+  color: var(--primary-dark, #1d4ed8);
+  line-height: 1.2;
+}
+
+.stat-tile-sub {
+  font-size: 0.7rem;
+  color: var(--text-muted, #64748b);
+  margin-top: 1px;
+}
+
+/* Activity Section */
+.milestones-activity-section {
+  margin-top: 16px;
+}
+
+.milestones-activity-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 0.78rem;
+  font-weight: 750;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-muted, #64748b);
+  margin-bottom: 8px;
+}
+
+.activity-history-count {
+  font-size: 0.72rem;
+  font-weight: 600;
+}
+
+.milestones-activity-list {
+  background: var(--bg-card, #f8fafc);
+  border: 1px solid var(--border-color, #e2e8f0);
+  border-radius: 10px;
+  overflow: hidden;
+  max-height: 260px;
+  overflow-y: auto;
+}
+
+.milestones-empty-box {
+  padding: 24px 16px;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+}
+
+.milestones-empty-box .empty-icon {
+  font-size: 1.8rem;
+  line-height: 1;
+  margin-bottom: 4px;
+}
+
+.milestones-empty-box .empty-text {
+  margin: 0;
+  font-size: 0.85rem;
+  font-weight: 750;
+  color: var(--text-primary, #1e293b);
+}
+
+.milestones-empty-box .empty-subtext {
+  font-size: 0.76rem;
+  color: var(--text-muted, #64748b);
+  line-height: 1.35;
+  max-width: 280px;
+}
+
+.milestone-log-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 9px 12px;
+  border-bottom: 1px solid var(--border-color, #e2e8f0);
+  transition: background 0.15s ease;
+}
+
+.milestone-log-row:last-child {
+  border-bottom: none;
+}
+
+.milestone-log-row:hover {
+  background: rgba(37, 99, 235, 0.04);
+}
+
+.milestone-log-left {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
+.log-music-icon {
+  font-size: 1rem;
+  line-height: 1;
+  color: var(--primary, #2563eb);
+  flex-shrink: 0;
+}
+
+.log-details {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.log-song-title {
+  font-size: 0.82rem;
+  color: var(--text-primary, #0f172a);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.log-meta {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 2px;
+}
+
+.log-timestamp {
+  font-size: 0.7rem;
+  color: var(--text-muted, #64748b);
+}
+
+.log-duration-pill {
+  font-size: 0.76rem;
+  font-weight: 800;
+  color: #047857;
+  background: rgba(16, 185, 129, 0.12);
+  border: 1px solid rgba(16, 185, 129, 0.28);
+  padding: 2px 7px;
+  border-radius: 999px;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.milestones-card-actions {
+  margin-top: 14px;
+}
+
+.btn-copy-chat-report {
+  width: 100%;
+  justify-content: center;
+  font-weight: 750;
+  padding: 11px 16px;
+  font-size: 0.88rem;
+  box-shadow: 0 2px 6px rgba(37, 99, 235, 0.2);
+}
+
+.milestones-share-hint {
+  margin: 6px 0 0;
+  font-size: 0.72rem;
+  color: var(--text-muted, #64748b);
+  text-align: center;
+  line-height: 1.35;
+}
+
+/* ── Dark Mode Overrides for Milestones Card ────────────────────────── */
+[data-theme="dark"] .practice-milestones-card {
+  border-color: rgba(255, 255, 255, 0.12);
+}
+
+[data-theme="dark"] .milestones-title-wrap h2 {
+  color: #f1f5f9;
+}
+
+[data-theme="dark"] .milestones-card-subtitle {
+  color: #94a3b8;
+}
+
+[data-theme="dark"] .milestones-identity-ribbon {
+  background: #182238;
+  border-color: rgba(59, 130, 246, 0.3);
+}
+
+[data-theme="dark"] .identity-ribbon-avatar {
+  background: #1e293b;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
+}
+
+[data-theme="dark"] .identity-handle-text {
+  color: #93c5fd;
+}
+
+[data-theme="dark"] .identity-tag-badge {
+  background: rgba(255, 255, 255, 0.08);
+  color: #cbd5e1;
+}
+
+[data-theme="dark"] .identity-ribbon-sub {
+  color: #94a3b8;
+}
+
+[data-theme="dark"] .privacy-pill {
+  background: rgba(16, 185, 129, 0.18);
+  color: #6ee7b7;
+  border-color: rgba(16, 185, 129, 0.35);
+}
+
+[data-theme="dark"] .milestone-stat-tile {
+  background: #182238;
+  border-color: rgba(255, 255, 255, 0.1);
+}
+
+[data-theme="dark"] .milestone-stat-tile .stat-tile-label {
+  color: #94a3b8;
+}
+
+[data-theme="dark"] .milestone-stat-tile .stat-tile-value {
+  color: #93c5fd;
+}
+
+[data-theme="dark"] .milestone-stat-tile .stat-tile-sub {
+  color: #94a3b8;
+}
+
+[data-theme="dark"] .milestones-activity-header {
+  color: #94a3b8;
+}
+
+[data-theme="dark"] .milestones-activity-list {
+  background: #182238;
+  border-color: rgba(255, 255, 255, 0.1);
+}
+
+[data-theme="dark"] .milestones-empty-box .empty-text {
+  color: #f1f5f9;
+}
+
+[data-theme="dark"] .milestones-empty-box .empty-subtext {
+  color: #94a3b8;
+}
+
+[data-theme="dark"] .milestone-log-row {
+  border-bottom-color: rgba(255, 255, 255, 0.08);
+}
+
+[data-theme="dark"] .milestone-log-row:hover {
+  background: rgba(255, 255, 255, 0.04);
+}
+
+[data-theme="dark"] .log-song-title {
+  color: #f1f5f9;
+}
+
+[data-theme="dark"] .log-timestamp {
+  color: #94a3b8;
+}
+
+[data-theme="dark"] .log-duration-pill {
+  background: rgba(16, 185, 129, 0.18);
+  color: #6ee7b7;
+  border-color: rgba(16, 185, 129, 0.35);
+}
+
+[data-theme="dark"] .milestones-share-hint {
+  color: #94a3b8;
+}

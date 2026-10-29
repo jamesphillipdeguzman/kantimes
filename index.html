@@ -448,22 +448,77 @@
         </div>
       </div>
 
-      <!-- Top Dedicated Singers & Primary Stars -->
-      <div class="card" id="leaderboardCard">
-        <h2 id="leaderboardCardTitle">🏆 Top 10 Dedicated Singers</h2>
-        <div class="leaderboard-tabs" role="tablist" aria-label="Leaderboard views">
-          <button type="button" class="leaderboard-tab active" id="tabLeaderboardAll" role="tab" aria-selected="true"
-            onclick="switchLeaderboardTab('all')">
-            <span>🏆</span> All (Top 10)
-          </button>
-          <button type="button" class="leaderboard-tab" id="tabLeaderboardPrimary" role="tab" aria-selected="false"
-            onclick="switchLeaderboardTab('primary')">
-            <span>🌟</span> Primary Stars
+      <!-- My Practice Milestones & Weekly Pulse -->
+      <div class="card practice-milestones-card" id="practiceMilestonesCard">
+        <div class="milestones-card-header">
+          <div class="milestones-title-wrap">
+            <h2 id="milestonesCardTitle">📈 My Practice Milestones &amp; Weekly Pulse</h2>
+            <p class="milestones-card-subtitle">Local-first, privacy-protected practice tracking for group chats</p>
+          </div>
+          <button type="button" class="btn btn-outline btn-sm btn-edit-identity" onclick="openProfileModal()"
+            title="Edit Choir Identity &amp; Voice Part">
+            👤 Edit Profile
           </button>
         </div>
-        <div id="topSingersList">
-          <div style="text-align: center; color: var(--text-muted); font-size: 0.85rem; padding: 12px;">Loading
-            leaderboard...</div>
+
+        <!-- Singer Identity Hero Ribbon -->
+        <div class="milestones-identity-ribbon">
+          <div class="identity-ribbon-left">
+            <span class="identity-ribbon-avatar" id="milestonesAvatarIcon">🎵</span>
+            <div class="identity-ribbon-meta">
+              <div class="identity-ribbon-top">
+                <span class="identity-handle-text" id="milestonesHandleDisplay">Loading...</span>
+                <span class="identity-tag-badge" id="milestonesTagDisplay">#----</span>
+              </div>
+              <div class="identity-ribbon-sub" id="milestonesSubtext">All • LDS Choir</div>
+            </div>
+          </div>
+          <div class="identity-ribbon-right">
+            <span class="privacy-pill" title="Stored 100% on this device. Zero central database.">🛡️ 100%
+              Client-Side</span>
+          </div>
+        </div>
+
+        <!-- 3-Column Weekly Pulse KPI Strip -->
+        <div class="milestones-stats-grid">
+          <div class="milestone-stat-tile">
+            <span class="stat-tile-label">This Week</span>
+            <span class="stat-tile-value" id="milestonesWeeklyMins">0m</span>
+            <span class="stat-tile-sub" id="milestonesWeeklyHours">0.0 hours</span>
+          </div>
+          <div class="milestone-stat-tile">
+            <span class="stat-tile-label">Sessions</span>
+            <span class="stat-tile-value" id="milestonesSessionCount">0</span>
+            <span class="stat-tile-sub">logged</span>
+          </div>
+          <div class="milestone-stat-tile">
+            <span class="stat-tile-label">Songs Rehearsed</span>
+            <span class="stat-tile-value" id="milestonesSongsCount">0</span>
+            <span class="stat-tile-sub">pieces</span>
+          </div>
+        </div>
+
+        <!-- Recent Milestones & Activity List -->
+        <div class="milestones-activity-section">
+          <div class="milestones-activity-header">
+            <span>Recent Activity Logs</span>
+            <span class="activity-history-count" id="milestonesActivityCount">0 records</span>
+          </div>
+          <div class="milestones-activity-list" id="milestonesActivityList">
+            <!-- Populated dynamically from kantimes_practice_logs -->
+          </div>
+        </div>
+
+        <!-- Prominent 1-Tap Group Chat Practice Report Generator -->
+        <div class="milestones-card-actions">
+          <button type="button" class="btn btn-primary btn-copy-chat-report" id="btnCopyChatReport"
+            onclick="copyPracticeReport()">
+            📋 Copy Practice Report for Group Chat
+          </button>
+          <p class="milestones-share-hint">
+            Tap to copy a clean summary of your practice minutes and pieces to share in your Ward/Stake choir group chat
+            (Messenger or Viber).
+          </p>
         </div>
       </div>
 
@@ -675,10 +730,12 @@
 
           <!-- Profile Form Inputs -->
           <div class="settings-section" style="margin-top: 14px;">
-            <label for="profileInitialsInput">Initials or Nickname <span class="label-hint">(Optional, max 6 chars)</span></label>
+            <label for="profileInitialsInput">Initials or Nickname <span class="label-hint">(Optional, max 6
+                chars)</span></label>
             <input type="text" id="profileInitialsInput" maxlength="6" placeholder="e.g. JD, Sam, Maria"
               autocomplete="off" autocapitalize="characters" oninput="handleProfileInitialsInput(this)">
-            <p class="settings-hint">Used as your handle prefix (e.g. <code>JD#8K2P</code>). Fallback is your voice part.</p>
+            <p class="settings-hint">Used as your handle prefix (e.g. <code>JD#8K2P</code>). Fallback is your voice
+              part.</p>
           </div>
 
           <div class="settings-section">
@@ -702,7 +759,8 @@
           </div>
 
           <div class="profile-modal-actions" style="margin-top: 10px;">
-            <button type="button" class="btn btn-primary btn-save-profile" id="saveProfileBtn" onclick="saveProfileFromModal()">
+            <button type="button" class="btn btn-primary btn-save-profile" id="saveProfileBtn"
+              onclick="saveProfileFromModal()">
               💾 Save Profile
             </button>
           </div>
@@ -723,11 +781,13 @@
                 <span class="stat-row-val" id="profileSummarySongCount">0 songs</span>
               </div>
               <div class="summary-song-list" id="profileSummarySongList">
-                <em class="summary-empty-hint">No practice sessions logged yet this week. Start a timer or play rehearsal audio to record practice!</em>
+                <em class="summary-empty-hint">No practice sessions logged yet this week. Start a timer or play
+                  rehearsal audio to record practice!</em>
               </div>
             </div>
             <div class="summary-card-footer">
-              <button type="button" class="btn btn-outline btn-copy-report" id="btnCopyPracticeReport" onclick="copyPracticeReport()">
+              <button type="button" class="btn btn-outline btn-copy-report" id="btnCopyPracticeReport"
+                onclick="copyPracticeReport()">
                 📋 Copy Report for Group Chat
               </button>
             </div>
@@ -764,13 +824,14 @@
               Using official master repertoire sheet.
             </div>
           </div>
-<!-- Share Link Box (Visible when a custom stake sheet is active) -->
+          <!-- Share Link Box (Visible when a custom stake sheet is active) -->
           <div class="stake-share-link-box" id="stakeShareLinkBox" style="display: none;">
             <div class="stake-share-link-info">
               <strong>Share Repertoire with Choir:</strong>
               <span>Choir members will instantly connect to your sheet when opening your link.</span>
             </div>
-            <button type="button" class="btn btn-outline btn-copy-choir-link" id="copyChoirShareLinkBtn" onclick="copyChoirShareLink()">
+            <button type="button" class="btn btn-outline btn-copy-choir-link" id="copyChoirShareLinkBtn"
+              onclick="copyChoirShareLink()">
               📋 Copy Share Link for Choir
             </button>
           </div>
@@ -780,7 +841,8 @@
             <input type="text" id="stakeSheetInput" placeholder="Paste Google Sheet URL or pure Sheet ID..."
               onkeydown="if(event.key==='Enter')handleStakeSheetConnect()">
             <p class="settings-hint">
-              Ensure your Google Sheet is set to <strong>&ldquo;Anyone with the link can view&rdquo;</strong> (Share &gt; General access).
+              Ensure your Google Sheet is set to <strong>&ldquo;Anyone with the link can view&rdquo;</strong> (Share
+              &gt; General access).
             </p>
             <div class="stake-sheet-error" id="stakeSheetError" style="display: none;"></div>
           </div>
@@ -797,7 +859,8 @@
                   <div class="step-badge">1</div>
                   <div class="step-body">
                     <strong>Copy the Template</strong>
-                    <p>Duplicate our clean starter sheet into your Google Drive via the <em>Copy Sheet Template</em> button below.</p>
+                    <p>Duplicate our clean starter sheet into your Google Drive via the <em>Copy Sheet Template</em>
+                      button below.</p>
                   </div>
                 </div>
                 <div class="stake-guide-step">
@@ -805,7 +868,8 @@
                   <div class="step-body">
                     <strong>Add Songs &amp; Publish</strong>
                     <p>Fill in your songs, voice parts, and links, then go to:
-                      <code class="guide-path">File &gt; Share &gt; Publish to web &gt; Link tab &gt; Comma-separated values (.csv) &gt; Publish</code>.
+                      <code
+                        class="guide-path">File &gt; Share &gt; Publish to web &gt; Link tab &gt; Comma-separated values (.csv) &gt; Publish</code>.
                     </p>
                   </div>
                 </div>
@@ -813,12 +877,14 @@
                   <div class="step-badge">3</div>
                   <div class="step-body">
                     <strong>Paste &amp; Sync</strong>
-                    <p>Paste the spreadsheet link into the input box above and tap <strong>&ldquo;Connect &amp; Sync&rdquo;</strong>.</p>
+                    <p>Paste the spreadsheet link into the input box above and tap <strong>&ldquo;Connect &amp;
+                        Sync&rdquo;</strong>.</p>
                   </div>
                 </div>
               </div>
               <div class="stake-guide-member-callout">
-                💡 <strong>Note for Choir Members:</strong> You don&rsquo;t need to configure a sheet! Just open the link provided by your music coordinator or use the Default Master repertoire.
+                💡 <strong>Note for Choir Members:</strong> You don&rsquo;t need to configure a sheet! Just open the
+                link provided by your music coordinator or use the Default Master repertoire.
               </div>
             </div>
           </details>
@@ -826,20 +892,24 @@
           <div class="stake-sheet-template-box">
             <div class="stake-template-info">
               <strong>Need a starter repertoire sheet?</strong>
-              <span>Make a copy of our template with Title, Hymn Number, Category, Voice Part, Resource Label, and Resource URL columns.</span>
+              <span>Make a copy of our template with Title, Hymn Number, Category, Voice Part, Resource Label, and
+                Resource URL columns.</span>
             </div>
             <a href="https://docs.google.com/spreadsheets/d/123fm9MSGA-FcOqN37sGrElVqhVaknl34Ii7tsr9gt8w/copy"
-              target="_blank" rel="noopener noreferrer" class="btn btn-outline btn-copy-template" id="copySheetTemplateBtn">
+              target="_blank" rel="noopener noreferrer" class="btn btn-outline btn-copy-template"
+              id="copySheetTemplateBtn">
               📑 Copy Sheet Template ↗
             </a>
           </div>
         </div>
 
         <div class="modal-footer stake-sheet-modal-footer">
-          <button type="button" class="btn btn-outline btn-reset-source" id="resetStakeSheetBtn" onclick="resetToDefaultRepertoire()">
+          <button type="button" class="btn btn-outline btn-reset-source" id="resetStakeSheetBtn"
+            onclick="resetToDefaultRepertoire()">
             🔄 Reset to Default Repertoire
           </button>
-          <button type="button" class="btn btn-primary btn-connect-source" id="connectStakeSheetBtn" onclick="handleStakeSheetConnect()">
+          <button type="button" class="btn btn-primary btn-connect-source" id="connectStakeSheetBtn"
+            onclick="handleStakeSheetConnect()">
             ⚡ Connect &amp; Sync
           </button>
         </div>
@@ -987,8 +1057,10 @@
               <div class="settings-section-title-wrap">
                 <h4 class="settings-section-title">📊 Stake Repertoire Source</h4>
               </div>
-              <p class="settings-section-desc settings-hint">Sync repertoire dynamically from any public LDS Stake Google Sheet.</p>
-              <button type="button" class="btn btn-outline" style="width: 100%; margin-top: 8px; justify-content: center;"
+              <p class="settings-section-desc settings-hint">Sync repertoire dynamically from any public LDS Stake
+                Google Sheet.</p>
+              <button type="button" class="btn btn-outline"
+                style="width: 100%; margin-top: 8px; justify-content: center;"
                 onclick="closeSettingsModal(); openStakeSheetModal();">
                 📋 Switch Stake / Repertoire Sheet
               </button>
@@ -1123,495 +1195,512 @@
               <div class="tutorial-step-card">
                 <div class="step-header">
                   <span class="step-badge step-badge-5" data-i18n="step_label_5">Step 5</span>
-                  <h5 data-i18n="step5_title">Log &amp; Leaderboard</h5>
+                  <h5 data-i18n="step5_title">Milestones &amp; Practice Report</h5>
                 </div>
-                <p data-i18n="step5_desc">Complete the countdown to record practice minutes for your section.</p>
+                <p data-i18n="step5_desc">Complete the countdown to log your weekly rehearsal minutes, build your
+                  practice streak, and copy a summary report for your choir director.</p>
               </div>
+            </div>
+
+          </div>
+
+          <!-- Settings Modal Footer -->
+          <div class="settings-modal-footer">
+            <button type="button" class="btn-link btn-danger-link" onclick="resetUserSettingsToDefault()">🔄 Reset to
+              Choir Defaults</button>
+            <button type="button" class="btn btn-primary" style="width: auto; min-height: 38px; padding: 6px 18px;"
+              onclick="closeSettingsModal()">Done / Save</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Vocal Warm-Ups & Singing Tips Modal -->
+      <div id="vocalTipsModal" class="modal-backdrop" onclick="closeVocalTipsOnBackdrop(event)" role="dialog"
+        aria-modal="true" aria-labelledby="vocalTipsModalTitle">
+        <div class="modal-box vocal-tips-modal-box">
+          <div class="modal-header">
+            <div class="vocal-tips-title-wrap">
+              <h3 id="vocalTipsModalTitle">🎤 Vocal Warm-Ups &amp; Singing Tips</h3>
+              <p class="vocal-tips-subtitle">Core drills for healthy tension release, breath support, and choir
+                resonance
+              </p>
+            </div>
+            <div class="vocal-tips-header-actions">
+              <button type="button" class="btn btn-outline btn-export-vocal-pdf-header" id="btnExportVocalPdfHeader"
+                onclick="exportVocalDrillsToPdf()" title="Export All Vocal Drills to printable PDF">
+                📄 Export PDF
+              </button>
+              <button class="modal-close-btn" type="button" onclick="closeVocalTipsModal()"
+                aria-label="Close modal">&times;</button>
             </div>
           </div>
 
-        </div>
+          <!-- Category Filter Pills -->
+          <div class="vocal-filter-bar" role="tablist" aria-label="Vocal drill categories">
+            <button type="button" class="vocal-filter-pill active" data-cat="all"
+              onclick="filterVocalCategory('all')">All
+              Drills</button>
+            <button type="button" class="vocal-filter-pill" data-cat="tension"
+              onclick="filterVocalCategory('tension')">⏱️
+              Tension</button>
+            <button type="button" class="vocal-filter-pill" data-cat="breath" onclick="filterVocalCategory('breath')">💨
+              Breath</button>
+            <button type="button" class="vocal-filter-pill" data-cat="sovt" onclick="filterVocalCategory('sovt')">🐝
+              SOVT</button>
+            <button type="button" class="vocal-filter-pill" data-cat="resonance"
+              onclick="filterVocalCategory('resonance')">🎯 Resonance</button>
+            <button type="button" class="vocal-filter-pill" data-cat="diction"
+              onclick="filterVocalCategory('diction')">🗣️ Diction</button>
+            <button type="button" class="vocal-filter-pill" data-cat="blend" onclick="filterVocalCategory('blend')">🎶
+              Blend</button>
+          </div>
 
-        <!-- Settings Modal Footer -->
-        <div class="settings-modal-footer">
-          <button type="button" class="btn-link btn-danger-link" onclick="resetUserSettingsToDefault()">🔄 Reset to
-            Choir Defaults</button>
-          <button type="button" class="btn btn-primary" style="width: auto; min-height: 38px; padding: 6px 18px;"
-            onclick="closeSettingsModal()">Done / Save</button>
+          <div class="modal-body vocal-tips-modal-body">
+            <!-- Section 1: Physical Prep & Tension Release -->
+            <div class="vocal-section-card" data-cat="tension">
+              <div class="vocal-section-header">
+                <span class="vocal-section-badge badge-tension">⏱️ 1 Min • Physical Prep</span>
+                <h4>Physical Prep &amp; Tension Release</h4>
+              </div>
+
+              <div class="vocal-drill-item">
+                <div class="vocal-drill-top">
+                  <span class="vocal-drill-name">1. Shoulder Drops &amp; Gentle Neck Rolls</span>
+                </div>
+                <p class="vocal-drill-cues">
+                  Roll shoulders up toward your ears on an inhale, then release them completely down with a heavy sigh
+                  to
+                  drop tension in the trapezius. Slowly tilt your right ear to your right shoulder, hold 5 seconds, roll
+                  gently forward across the chest, and repeat on the left. Eliminates shoulder hunching that constricts
+                  throat resonance.
+                </p>
+              </div>
+
+              <div class="vocal-drill-item">
+                <div class="vocal-drill-top">
+                  <span class="vocal-drill-name">2. Tongue Stretch &amp; Jaw Drops</span>
+                </div>
+                <p class="vocal-drill-cues">
+                  Place two fingers gently on your chin. Drop your lower jaw down and slightly backward—never push
+                  forward—making a loose, silent &ldquo;Ah&rdquo; shape. Stick the tongue gently forward and downward
+                  toward the chin to stretch the tongue root. Releases stubborn jaw clenching for open choral vowels.
+                </p>
+              </div>
+            </div>
+
+            <!-- Section 2: Breath Support & Core Control -->
+            <div class="vocal-section-card" data-cat="breath">
+              <div class="vocal-section-header">
+                <span class="vocal-section-badge badge-breath">💨 Core • Breath Support</span>
+                <h4>Breath Support &amp; Core Control</h4>
+              </div>
+
+              <div class="vocal-drill-item">
+                <div class="vocal-drill-top">
+                  <span class="vocal-drill-name">1. The &ldquo;Hiss&rdquo; Release (Timed Stream)</span>
+                </div>
+                <p class="vocal-drill-cues">
+                  Inhale deeply through your nose and mouth for 4 counts, letting your ribs and lower waist expand 360
+                  degrees. Hold for 2 counts, then release on a firm, continuous &ldquo;Sssss&rdquo; for 12–16 counts.
+                  Feel your lower abdominals gently draw in like a corset to stabilize airflow without throat
+                  constriction.
+                </p>
+              </div>
+
+              <div class="vocal-drill-item">
+                <div class="vocal-drill-top">
+                  <span class="vocal-drill-name">2. Staccato Pant / &ldquo;Kuh-Kuh-Kuh&rdquo; Core Pulses</span>
+                </div>
+                <p class="vocal-drill-cues">
+                  Pant lightly like a puppy with a relaxed open mouth, feeling the bounce purely at your solar plexus.
+                  Switch to whispering staccato &ldquo;Kuh-kuh-kuh&rdquo; pulses on an unvoiced breath. Trains the
+                  diaphragm to trigger consonants dynamically rather than gripping with the larynx.
+                </p>
+              </div>
+            </div>
+
+            <!-- Section 3: Low-Pressure & Gentle Resonance (SOVT) -->
+            <div class="vocal-section-card" data-cat="sovt">
+              <div class="vocal-section-header">
+                <span class="vocal-section-badge badge-sovt">🐝 SOVT • Gentle Phonation</span>
+                <h4>Low-Pressure &amp; Gentle Resonance (SOVT)</h4>
+              </div>
+
+              <div class="vocal-drill-item">
+                <div class="vocal-drill-top">
+                  <span class="vocal-drill-name">1. Sirens / Humming Slides</span>
+                  <button type="button" class="btn-pitch-ref" onclick="playVocalReferencePitch(261.63, this)"
+                    title="Play Middle C (261 Hz) pitch">🎵 Play C4 Pitch</button>
+                </div>
+                <p class="vocal-drill-cues">
+                  Inhale gently, produce a warm &ldquo;Nnnn&rdquo; or &ldquo;Mmmm&rdquo; buzz behind the front teeth,
+                  and
+                  glide smoothly like a siren from low chest voice up to head voice and back down. Keep your molars
+                  slightly separated inside closed lips. Calibrates vocal cord contact with zero strain.
+                </p>
+              </div>
+
+              <div class="vocal-drill-item">
+                <div class="vocal-drill-top">
+                  <span class="vocal-drill-name">2. Lip Trills (Lip Rolls / Motorboat)</span>
+                  <button type="button" class="btn-pitch-ref" onclick="playVocalReferencePitch(261.63, this)"
+                    title="Play Middle C (261 Hz) pitch">🎵 Play C4 Pitch</button>
+                </div>
+                <p class="vocal-drill-cues">
+                  Place two fingers lightly on the sides of your mouth to support your cheeks. Blow steady air to
+                  sustain
+                  a continuous lip flutter across a 5-note scale (1-2-3-4-5-4-3-2-1). If the trill stops, increase
+                  steady
+                  breath flow. Balances subglottic air pressure through the vocal break.
+                </p>
+              </div>
+
+              <div class="vocal-drill-item">
+                <div class="vocal-drill-top">
+                  <span class="vocal-drill-name">3. Straw Phonation / Coffee Stirrer Glides</span>
+                  <button type="button" class="btn-pitch-ref" onclick="playVocalReferencePitch(261.63, this)"
+                    title="Play Middle C (261 Hz) pitch">🎵 Play C4 Pitch</button>
+                </div>
+                <p class="vocal-drill-cues">
+                  Form a tight seal around a drinking straw (or tightly purse your lips as if sipping) and hum a smooth
+                  siren glide up and down an octave. The acoustic back-pressure from the narrow opening relieves impact
+                  on
+                  vocal folds, immediately resetting tired voices.
+                </p>
+              </div>
+
+              <div class="vocal-drill-item">
+                <div class="vocal-drill-top">
+                  <span class="vocal-drill-name">4. Puffy Cheeks / Raspberry &ldquo;Bzz&rdquo;</span>
+                </div>
+                <p class="vocal-drill-cues">
+                  Puff your cheeks with air like a blowfish and sustain a gentle humming pitch while keeping air
+                  pocketed
+                  inside the cheeks. The trapped oral pressure expands the pharynx and prevents cord collision. Ideal
+                  for
+                  quick warm-downs or vocal recovery after a long rehearsal.
+                </p>
+              </div>
+            </div>
+
+            <!-- Section 4: Forward Placement & Resonance -->
+            <div class="vocal-section-card" data-cat="resonance">
+              <div class="vocal-section-header">
+                <span class="vocal-section-badge badge-resonance">🎯 Placement • Acoustic Ring</span>
+                <h4>Forward Placement &amp; Resonance</h4>
+              </div>
+
+              <div class="vocal-drill-item">
+                <div class="vocal-drill-top">
+                  <span class="vocal-drill-name">1. The &ldquo;Ngy-Ah&rdquo; Glide (Palatal Lift)</span>
+                  <button type="button" class="btn-pitch-ref" onclick="playVocalReferencePitch(261.63, this)"
+                    title="Play Middle C (261 Hz) pitch">🎵 Play C4 Pitch</button>
+                </div>
+                <p class="vocal-drill-cues">
+                  Start on a bright, focused nasal &ldquo;Ng&rdquo; (as in &ldquo;sing&rdquo;) to lift the soft palate.
+                  Once the mask buzzes, drop cleanly into a warm, open &ldquo;Ah&rdquo; on a 5-3-1 chord without losing
+                  the forward ring. Keeps hymns bright and audible without vocal forcing.
+                </p>
+              </div>
+
+              <div class="vocal-drill-item">
+                <div class="vocal-drill-top">
+                  <span class="vocal-drill-name">2. The Friendly &ldquo;Yawn-Sigh&rdquo;</span>
+                </div>
+                <p class="vocal-drill-cues">
+                  Inhale silently as if beginning a polite yawn, feeling the internal dome of the soft palate elevate.
+                  Gently sigh downward on an open &ldquo;Hoo&rdquo; or &ldquo;Ah&rdquo; like a breath of fresh air.
+                  Instantly lowers a raised larynx back down to a relaxed, natural singing position.
+                </p>
+              </div>
+
+              <div class="vocal-drill-item">
+                <div class="vocal-drill-top">
+                  <span class="vocal-drill-name">3. Quiet Head Voice &ldquo;Koo-Koo-Koo&rdquo;</span>
+                  <button type="button" class="btn-pitch-ref" onclick="playVocalReferencePitch(329.63, this)"
+                    title="Play E4 pitch">🎵 Play E4 Pitch</button>
+                </div>
+                <p class="vocal-drill-cues">
+                  Sing light, flute-like staccato notes in the upper range on &ldquo;Koo-koo-koo&rdquo;. Think of
+                  ringing
+                  a small silver bell from above. Avoid pushing for volume; prioritize pure, effortless head voice
+                  resonance to expand your upper choir range.
+                </p>
+              </div>
+            </div>
+
+            <!-- Section 5: Articulation & Agility -->
+            <div class="vocal-section-card" data-cat="diction">
+              <div class="vocal-section-header">
+                <span class="vocal-section-badge badge-diction">🗣️ Diction • Agile Consonants</span>
+                <h4>Articulation &amp; Agility</h4>
+              </div>
+
+              <div class="vocal-drill-item">
+                <div class="vocal-drill-top">
+                  <span class="vocal-drill-name">1. &ldquo;Mah-Meh-Mee-Moh-Moo&rdquo; (Forward Vowels)</span>
+                  <button type="button" class="btn-pitch-ref" onclick="playVocalReferencePitch(261.63, this)"
+                    title="Play Middle C (261 Hz) pitch">🎵 Play C4 Pitch</button>
+                </div>
+                <p class="vocal-drill-cues">
+                  Sing 5 notes descending (5-4-3-2-1) or chant on a single monotone pitch. Keep the resonance centered
+                  on
+                  your front teeth and lips for all five vowels. Avoid smiling wide on &ldquo;Mee&rdquo; or letting
+                  &ldquo;Moo&rdquo; disappear into the throat.
+                </p>
+              </div>
+
+              <div class="vocal-drill-item">
+                <div class="vocal-drill-top">
+                  <span class="vocal-drill-name">2. &ldquo;Mam-Mam-Mam&rdquo; Arpeggio Bounces</span>
+                  <button type="button" class="btn-pitch-ref" onclick="playVocalReferencePitch(261.63, this)"
+                    title="Play Middle C (261 Hz) pitch">🎵 Play C4 Pitch</button>
+                </div>
+                <p class="vocal-drill-cues">
+                  Sing a crisp 1-3-5-3-1 arpeggio on bouncy, staccato syllables. Use rapid, light abdominal bounces for
+                  each &ldquo;Mam&rdquo; while keeping the jaw loose and unmoved. Trains clean vocal fold onset and
+                  bouncy
+                  choral polyphony.
+                </p>
+              </div>
+
+              <div class="vocal-drill-item">
+                <div class="vocal-drill-top">
+                  <span class="vocal-drill-name">3. &ldquo;Tip of the Tongue, the Teeth, and the Lips&rdquo;</span>
+                </div>
+                <p class="vocal-drill-cues">
+                  Chant repeatedly on a single pitch: &ldquo;The tip of the tongue, the teeth, and the lips.&rdquo;
+                  Exaggerate consonant contact using only the tongue and lips without moving the jaw. Makes congregation
+                  lyrics crisp and intelligible in reverent chapels.
+                </p>
+              </div>
+
+              <div class="vocal-drill-item">
+                <div class="vocal-drill-top">
+                  <span class="vocal-drill-name">4. &ldquo;B-D-G-P-T-K&rdquo; Plosive Consonants</span>
+                </div>
+                <p class="vocal-drill-cues">
+                  Pulse rhythmic pairs: &ldquo;B-D-G, P-T-K&rdquo; on crisp unvoiced beats. Focus on energetic consonant
+                  releases without wasting extra breath. Trains clean consonant attacks that unify all voice parts at
+                  the
+                  ends of phrases.
+                </p>
+              </div>
+            </div>
+
+            <!-- Section 6: Legato & Choir Blending -->
+            <div class="vocal-section-card" data-cat="blend">
+              <div class="vocal-section-header">
+                <span class="vocal-section-badge badge-blend">🎶 Choir Blend • Legato</span>
+                <h4>Legato &amp; Choir Blending</h4>
+              </div>
+
+              <div class="vocal-drill-item">
+                <div class="vocal-drill-top">
+                  <span class="vocal-drill-name">1. Five-Tone Vowel Chaining (1-2-3-4-5-4-3-2-1)</span>
+                  <button type="button" class="btn-pitch-ref" onclick="playVocalReferencePitch(261.63, this)"
+                    title="Play Middle C (261 Hz) pitch">🎵 Play C4 Pitch</button>
+                </div>
+                <p class="vocal-drill-cues">
+                  Sing 1-2-3-4-5-4-3-2-1 smoothly on &ldquo;Ee-Eh-Ah-Oh-Oo&rdquo;, connecting each note like pearls on a
+                  string. Morph smoothly between vowels without re-striking or pushing volume. Keep the mouth tall and
+                  the
+                  internal space consistent.
+                </p>
+              </div>
+
+              <div class="vocal-drill-item">
+                <div class="vocal-drill-top">
+                  <span class="vocal-drill-name">2. Choir Golden Rules for Section Unity</span>
+                </div>
+                <div class="vocal-golden-rules">
+                  <div class="golden-rule">
+                    <strong>📐 Tall Vowels:</strong> Drop your lower jaw vertically rather than spreading wide into
+                    horizontal smiles. Preserves warm, reverent choral acoustics.
+                  </div>
+                  <div class="golden-rule">
+                    <strong>🏛️ Lift the Soft Palate:</strong> Maintain the spacious dome of an internal yawn to
+                    eliminate
+                    harsh nasal twang and create room for soaring harmonies.
+                  </div>
+                  <div class="golden-rule">
+                    <strong>👂 Listen to the Blend:</strong> Strive to hear your voice section neighbors more than your
+                    own voice. Sacred choral singing is unified prayer in harmony.
+                  </div>
+                </div>
+              </div>
+            </div>
+
+          </div>
+
+          <div class="modal-footer vocal-tips-modal-footer">
+            <button type="button" class="btn btn-primary" onclick="closeVocalTipsModal()">Done / Return to
+              Practice</button>
+          </div>
         </div>
       </div>
-    </div>
 
-    <!-- Vocal Warm-Ups & Singing Tips Modal -->
-    <div id="vocalTipsModal" class="modal-backdrop" onclick="closeVocalTipsOnBackdrop(event)" role="dialog"
-      aria-modal="true" aria-labelledby="vocalTipsModalTitle">
-      <div class="modal-box vocal-tips-modal-box">
-        <div class="modal-header">
-          <div class="vocal-tips-title-wrap">
-            <h3 id="vocalTipsModalTitle">🎤 Vocal Warm-Ups &amp; Singing Tips</h3>
-            <p class="vocal-tips-subtitle">Core drills for healthy tension release, breath support, and choir resonance
-            </p>
-          </div>
-          <div class="vocal-tips-header-actions">
-            <button type="button" class="btn btn-outline btn-export-vocal-pdf-header" id="btnExportVocalPdfHeader"
-              onclick="exportVocalDrillsToPdf()" title="Export All Vocal Drills to printable PDF">
-              📄 Export PDF
-            </button>
-            <button class="modal-close-btn" type="button" onclick="closeVocalTipsModal()"
+      <!-- Duplicate Singer Confirmation Modal -->
+      <div id="duplicateConfirmModal" class="modal-backdrop duplicate-modal-backdrop"
+        onclick="closeDuplicateModalOnBackdrop(event)" role="dialog" aria-modal="true"
+        aria-labelledby="duplicateModalTitle">
+        <div class="modal-box duplicate-modal-box">
+          <div class="modal-header">
+            <div class="duplicate-header-title">
+              <h3 id="duplicateModalTitle">Existing Singer Found! 🎵</h3>
+            </div>
+            <button class="modal-close-btn" type="button" onclick="closeDuplicateConfirmModal()"
               aria-label="Close modal">&times;</button>
           </div>
-        </div>
+          <div class="modal-body duplicate-modal-body">
+            <p class="duplicate-modal-intro">
+              Did you mean <strong id="duplicateMatchedNameLead">[Matched Name]</strong>? A profile with a similar name
+              already exists in the choir roster.
+            </p>
 
-        <!-- Category Filter Pills -->
-        <div class="vocal-filter-bar" role="tablist" aria-label="Vocal drill categories">
-          <button type="button" class="vocal-filter-pill active" data-cat="all" onclick="filterVocalCategory('all')">All
-            Drills</button>
-          <button type="button" class="vocal-filter-pill" data-cat="tension" onclick="filterVocalCategory('tension')">⏱️
-            Tension</button>
-          <button type="button" class="vocal-filter-pill" data-cat="breath" onclick="filterVocalCategory('breath')">💨
-            Breath</button>
-          <button type="button" class="vocal-filter-pill" data-cat="sovt" onclick="filterVocalCategory('sovt')">🐝
-            SOVT</button>
-          <button type="button" class="vocal-filter-pill" data-cat="resonance"
-            onclick="filterVocalCategory('resonance')">🎯 Resonance</button>
-          <button type="button" class="vocal-filter-pill" data-cat="diction"
-            onclick="filterVocalCategory('diction')">🗣️ Diction</button>
-          <button type="button" class="vocal-filter-pill" data-cat="blend" onclick="filterVocalCategory('blend')">🎶
-            Blend</button>
-        </div>
-
-        <div class="modal-body vocal-tips-modal-body">
-          <!-- Section 1: Physical Prep & Tension Release -->
-          <div class="vocal-section-card" data-cat="tension">
-            <div class="vocal-section-header">
-              <span class="vocal-section-badge badge-tension">⏱️ 1 Min • Physical Prep</span>
-              <h4>Physical Prep &amp; Tension Release</h4>
-            </div>
-
-            <div class="vocal-drill-item">
-              <div class="vocal-drill-top">
-                <span class="vocal-drill-name">1. Shoulder Drops &amp; Gentle Neck Rolls</span>
+            <div class="duplicate-match-card">
+              <div class="duplicate-match-avatar" id="duplicateMatchAvatar">
+                <!-- Avatar or fallback 🎵 -->
               </div>
-              <p class="vocal-drill-cues">
-                Roll shoulders up toward your ears on an inhale, then release them completely down with a heavy sigh to
-                drop tension in the trapezius. Slowly tilt your right ear to your right shoulder, hold 5 seconds, roll
-                gently forward across the chest, and repeat on the left. Eliminates shoulder hunching that constricts
-                throat resonance.
-              </p>
-            </div>
-
-            <div class="vocal-drill-item">
-              <div class="vocal-drill-top">
-                <span class="vocal-drill-name">2. Tongue Stretch &amp; Jaw Drops</span>
-              </div>
-              <p class="vocal-drill-cues">
-                Place two fingers gently on your chin. Drop your lower jaw down and slightly backward—never push
-                forward—making a loose, silent &ldquo;Ah&rdquo; shape. Stick the tongue gently forward and downward
-                toward the chin to stretch the tongue root. Releases stubborn jaw clenching for open choral vowels.
-              </p>
-            </div>
-          </div>
-
-          <!-- Section 2: Breath Support & Core Control -->
-          <div class="vocal-section-card" data-cat="breath">
-            <div class="vocal-section-header">
-              <span class="vocal-section-badge badge-breath">💨 Core • Breath Support</span>
-              <h4>Breath Support &amp; Core Control</h4>
-            </div>
-
-            <div class="vocal-drill-item">
-              <div class="vocal-drill-top">
-                <span class="vocal-drill-name">1. The &ldquo;Hiss&rdquo; Release (Timed Stream)</span>
-              </div>
-              <p class="vocal-drill-cues">
-                Inhale deeply through your nose and mouth for 4 counts, letting your ribs and lower waist expand 360
-                degrees. Hold for 2 counts, then release on a firm, continuous &ldquo;Sssss&rdquo; for 12–16 counts.
-                Feel your lower abdominals gently draw in like a corset to stabilize airflow without throat
-                constriction.
-              </p>
-            </div>
-
-            <div class="vocal-drill-item">
-              <div class="vocal-drill-top">
-                <span class="vocal-drill-name">2. Staccato Pant / &ldquo;Kuh-Kuh-Kuh&rdquo; Core Pulses</span>
-              </div>
-              <p class="vocal-drill-cues">
-                Pant lightly like a puppy with a relaxed open mouth, feeling the bounce purely at your solar plexus.
-                Switch to whispering staccato &ldquo;Kuh-kuh-kuh&rdquo; pulses on an unvoiced breath. Trains the
-                diaphragm to trigger consonants dynamically rather than gripping with the larynx.
-              </p>
-            </div>
-          </div>
-
-          <!-- Section 3: Low-Pressure & Gentle Resonance (SOVT) -->
-          <div class="vocal-section-card" data-cat="sovt">
-            <div class="vocal-section-header">
-              <span class="vocal-section-badge badge-sovt">🐝 SOVT • Gentle Phonation</span>
-              <h4>Low-Pressure &amp; Gentle Resonance (SOVT)</h4>
-            </div>
-
-            <div class="vocal-drill-item">
-              <div class="vocal-drill-top">
-                <span class="vocal-drill-name">1. Sirens / Humming Slides</span>
-                <button type="button" class="btn-pitch-ref" onclick="playVocalReferencePitch(261.63, this)"
-                  title="Play Middle C (261 Hz) pitch">🎵 Play C4 Pitch</button>
-              </div>
-              <p class="vocal-drill-cues">
-                Inhale gently, produce a warm &ldquo;Nnnn&rdquo; or &ldquo;Mmmm&rdquo; buzz behind the front teeth, and
-                glide smoothly like a siren from low chest voice up to head voice and back down. Keep your molars
-                slightly separated inside closed lips. Calibrates vocal cord contact with zero strain.
-              </p>
-            </div>
-
-            <div class="vocal-drill-item">
-              <div class="vocal-drill-top">
-                <span class="vocal-drill-name">2. Lip Trills (Lip Rolls / Motorboat)</span>
-                <button type="button" class="btn-pitch-ref" onclick="playVocalReferencePitch(261.63, this)"
-                  title="Play Middle C (261 Hz) pitch">🎵 Play C4 Pitch</button>
-              </div>
-              <p class="vocal-drill-cues">
-                Place two fingers lightly on the sides of your mouth to support your cheeks. Blow steady air to sustain
-                a continuous lip flutter across a 5-note scale (1-2-3-4-5-4-3-2-1). If the trill stops, increase steady
-                breath flow. Balances subglottic air pressure through the vocal break.
-              </p>
-            </div>
-
-            <div class="vocal-drill-item">
-              <div class="vocal-drill-top">
-                <span class="vocal-drill-name">3. Straw Phonation / Coffee Stirrer Glides</span>
-                <button type="button" class="btn-pitch-ref" onclick="playVocalReferencePitch(261.63, this)"
-                  title="Play Middle C (261 Hz) pitch">🎵 Play C4 Pitch</button>
-              </div>
-              <p class="vocal-drill-cues">
-                Form a tight seal around a drinking straw (or tightly purse your lips as if sipping) and hum a smooth
-                siren glide up and down an octave. The acoustic back-pressure from the narrow opening relieves impact on
-                vocal folds, immediately resetting tired voices.
-              </p>
-            </div>
-
-            <div class="vocal-drill-item">
-              <div class="vocal-drill-top">
-                <span class="vocal-drill-name">4. Puffy Cheeks / Raspberry &ldquo;Bzz&rdquo;</span>
-              </div>
-              <p class="vocal-drill-cues">
-                Puff your cheeks with air like a blowfish and sustain a gentle humming pitch while keeping air pocketed
-                inside the cheeks. The trapped oral pressure expands the pharynx and prevents cord collision. Ideal for
-                quick warm-downs or vocal recovery after a long rehearsal.
-              </p>
-            </div>
-          </div>
-
-          <!-- Section 4: Forward Placement & Resonance -->
-          <div class="vocal-section-card" data-cat="resonance">
-            <div class="vocal-section-header">
-              <span class="vocal-section-badge badge-resonance">🎯 Placement • Acoustic Ring</span>
-              <h4>Forward Placement &amp; Resonance</h4>
-            </div>
-
-            <div class="vocal-drill-item">
-              <div class="vocal-drill-top">
-                <span class="vocal-drill-name">1. The &ldquo;Ngy-Ah&rdquo; Glide (Palatal Lift)</span>
-                <button type="button" class="btn-pitch-ref" onclick="playVocalReferencePitch(261.63, this)"
-                  title="Play Middle C (261 Hz) pitch">🎵 Play C4 Pitch</button>
-              </div>
-              <p class="vocal-drill-cues">
-                Start on a bright, focused nasal &ldquo;Ng&rdquo; (as in &ldquo;sing&rdquo;) to lift the soft palate.
-                Once the mask buzzes, drop cleanly into a warm, open &ldquo;Ah&rdquo; on a 5-3-1 chord without losing
-                the forward ring. Keeps hymns bright and audible without vocal forcing.
-              </p>
-            </div>
-
-            <div class="vocal-drill-item">
-              <div class="vocal-drill-top">
-                <span class="vocal-drill-name">2. The Friendly &ldquo;Yawn-Sigh&rdquo;</span>
-              </div>
-              <p class="vocal-drill-cues">
-                Inhale silently as if beginning a polite yawn, feeling the internal dome of the soft palate elevate.
-                Gently sigh downward on an open &ldquo;Hoo&rdquo; or &ldquo;Ah&rdquo; like a breath of fresh air.
-                Instantly lowers a raised larynx back down to a relaxed, natural singing position.
-              </p>
-            </div>
-
-            <div class="vocal-drill-item">
-              <div class="vocal-drill-top">
-                <span class="vocal-drill-name">3. Quiet Head Voice &ldquo;Koo-Koo-Koo&rdquo;</span>
-                <button type="button" class="btn-pitch-ref" onclick="playVocalReferencePitch(329.63, this)"
-                  title="Play E4 pitch">🎵 Play E4 Pitch</button>
-              </div>
-              <p class="vocal-drill-cues">
-                Sing light, flute-like staccato notes in the upper range on &ldquo;Koo-koo-koo&rdquo;. Think of ringing
-                a small silver bell from above. Avoid pushing for volume; prioritize pure, effortless head voice
-                resonance to expand your upper choir range.
-              </p>
-            </div>
-          </div>
-
-          <!-- Section 5: Articulation & Agility -->
-          <div class="vocal-section-card" data-cat="diction">
-            <div class="vocal-section-header">
-              <span class="vocal-section-badge badge-diction">🗣️ Diction • Agile Consonants</span>
-              <h4>Articulation &amp; Agility</h4>
-            </div>
-
-            <div class="vocal-drill-item">
-              <div class="vocal-drill-top">
-                <span class="vocal-drill-name">1. &ldquo;Mah-Meh-Mee-Moh-Moo&rdquo; (Forward Vowels)</span>
-                <button type="button" class="btn-pitch-ref" onclick="playVocalReferencePitch(261.63, this)"
-                  title="Play Middle C (261 Hz) pitch">🎵 Play C4 Pitch</button>
-              </div>
-              <p class="vocal-drill-cues">
-                Sing 5 notes descending (5-4-3-2-1) or chant on a single monotone pitch. Keep the resonance centered on
-                your front teeth and lips for all five vowels. Avoid smiling wide on &ldquo;Mee&rdquo; or letting
-                &ldquo;Moo&rdquo; disappear into the throat.
-              </p>
-            </div>
-
-            <div class="vocal-drill-item">
-              <div class="vocal-drill-top">
-                <span class="vocal-drill-name">2. &ldquo;Mam-Mam-Mam&rdquo; Arpeggio Bounces</span>
-                <button type="button" class="btn-pitch-ref" onclick="playVocalReferencePitch(261.63, this)"
-                  title="Play Middle C (261 Hz) pitch">🎵 Play C4 Pitch</button>
-              </div>
-              <p class="vocal-drill-cues">
-                Sing a crisp 1-3-5-3-1 arpeggio on bouncy, staccato syllables. Use rapid, light abdominal bounces for
-                each &ldquo;Mam&rdquo; while keeping the jaw loose and unmoved. Trains clean vocal fold onset and bouncy
-                choral polyphony.
-              </p>
-            </div>
-
-            <div class="vocal-drill-item">
-              <div class="vocal-drill-top">
-                <span class="vocal-drill-name">3. &ldquo;Tip of the Tongue, the Teeth, and the Lips&rdquo;</span>
-              </div>
-              <p class="vocal-drill-cues">
-                Chant repeatedly on a single pitch: &ldquo;The tip of the tongue, the teeth, and the lips.&rdquo;
-                Exaggerate consonant contact using only the tongue and lips without moving the jaw. Makes congregation
-                lyrics crisp and intelligible in reverent chapels.
-              </p>
-            </div>
-
-            <div class="vocal-drill-item">
-              <div class="vocal-drill-top">
-                <span class="vocal-drill-name">4. &ldquo;B-D-G-P-T-K&rdquo; Plosive Consonants</span>
-              </div>
-              <p class="vocal-drill-cues">
-                Pulse rhythmic pairs: &ldquo;B-D-G, P-T-K&rdquo; on crisp unvoiced beats. Focus on energetic consonant
-                releases without wasting extra breath. Trains clean consonant attacks that unify all voice parts at the
-                ends of phrases.
-              </p>
-            </div>
-          </div>
-
-          <!-- Section 6: Legato & Choir Blending -->
-          <div class="vocal-section-card" data-cat="blend">
-            <div class="vocal-section-header">
-              <span class="vocal-section-badge badge-blend">🎶 Choir Blend • Legato</span>
-              <h4>Legato &amp; Choir Blending</h4>
-            </div>
-
-            <div class="vocal-drill-item">
-              <div class="vocal-drill-top">
-                <span class="vocal-drill-name">1. Five-Tone Vowel Chaining (1-2-3-4-5-4-3-2-1)</span>
-                <button type="button" class="btn-pitch-ref" onclick="playVocalReferencePitch(261.63, this)"
-                  title="Play Middle C (261 Hz) pitch">🎵 Play C4 Pitch</button>
-              </div>
-              <p class="vocal-drill-cues">
-                Sing 1-2-3-4-5-4-3-2-1 smoothly on &ldquo;Ee-Eh-Ah-Oh-Oo&rdquo;, connecting each note like pearls on a
-                string. Morph smoothly between vowels without re-striking or pushing volume. Keep the mouth tall and the
-                internal space consistent.
-              </p>
-            </div>
-
-            <div class="vocal-drill-item">
-              <div class="vocal-drill-top">
-                <span class="vocal-drill-name">2. Choir Golden Rules for Section Unity</span>
-              </div>
-              <div class="vocal-golden-rules">
-                <div class="golden-rule">
-                  <strong>📐 Tall Vowels:</strong> Drop your lower jaw vertically rather than spreading wide into
-                  horizontal smiles. Preserves warm, reverent choral acoustics.
-                </div>
-                <div class="golden-rule">
-                  <strong>🏛️ Lift the Soft Palate:</strong> Maintain the spacious dome of an internal yawn to eliminate
-                  harsh nasal twang and create room for soaring harmonies.
-                </div>
-                <div class="golden-rule">
-                  <strong>👂 Listen to the Blend:</strong> Strive to hear your voice section neighbors more than your
-                  own voice. Sacred choral singing is unified prayer in harmony.
+              <div class="duplicate-match-info">
+                <div class="duplicate-match-name" id="duplicateMatchedName">Juan dela Cruz</div>
+                <div class="duplicate-match-meta">
+                  <span class="part-badge" id="duplicateMatchedVoice">Soprano</span>
+                  <span class="duplicate-match-stats" id="duplicateMatchedStats">0m practiced</span>
                 </div>
               </div>
             </div>
+
+            <p class="duplicate-modal-subtext">
+              If this is you, tap <strong>&ldquo;Yes, That&rsquo;s Me!&rdquo;</strong> to link this device and keep your
+              practice stats unified. If you are a different singer, tap <strong>&ldquo;No, Create New
+                Profile&rdquo;</strong>.
+            </p>
           </div>
-
-        </div>
-
-        <div class="modal-footer vocal-tips-modal-footer">
-          <button type="button" class="btn btn-primary" onclick="closeVocalTipsModal()">Done / Return to
-            Practice</button>
+          <div class="modal-footer duplicate-modal-footer">
+            <button type="button" class="btn btn-outline" id="btnConfirmNewSinger"
+              onclick="handleDuplicateAction('new')">
+              No, Create New Profile
+            </button>
+            <button type="button" class="btn btn-primary" id="btnConfirmExistingSinger"
+              onclick="handleDuplicateAction('accept')">
+              Yes, That&rsquo;s Me!
+            </button>
+          </div>
         </div>
       </div>
-    </div>
 
-    <!-- Duplicate Singer Confirmation Modal -->
-    <div id="duplicateConfirmModal" class="modal-backdrop duplicate-modal-backdrop"
-      onclick="closeDuplicateModalOnBackdrop(event)" role="dialog" aria-modal="true"
-      aria-labelledby="duplicateModalTitle">
-      <div class="modal-box duplicate-modal-box">
-        <div class="modal-header">
-          <div class="duplicate-header-title">
-            <h3 id="duplicateModalTitle">Existing Singer Found! 🎵</h3>
-          </div>
-          <button class="modal-close-btn" type="button" onclick="closeDuplicateConfirmModal()"
-            aria-label="Close modal">&times;</button>
-        </div>
-        <div class="modal-body duplicate-modal-body">
-          <p class="duplicate-modal-intro">
-            Did you mean <strong id="duplicateMatchedNameLead">[Matched Name]</strong>? A profile with a similar name
-            already exists in the choir roster.
-          </p>
-
-          <div class="duplicate-match-card">
-            <div class="duplicate-match-avatar" id="duplicateMatchAvatar">
-              <!-- Avatar or fallback 🎵 -->
+      <!-- Top 10 Dedicated Singers: Full Details Pop-Up Modal -->
+      <div id="singerDetailsModal" class="modal-backdrop singer-details-backdrop"
+        onclick="closeSingerDetailsModalOnBackdrop(event)" role="dialog" aria-modal="true"
+        aria-labelledby="singerDetailsModalTitle" aria-hidden="true">
+        <div class="modal-box singer-details-modal-box">
+          <div class="modal-header singer-details-header">
+            <div class="singer-details-header-title">
+              <h3 id="singerDetailsModalTitle">Singer Rehearsal Profile 🎵</h3>
             </div>
-            <div class="duplicate-match-info">
-              <div class="duplicate-match-name" id="duplicateMatchedName">Juan dela Cruz</div>
-              <div class="duplicate-match-meta">
-                <span class="part-badge" id="duplicateMatchedVoice">Soprano</span>
-                <span class="duplicate-match-stats" id="duplicateMatchedStats">0m practiced</span>
+            <button class="modal-close-btn" type="button" onclick="closeSingerDetailsModal()"
+              aria-label="Close modal">&times;</button>
+          </div>
+          <div class="modal-body singer-details-modal-body">
+            <div class="singer-details-hero">
+              <div class="singer-details-avatar-container" id="singerDetailsAvatarContainer">
+                <!-- Avatar or fallback 🎵 -->
+              </div>
+              <h4 class="singer-details-fullname" id="singerDetailsFullName">Singer Name</h4>
+              <div class="singer-details-badges">
+                <span class="part-badge singer-details-voice" id="singerDetailsVoicePart"
+                  data-voice="Soprano">Soprano</span>
+                <span class="singer-details-rank-pill" id="singerDetailsRankPill">#1 • 0m (0.0h)</span>
+              </div>
+            </div>
+
+            <div class="singer-details-stats-cards">
+              <div class="singer-stat-tile">
+                <span class="singer-stat-label">Total Practice</span>
+                <span class="singer-stat-value" id="singerDetailsTimeValue">0m</span>
+                <span class="singer-stat-subtitle" id="singerDetailsTimeSub">0.0 hours</span>
+              </div>
+              <div class="singer-stat-tile">
+                <span class="singer-stat-label">Rehearsal Rank</span>
+                <span class="singer-stat-value" id="singerDetailsRankValue">#1</span>
+                <span class="singer-stat-subtitle" id="singerDetailsRankSub">Stake Choir</span>
               </div>
             </div>
           </div>
-
-          <p class="duplicate-modal-subtext">
-            If this is you, tap <strong>&ldquo;Yes, That&rsquo;s Me!&rdquo;</strong> to link this device and keep your
-            practice stats unified. If you are a different singer, tap <strong>&ldquo;No, Create New
-              Profile&rdquo;</strong>.
-          </p>
-        </div>
-        <div class="modal-footer duplicate-modal-footer">
-          <button type="button" class="btn btn-outline" id="btnConfirmNewSinger" onclick="handleDuplicateAction('new')">
-            No, Create New Profile
-          </button>
-          <button type="button" class="btn btn-primary" id="btnConfirmExistingSinger"
-            onclick="handleDuplicateAction('accept')">
-            Yes, That&rsquo;s Me!
-          </button>
+          <div class="modal-footer singer-details-footer">
+            <button type="button" class="btn btn-primary btn-full-width" onclick="closeSingerDetailsModal()">
+              Close
+            </button>
+          </div>
         </div>
       </div>
-    </div>
 
-    <!-- Top 10 Dedicated Singers: Full Details Pop-Up Modal -->
-    <div id="singerDetailsModal" class="modal-backdrop singer-details-backdrop"
-      onclick="closeSingerDetailsModalOnBackdrop(event)" role="dialog" aria-modal="true"
-      aria-labelledby="singerDetailsModalTitle" aria-hidden="true">
-      <div class="modal-box singer-details-modal-box">
-        <div class="modal-header singer-details-header">
-          <div class="singer-details-header-title">
-            <h3 id="singerDetailsModalTitle">Singer Rehearsal Profile 🎵</h3>
+      <!-- Section Standings: Full Details Pop-Up Modal -->
+      <div id="sectionDetailsModal" class="modal-backdrop section-details-backdrop"
+        onclick="closeSectionDetailsModalOnBackdrop(event)" role="dialog" aria-modal="true"
+        aria-labelledby="sectionDetailsModalTitle" aria-hidden="true" style="display: none;">
+        <div class="modal-box section-details-modal-box">
+          <div class="modal-header section-details-header">
+            <div class="section-details-header-title">
+              <h3 id="sectionDetailsModalTitle">Section Breakdown 📊</h3>
+            </div>
+            <button class="modal-close-btn" type="button" onclick="closeSectionDetailsModal()"
+              aria-label="Close modal">&times;</button>
           </div>
-          <button class="modal-close-btn" type="button" onclick="closeSingerDetailsModal()"
-            aria-label="Close modal">&times;</button>
-        </div>
-        <div class="modal-body singer-details-modal-body">
-          <div class="singer-details-hero">
-            <div class="singer-details-avatar-container" id="singerDetailsAvatarContainer">
-              <!-- Avatar or fallback 🎵 -->
-            </div>
-            <h4 class="singer-details-fullname" id="singerDetailsFullName">Singer Name</h4>
-            <div class="singer-details-badges">
-              <span class="part-badge singer-details-voice" id="singerDetailsVoicePart"
-                data-voice="Soprano">Soprano</span>
-              <span class="singer-details-rank-pill" id="singerDetailsRankPill">#1 • 0m (0.0h)</span>
-            </div>
-          </div>
-
-          <div class="singer-details-stats-cards">
-            <div class="singer-stat-tile">
-              <span class="singer-stat-label">Total Practice</span>
-              <span class="singer-stat-value" id="singerDetailsTimeValue">0m</span>
-              <span class="singer-stat-subtitle" id="singerDetailsTimeSub">0.0 hours</span>
-            </div>
-            <div class="singer-stat-tile">
-              <span class="singer-stat-label">Rehearsal Rank</span>
-              <span class="singer-stat-value" id="singerDetailsRankValue">#1</span>
-              <span class="singer-stat-subtitle" id="singerDetailsRankSub">Stake Choir</span>
-            </div>
-          </div>
-        </div>
-        <div class="modal-footer singer-details-footer">
-          <button type="button" class="btn btn-primary btn-full-width" onclick="closeSingerDetailsModal()">
-            Close
-          </button>
-        </div>
-      </div>
-    </div>
-
-    <!-- Section Standings: Full Details Pop-Up Modal -->
-    <div id="sectionDetailsModal" class="modal-backdrop section-details-backdrop"
-      onclick="closeSectionDetailsModalOnBackdrop(event)" role="dialog" aria-modal="true"
-      aria-labelledby="sectionDetailsModalTitle" aria-hidden="true" style="display: none;">
-      <div class="modal-box section-details-modal-box">
-        <div class="modal-header section-details-header">
-          <div class="section-details-header-title">
-            <h3 id="sectionDetailsModalTitle">Section Breakdown 📊</h3>
-          </div>
-          <button class="modal-close-btn" type="button" onclick="closeSectionDetailsModal()"
-            aria-label="Close modal">&times;</button>
-        </div>
-        <div class="modal-body section-details-modal-body">
-          <!-- Compact Top Hero Summary -->
-          <div class="section-details-hero">
-            <div class="section-details-avatar-container" id="sectionDetailsAvatarContainer">
-              <!-- Voice badge icon or symbol -->
-            </div>
-            <div class="section-details-hero-info">
-              <div class="section-details-title-row">
-                <h4 class="section-details-name" id="sectionDetailsName">Section Name</h4>
-                <span class="part-badge section-details-voice" id="sectionDetailsVoicePart"
-                  data-voice="Tenor">Tenor</span>
+          <div class="modal-body section-details-modal-body">
+            <!-- Compact Top Hero Summary -->
+            <div class="section-details-hero">
+              <div class="section-details-avatar-container" id="sectionDetailsAvatarContainer">
+                <!-- Voice badge icon or symbol -->
               </div>
-              <span class="section-details-rank-pill" id="sectionDetailsRankPill">#1 • 0m (0.0h)</span>
+              <div class="section-details-hero-info">
+                <div class="section-details-title-row">
+                  <h4 class="section-details-name" id="sectionDetailsName">Section Name</h4>
+                  <span class="part-badge section-details-voice" id="sectionDetailsVoicePart"
+                    data-voice="Tenor">Tenor</span>
+                </div>
+                <span class="section-details-rank-pill" id="sectionDetailsRankPill">#1 • 0m (0.0h)</span>
+              </div>
             </div>
-          </div>
 
-          <!-- Compact 3-Column Stats Strip -->
-          <div class="section-details-stats-strip">
-            <div class="section-stat-col">
-              <span class="section-stat-label">Total</span>
-              <span class="section-stat-val-inline"><strong id="sectionDetailsTimeValue">0m</strong> <span
-                  class="stat-sub-inline" id="sectionDetailsTimeSub">(0.0h)</span></span>
+            <!-- Compact 3-Column Stats Strip -->
+            <div class="section-details-stats-strip">
+              <div class="section-stat-col">
+                <span class="section-stat-label">Total</span>
+                <span class="section-stat-val-inline"><strong id="sectionDetailsTimeValue">0m</strong> <span
+                    class="stat-sub-inline" id="sectionDetailsTimeSub">(0.0h)</span></span>
+              </div>
+              <div class="section-stat-col">
+                <span class="section-stat-label">Rank</span>
+                <span class="section-stat-val-inline"><strong id="sectionDetailsRankValue">#1</strong> <span
+                    class="stat-sub-inline" id="sectionDetailsRankSub">of 5</span></span>
+              </div>
+              <div class="section-stat-col">
+                <span class="section-stat-label">Singers</span>
+                <span class="section-stat-val-inline"><strong id="sectionDetailsContributorsValue">0</strong> <span
+                    class="stat-sub-inline" id="sectionDetailsContributorsSub">active</span></span>
+              </div>
             </div>
-            <div class="section-stat-col">
-              <span class="section-stat-label">Rank</span>
-              <span class="section-stat-val-inline"><strong id="sectionDetailsRankValue">#1</strong> <span
-                  class="stat-sub-inline" id="sectionDetailsRankSub">of 5</span></span>
-            </div>
-            <div class="section-stat-col">
-              <span class="section-stat-label">Singers</span>
-              <span class="section-stat-val-inline"><strong id="sectionDetailsContributorsValue">0</strong> <span
-                  class="stat-sub-inline" id="sectionDetailsContributorsSub">active</span></span>
-            </div>
-          </div>
 
-          <!-- Dominant Section Roster Container (~70–75% height) -->
-          <div class="section-contributors-box section-roster-container" id="sectionContributorsBox">
-            <div class="section-contributors-header">
-              <span>Section Roster &amp; Leaders</span>
-              <span class="section-contributors-count" id="sectionContributorsCount">0 singers</span>
-            </div>
-            <div class="section-contributors-list" id="sectionContributorsList">
-              <!-- Populated dynamically -->
+            <!-- Dominant Section Roster Container (~70–75% height) -->
+            <div class="section-contributors-box section-roster-container" id="sectionContributorsBox">
+              <div class="section-contributors-header">
+                <span>Section Roster &amp; Leaders</span>
+                <span class="section-contributors-count" id="sectionContributorsCount">0 singers</span>
+              </div>
+              <div class="section-contributors-list" id="sectionContributorsList">
+                <!-- Populated dynamically -->
+              </div>
             </div>
           </div>
-        </div>
-        <div class="modal-footer section-details-footer">
-          <button type="button" class="btn btn-primary btn-full-width" onclick="closeSectionDetailsModal()">
-            Close
-          </button>
+          <div class="modal-footer section-details-footer">
+            <button type="button" class="btn btn-primary btn-full-width" onclick="closeSectionDetailsModal()">
+              Close
+            </button>
+          </div>
         </div>
       </div>
-    </div>
 
 </body>
 

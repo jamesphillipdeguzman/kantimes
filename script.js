@@ -986,6 +986,123 @@ function updatePracticeSummaryUI() {
       listEl.innerHTML = `<em class="summary-empty-hint">No practice sessions logged yet this week. Start a timer or play rehearsal audio to record practice!</em>`;
     }
   }
+
+  // Synchronize main dashboard Practice Milestones card
+  renderPracticeMilestonesUI();
+}
+
+/**
+ * Formats a log timestamp into friendly relative or calendar time.
+ */
+function formatLogTimestamp(timestamp) {
+  if (!timestamp) return "";
+  const now = Date.now();
+  const diffSec = Math.floor((now - timestamp) / 1000);
+  if (diffSec < 60) return "Just now";
+  const diffMin = Math.floor(diffSec / 60);
+  if (diffMin < 60) return `${diffMin}m ago`;
+  const diffHours = Math.floor(diffMin / 60);
+  if (diffHours < 24) return `${diffHours}h ago`;
+  const d = new Date(timestamp);
+  return d.toLocaleDateString(undefined, { month: "short", day: "numeric" });
+}
+
+/**
+ * Renders the "My Practice Milestones & Weekly Pulse" card on the main dashboard.
+ * Local-first, privacy-protected practice tracker for group chats.
+ */
+function renderPracticeMilestonesUI() {
+  const card = document.getElementById("practiceMilestonesCard");
+  if (!card) return;
+
+  const identity = getUserIdentity();
+  const handle = getDisplayHandle(identity);
+  const part = identity.part || "All";
+  const stake = (identity.stake && identity.stake.trim()) ? identity.stake.trim() : "LDS Choir";
+  const summary = getWeeklyPracticeSummary();
+  const logs = getPracticeLogs();
+
+  // 1. Identity Ribbon
+  const handleEl = document.getElementById("milestonesHandleDisplay");
+  if (handleEl) handleEl.textContent = handle;
+
+  const tagEl = document.getElementById("milestonesTagDisplay");
+  if (tagEl) tagEl.textContent = `#${identity.tag}`;
+
+  const subtextEl = document.getElementById("milestonesSubtext");
+  if (subtextEl) subtextEl.textContent = `${part} • ${stake}`;
+
+  const avatarEl = document.getElementById("milestonesAvatarIcon");
+  if (avatarEl) {
+    const partIcons = {
+      Soprano: "🌸",
+      Alto: "🌿",
+      Tenor: "🍁",
+      Bass: "⚓",
+      Accompanist: "🎹",
+      Accompaniment: "🎹",
+      Director: "🎼",
+      All: "🎵"
+    };
+    avatarEl.textContent = partIcons[part] || "🎵";
+  }
+
+  // 2. 3-Column Stats Grid
+  const weeklyMinsEl = document.getElementById("milestonesWeeklyMins");
+  if (weeklyMinsEl) weeklyMinsEl.textContent = `${summary.totalMinutes}m`;
+
+  const weeklyHoursEl = document.getElementById("milestonesWeeklyHours");
+  if (weeklyHoursEl) {
+    const hours = (summary.totalMinutes / 60).toFixed(1);
+    weeklyHoursEl.textContent = `${hours} hour${hours === "1.0" ? "" : "s"}`;
+  }
+
+  const sessionCountEl = document.getElementById("milestonesSessionCount");
+  if (sessionCountEl) sessionCountEl.textContent = String(summary.logs.length);
+
+  const songsCountEl = document.getElementById("milestonesSongsCount");
+  if (songsCountEl) songsCountEl.textContent = String(summary.songs.length);
+
+  // 3. Activity List
+  const listEl = document.getElementById("milestonesActivityList");
+  const countEl = document.getElementById("milestonesActivityCount");
+  if (countEl) countEl.textContent = `${logs.length} record${logs.length === 1 ? "" : "s"}`;
+
+  if (listEl) {
+    if (!logs || logs.length === 0) {
+      listEl.innerHTML = `
+        <div class="milestones-empty-box">
+          <span class="empty-icon">🎵</span>
+          <p class="empty-text">No practice sessions logged yet.</p>
+          <span class="empty-subtext">Start the countdown timer or play a rehearsal track to begin tracking your milestones!</span>
+        </div>
+      `;
+    } else {
+      const recentLogs = logs.slice(0, 8);
+      listEl.innerHTML = recentLogs.map(log => {
+        const timeAgo = formatLogTimestamp(log.timestamp);
+        const mins = log.durationMinutes || 0;
+        const partName = log.part || "All";
+        return `
+          <div class="milestone-log-row">
+            <div class="milestone-log-left">
+              <span class="log-music-icon">🎶</span>
+              <div class="log-details">
+                <strong class="log-song-title">${escapeHtml(log.songTitle || "Repertoire Practice")}</strong>
+                <div class="log-meta">
+                  <span class="res-part-badge" data-voice="${escapeHtml(partName.toLowerCase())}">${escapeHtml(partName)}</span>
+                  <span class="log-timestamp">${escapeHtml(timeAgo)}</span>
+                </div>
+              </div>
+            </div>
+            <div class="milestone-log-right">
+              <span class="log-duration-pill">+${mins}m</span>
+            </div>
+          </div>
+        `;
+      }).join("");
+    }
+  }
 }
 
 function openProfileModal() {
@@ -1041,6 +1158,7 @@ function initIdentityAndPracticeTracking() {
   getUserIdentity();
   updateIdentityUI();
   updatePracticeSummaryUI();
+  renderPracticeMilestonesUI();
 }
 
 // --- AVATAR ASSET DEFINITIONS ---
@@ -9372,3 +9490,4 @@ window.openProfileModal = openProfileModal;
 window.closeProfileModal = closeProfileModal;
 window.closeProfileModalOnBackdrop = closeProfileModalOnBackdrop;
 window.initIdentityAndPracticeTracking = initIdentityAndPracticeTracking;
+window.renderPracticeMilestonesUI = renderPracticeMilestonesUI;
