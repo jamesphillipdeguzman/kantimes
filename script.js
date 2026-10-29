@@ -1283,8 +1283,30 @@ function renderPracticeMilestonesUI() {
   }
 }
 
-function openProfileModal() {
-  openSettingsModal('profile');
+function handleEditProfileClick(e) {
+  if (e) {
+    if (typeof e.preventDefault === "function") e.preventDefault();
+    if (typeof e.stopPropagation === "function") e.stopPropagation();
+  }
+
+  // Close section breakdown modal & singer details modal if still lingering
+  ["sectionBreakdownModal", "sectionDetailsModal", "singerDetailsModal"].forEach(modalId => {
+    const m = document.getElementById(modalId);
+    if (m) {
+      m.classList.remove("active", "open", "show");
+      m.style.display = "none";
+      if (typeof m.setAttribute === "function") {
+        m.setAttribute("aria-hidden", "true");
+      }
+    }
+  });
+
+  // Open Settings Modal directly to "Profile & Voice" tab
+  openSettingsModal("profile-tab");
+}
+
+function openProfileModal(e) {
+  handleEditProfileClick(e);
 }
 
 function closeProfileModal() {
@@ -1349,6 +1371,20 @@ function initProfileModalListeners() {
       validateNicknameInput(this);
     });
   }
+
+  const btnEditProfile = document.getElementById("btnEditProfile") || document.querySelector(".btn-edit-profile");
+  if (btnEditProfile) {
+    btnEditProfile.onclick = (e) => {
+      handleEditProfileClick(e);
+    };
+  }
+
+  const allEditButtons = document.querySelectorAll("#btnEditProfile, .btn-edit-profile, .edit-profile-btn, #openProfileModalBtn");
+  allEditButtons.forEach(btn => {
+    btn.onclick = (e) => {
+      handleEditProfileClick(e);
+    };
+  });
 }
 
 function updateHeaderIdentityBadge() {
@@ -1668,14 +1704,14 @@ function renderSectionStandingsUI() {
     const safeEncodedSec = encodeURIComponent(sec);
 
     sectionHtml += `
-      <div class="board-row section-standings-row clickable-section"
-           onclick="showSectionDetails('${safeEncodedSec}', ${idx + 1})"
+      <div class="board-row section-standings-row section-item clickable-section leaderboard-row"
+           onclick="if(event){event.stopPropagation();}showSectionDetails('${safeEncodedSec}', ${idx + 1}, event)"
            data-section-name="${safeSec}"
            data-section-rank="${idx + 1}"
            role="button" tabindex="0"
            title="Click to view full breakdown for ${safeSec}"
            aria-label="View rehearsal breakdown for ${safeSec}"
-           onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();showSectionDetails('${safeEncodedSec}', ${idx + 1});}">
+           onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();event.stopPropagation();showSectionDetails('${safeEncodedSec}', ${idx + 1}, event);}">
         <span class="rank ${isTop3}">${medal}#${idx + 1}</span>
         <div class="section-name-wrap">
           <span class="section-name">${safeSec}</span>
@@ -1690,12 +1726,13 @@ function renderSectionStandingsUI() {
   if (!sectionEl.dataset.detailsBound) {
     sectionEl.dataset.detailsBound = "true";
     sectionEl.addEventListener("click", function (e) {
-      const row = e.target.closest(".board-row.clickable-section");
+      const row = e.target.closest(".board-row.clickable-section, .section-standings-row, .section-item, .leaderboard-row");
       if (!row) return;
+      e.stopPropagation();
       const name = row.getAttribute("data-section-name");
       const r = row.getAttribute("data-section-rank");
       if (name) {
-        showSectionDetails(name, r ? Number(r) : 1);
+        showSectionDetails(name, r ? Number(r) : 1, e);
       }
     });
   }
@@ -4728,7 +4765,11 @@ function closeSingerDetailsModalOnBackdrop(e) {
 // --- SECTION DETAILS MODAL CONTROLLER ---
 let cachedSectionStandings = [];
 
-function showSectionDetails(identifier, optionalRank) {
+function showSectionDetails(identifier, optionalRank, e) {
+  if (e) {
+    if (typeof e.stopPropagation === "function") e.stopPropagation();
+    if (typeof e.preventDefault === "function") e.preventDefault();
+  }
   let sectionData = null;
   let rank = optionalRank;
 
@@ -5077,14 +5118,14 @@ function loadLeaderboard() {
         const safeSec = escapeLeaderboardHtml(sec);
         const safeEncodedSec = encodeURIComponent(sec);
         sectionHtml += `
-            <div class="board-row section-standings-row clickable-section"
-                 onclick="showSectionDetails('${safeEncodedSec}', ${idx + 1})"
+            <div class="board-row section-standings-row section-item clickable-section leaderboard-row"
+                 onclick="if(event){event.stopPropagation();}showSectionDetails('${safeEncodedSec}', ${idx + 1}, event)"
                  data-section-name="${safeSec}"
                  data-section-rank="${idx + 1}"
                  role="button" tabindex="0"
                  title="Click to view full breakdown for ${safeSec}"
                  aria-label="View rehearsal breakdown for ${safeSec}"
-                 onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();showSectionDetails('${safeEncodedSec}', ${idx + 1});}">
+                 onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();event.stopPropagation();showSectionDetails('${safeEncodedSec}', ${idx + 1}, event);}">
               <span class="rank ${isTop3}">${medal}#${idx + 1}</span>
               <div class="section-name-wrap">
                 <span class="section-name">${safeSec}</span>
@@ -5098,12 +5139,13 @@ function loadLeaderboard() {
         if (!sectionEl.dataset.detailsBound) {
           sectionEl.dataset.detailsBound = "true";
           sectionEl.addEventListener("click", function (e) {
-            const row = e.target.closest(".board-row.clickable-section");
+            const row = e.target.closest(".board-row.clickable-section, .section-standings-row, .section-item, .leaderboard-row");
             if (!row) return;
+            e.stopPropagation();
             const name = row.getAttribute("data-section-name");
             const r = row.getAttribute("data-section-rank");
             if (name) {
-              showSectionDetails(name, r ? Number(r) : 1);
+              showSectionDetails(name, r ? Number(r) : 1, e);
             }
           });
         }
@@ -5866,8 +5908,9 @@ function closeSettingsOnBackdrop(e) {
 }
 
 function switchSettingsTab(tabName) {
+  const cleanTab = (tabName || "profile").toLowerCase().replace(/-tab$/, "");
   const tabs = ["profile", "preferences", "tutorial"];
-  const target = tabs.includes(tabName) ? tabName : "profile";
+  const target = tabs.includes(cleanTab) ? cleanTab : "profile";
 
   const tabBtns = {
     profile: document.getElementById("tabBtnProfile"),
@@ -9991,8 +10034,12 @@ window.saveProfileFromModal = saveProfileVoiceSettings;
 window.saveProfileFromSettings = saveProfileVoiceSettings;
 window.validateNicknameInput = validateNicknameInput;
 window.handleProfileNicknameInput = handleProfileNicknameInput;
+window.handleEditProfileClick = handleEditProfileClick;
 window.openProfileModal = openProfileModal;
 window.closeProfileModal = closeProfileModal;
+window.openSettingsModal = openSettingsModal;
+window.closeSettingsModal = closeSettingsModal;
+window.switchSettingsTab = switchSettingsTab;
 window.updateHeaderIdentityBadge = updateHeaderIdentityBadge;
 window.updateMilestonesCard = updateMilestonesCard;
 window.closeProfileModalOnBackdrop = closeProfileModalOnBackdrop;

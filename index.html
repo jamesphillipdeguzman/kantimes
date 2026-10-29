@@ -55,7 +55,7 @@
         </div>
       </div>
       <div class="header-actions">
-        <button type="button" class="identity-badge-btn" id="openProfileModalBtn" onclick="openProfileModal()"
+        <button type="button" class="identity-badge-btn btn-edit-profile" id="openProfileModalBtn" onclick="handleEditProfileClick(event)"
           aria-label="My Choir Profile" title="My Choir Profile & Practice Summary">
           <span class="identity-badge-icon" id="headerIdentityIcon">🎵</span>
           <span class="identity-badge-handle" id="headerIdentityHandle">Profile</span>
@@ -461,8 +461,7 @@
             <h3 id="milestonesCardTitle">📈 My Practice Milestones &amp; Weekly Pulse</h3>
             <p>Local-first, privacy-protected practice tracking for group chats</p>
           </div>
-          <button type="button" class="btn btn-outline btn-sm edit-profile-btn" onclick="openProfileModal()"
-            title="Edit Choir Identity &amp; Voice Part">
+          <button type="button" class="btn btn-outline btn-sm edit-profile-btn btn-edit-profile" id="btnEditProfile" onclick="handleEditProfileClick(event)" title="Edit Choir Identity &amp; Voice Part">
             👤 Edit Profile
           </button>
         </div>
