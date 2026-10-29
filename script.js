@@ -7941,7 +7941,7 @@ document.addEventListener("visibilitychange", () => {
 });
 
 // ==========================================================================
-// VOCAL WARM-UPS & SINGING TIPS MODAL LOGIC (REDIRECTED TO SETTINGS GUIDE TAB)
+// VOCAL WARM-UPS & SINGING TIPS MODAL LOGIC (DEDICATED MODAL)
 // ==========================================================================
 function openVocalTipsModal(e) {
   if (e) {
@@ -7949,9 +7949,16 @@ function openVocalTipsModal(e) {
     if (typeof e.stopPropagation === "function") e.stopPropagation();
   }
 
-  // Ensure any hanging overlay/backdrop is cleaned up
-  document.querySelectorAll(".modal-backdrop, .modal.active").forEach(el => {
-    if (el && el.id !== "settingsModal") {
+  // Close settings modal if open
+  const settingsModal = document.getElementById("settingsModal");
+  if (settingsModal) {
+    settingsModal.classList.remove("active", "open", "show");
+    settingsModal.style.display = "none";
+  }
+
+  // Ensure any other lingering overlay/backdrop is cleaned up
+  document.querySelectorAll(".modal-backdrop.active, .modal.active").forEach(el => {
+    if (el && el.id !== "vocalTipsModal") {
       el.classList.remove("active", "open", "show");
       el.style.display = "none";
       if (typeof el.setAttribute === "function") {
@@ -7960,24 +7967,15 @@ function openVocalTipsModal(e) {
     }
   });
 
-  // Open Settings modal directly to the Guide / Tips tab
-  const settingsModal = document.getElementById("settingsModal");
-  if (settingsModal) {
-    if (typeof openSettingsModal === "function") {
-      openSettingsModal("tutorial");
-    } else {
-      settingsModal.classList.add("active", "open", "show");
-      settingsModal.style.display = "flex";
-      document.body.style.overflow = "hidden";
+  // Show dedicated Vocal Tips modal
+  const vocalTipsModal = document.getElementById("vocalTipsModal");
+  if (vocalTipsModal) {
+    vocalTipsModal.classList.add("active", "open", "show");
+    vocalTipsModal.style.display = "flex";
+    if (typeof vocalTipsModal.setAttribute === "function") {
+      vocalTipsModal.setAttribute("aria-hidden", "false");
     }
-
-    // Switch active tab to tutorial/tips
-    const guideTabBtn = document.querySelector('[data-tab="tutorial"]') || document.getElementById("tabGuide") || document.getElementById("tabBtnTutorial");
-    if (guideTabBtn && typeof guideTabBtn.click === "function") {
-      guideTabBtn.click();
-    } else if (typeof switchSettingsTab === "function") {
-      switchSettingsTab("tutorial");
-    }
+    document.body.style.overflow = "hidden";
   }
 }
 
@@ -7986,23 +7984,58 @@ function handleVocalTipsClick(e) {
 }
 
 function initVocalTipsButton() {
-  const btnVocalTips = document.getElementById("btnVocalTips") || document.querySelector('[data-action="vocal-tips"]') || document.querySelector(".btn-vocal-tips");
-  if (btnVocalTips) {
+  const btnVocalTips = document.getElementById("btnVocalTips") || document.querySelector(".btn-vocal-tips") || document.querySelector('[data-action="vocal-tips"]');
+  const vocalTipsModal = document.getElementById("vocalTipsModal");
+
+  if (btnVocalTips && vocalTipsModal) {
     btnVocalTips.onclick = (e) => {
-      openVocalTipsModal(e);
+      e.preventDefault();
+      e.stopPropagation();
+
+      // Close settings modal if open
+      const settingsModal = document.getElementById("settingsModal");
+      if (settingsModal) {
+        settingsModal.classList.remove("active", "open", "show");
+        settingsModal.style.display = "none";
+      }
+
+      // Show dedicated Vocal Tips modal
+      vocalTipsModal.classList.add("active", "open", "show");
+      vocalTipsModal.style.display = "flex";
+      if (typeof vocalTipsModal.setAttribute === "function") {
+        vocalTipsModal.setAttribute("aria-hidden", "false");
+      }
+      document.body.style.overflow = "hidden";
     };
   }
+
+  // Bind close buttons inside vocalTipsModal
+  const closeBtns = document.querySelectorAll("#vocalTipsModal .modal-close-btn, #vocalTipsModal .btn-close-modal, #btnCloseVocalTips, #vocalTipsModal .vocal-tips-modal-footer button");
+  closeBtns.forEach(btn => {
+    btn.onclick = (e) => {
+      if (e) {
+        e.preventDefault();
+        e.stopPropagation();
+      }
+      closeVocalTipsModal();
+    };
+  });
 }
+initVocalTipsButton();
 
 function closeVocalTipsModal() {
   const modal = document.getElementById("vocalTipsModal");
   if (!modal) return;
-  modal.classList.remove("active");
+  modal.classList.remove("active", "open", "show");
+  modal.style.display = "none";
+  if (typeof modal.setAttribute === "function") {
+    modal.setAttribute("aria-hidden", "true");
+  }
   document.body.style.overflow = "";
 }
 
 function closeVocalTipsOnBackdrop(e) {
-  if (e.target.id === "vocalTipsModal") {
+  if (e && e.target && (e.target.id === "vocalTipsModal" || e.target.classList.contains("modal-backdrop"))) {
     closeVocalTipsModal();
   }
 }
@@ -10033,6 +10066,10 @@ document.addEventListener("keydown", function (e) {
     if (dupModal && dupModal.classList.contains("active")) {
       closeDuplicateConfirmModal();
     }
+    const vocalModal = document.getElementById("vocalTipsModal");
+    if (vocalModal && (vocalModal.classList.contains("active") || vocalModal.style.display !== "none")) {
+      closeVocalTipsModal();
+    }
   }
 });
 
@@ -10122,6 +10159,7 @@ window.renderSectionStandingsUI = renderSectionStandingsUI;
 window.initPhStakesDatalist = initPhStakesDatalist;
 window.openVocalTipsModal = openVocalTipsModal;
 window.closeVocalTipsModal = closeVocalTipsModal;
+window.closeVocalTipsOnBackdrop = closeVocalTipsOnBackdrop;
 window.handleVocalTipsClick = handleVocalTipsClick;
 window.initVocalTipsButton = initVocalTipsButton;
 window.updateActiveProfileDisplay = updateActiveProfileDisplay;

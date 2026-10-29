@@ -9477,7 +9477,8 @@ body.piano-fullscreen-active {
 #repertoireModal .modal-dialog,
 .stake-sheet-modal-box,
 .settings-modal-dialog,
-.settings-modal-box {
+.settings-modal-box,
+.vocal-tips-modal-box {
   max-height: 85vh; /* Prevent modal from exceeding viewport height */
   display: flex;
   flex-direction: column;
@@ -9487,7 +9488,8 @@ body.piano-fullscreen-active {
 .modal-body,
 .stake-sheet-modal-body,
 .settings-tab-content,
-.settings-modal-body {
+.settings-modal-body,
+.vocal-tips-modal-body {
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
   padding-right: 0.5rem; /* prevent content shifting against scrollbar */

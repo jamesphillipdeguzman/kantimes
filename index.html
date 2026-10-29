@@ -1156,8 +1156,7 @@
       </div>
 
       <!-- Vocal Warm-Ups & Singing Tips Modal -->
-      <div id="vocalTipsModal" class="modal-backdrop" onclick="closeVocalTipsOnBackdrop(event)" role="dialog"
-        aria-modal="true" aria-labelledby="vocalTipsModalTitle">
+      <div id="vocalTipsModal" class="modal-backdrop" onclick="closeVocalTipsOnBackdrop(event)" role="dialog" aria-modal="true" aria-labelledby="vocalTipsModalTitle" style="display: none;">
         <div class="modal-box vocal-tips-modal-box">
           <div class="modal-header">
             <div class="vocal-tips-title-wrap">
@@ -1475,8 +1474,7 @@
           </div>
 
           <div class="modal-footer vocal-tips-modal-footer">
-            <button type="button" class="btn btn-primary" onclick="closeVocalTipsModal()">Done / Return to
-              Practice</button>
+            <button type="button" class="btn btn-primary" id="btnCloseVocalTips" onclick="closeVocalTipsModal()">Done / Return to Practice</button>
           </div>
         </div>
       </div>
