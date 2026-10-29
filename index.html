@@ -159,7 +159,7 @@
       </div>
 
       <div style="display: flex; gap: 8px; margin-top: 4px;">
-        <button class="btn btn-primary" id="saveProfileBtn" onclick="handleProfileSubmit()">Continue to Practice
+        <button class="btn btn-primary" id="setupProfileSubmitBtn" onclick="handleProfileSubmit()">Continue to Practice
           Hub</button>
         <button class="btn btn-outline" id="cancelProfileBtn" onclick="cancelProfileEdit()"
           style="display: none; width: auto; white-space: nowrap;">Cancel</button>
@@ -773,7 +773,7 @@
 
           <div class="profile-modal-actions" style="margin-top: 10px;">
             <button type="button" class="btn btn-primary btn-save-profile" id="saveProfileBtn"
-              onclick="saveProfileFromModal()">
+              onclick="saveProfileFromModal(event)">
               💾 Save Profile
             </button>
           </div>

@@ -866,27 +866,89 @@ function handleProfileVoicePartChange(selectEl) {
 /**
  * Saves profile data from #profileModal to localStorage.
  */
-function saveProfileFromModal() {
-  const identity = getUserIdentity();
+function saveProfileFromModal(e) {
+  if (e && typeof e.preventDefault === "function") {
+    e.preventDefault();
+  }
+
+  // 1. Retrieve current identity
+  let identity;
+  try {
+    identity = getUserIdentity();
+  } catch (err) {
+    console.warn("[Kantimes] Error retrieving identity in saveProfileFromModal:", err);
+    identity = {
+      tag: "8K2P",
+      initials: "",
+      part: "All",
+      stake: ""
+    };
+  }
+
+  // 2. Read values from inputs
   const initialsInput = document.getElementById("profileInitialsInput");
   const partSelect = document.getElementById("profileVoicePartSelect");
   const stakeInput = document.getElementById("profileStake") || document.getElementById("profileStakeInput");
 
-  identity.initials = initialsInput ? initialsInput.value.trim().toUpperCase().slice(0, 6) : "";
+  identity.initials = initialsInput ? initialsInput.value.trim().toUpperCase().slice(0, 6) : (identity.initials || "");
   identity.part = partSelect ? partSelect.value : (identity.part || "All");
-  identity.stake = stakeInput ? stakeInput.value.trim() : "";
+  identity.stake = stakeInput ? stakeInput.value.trim() : (identity.stake || "");
 
-  localStorage.setItem("kantimes_user_identity", JSON.stringify(identity));
-
-  // Sync with choir_voice for compatibility with other components
-  if (identity.part && identity.part !== "All") {
-    localStorage.setItem("choir_voice", identity.part);
-    localStorage.setItem("choir_section", identity.part);
+  // 3. Persist to localStorage
+  try {
+    localStorage.setItem("kantimes_user_identity", JSON.stringify(identity));
+  } catch (err) {
+    console.error("[Kantimes] Error writing identity to localStorage:", err);
   }
 
-  updateIdentityUI();
-  updatePracticeSummaryUI();
-  showToast("Profile saved! 🎶");
+  // 4. Sync with choir_voice for compatibility with other legacy components
+  try {
+    if (identity.part && identity.part !== "All") {
+      localStorage.setItem("choir_voice", identity.part);
+      localStorage.setItem("choir_section", identity.part);
+    }
+  } catch (err) {
+    console.warn("[Kantimes] Error syncing choir_voice:", err);
+  }
+
+  // 5. Downstream UI refreshes safely wrapped in try-catches
+  try {
+    updateIdentityUI();
+  } catch (err) {
+    console.warn("[Kantimes] Error in updateIdentityUI:", err);
+  }
+
+  try {
+    updatePracticeSummaryUI();
+  } catch (err) {
+    console.warn("[Kantimes] Error in updatePracticeSummaryUI:", err);
+  }
+
+  try {
+    renderPracticeMilestonesUI();
+  } catch (err) {
+    console.warn("[Kantimes] Error in renderPracticeMilestonesUI:", err);
+  }
+
+  // 6. Properly close modal and re-enable body scroll
+  try {
+    closeProfileModal();
+  } catch (err) {
+    console.error("[Kantimes] Error calling closeProfileModal:", err);
+    const modal = document.getElementById("profileModal");
+    if (modal) {
+      modal.classList.remove("active", "open", "show");
+      modal.style.display = "none";
+    }
+    document.body.style.overflow = "";
+  }
+
+  // 7. Trigger brief confirmation toast
+  try {
+    showToast("Profile saved! 🎵");
+  } catch (err) {
+    console.log("Profile saved! 🎵");
+  }
 }
 
 /**
@@ -1118,13 +1180,20 @@ function openProfileModal() {
   initPhStakesDatalist();
   updateIdentityUI();
   updatePracticeSummaryUI();
+  modal.style.display = "flex";
   modal.classList.add("active");
+  modal.classList.add("show");
   document.body.style.overflow = "hidden";
 }
 
 function closeProfileModal() {
   const modal = document.getElementById("profileModal");
-  if (modal) modal.classList.remove("active");
+  if (modal) {
+    modal.classList.remove("active");
+    modal.classList.remove("open");
+    modal.classList.remove("show");
+    modal.style.display = "none";
+  }
   document.body.style.overflow = "";
 }
 
@@ -1165,11 +1234,31 @@ document.addEventListener("ended", handleMediaStop, true);
 function initIdentityAndPracticeTracking() {
   getUserIdentity();
   initPhStakesDatalist();
+  initProfileModalListeners();
   updateIdentityUI();
   updatePracticeSummaryUI();
   renderPracticeMilestonesUI();
   renderSectionStandingsUI();
 }
+
+function initProfileModalListeners() {
+  const saveBtn = document.getElementById("saveProfileBtn");
+  if (saveBtn && !saveBtn.dataset.listenerBound) {
+    saveBtn.dataset.listenerBound = "true";
+    saveBtn.addEventListener("click", function(e) {
+      saveProfileFromModal(e);
+    });
+  }
+}
+
+function updateHeaderIdentityBadge() {
+  updateIdentityUI();
+}
+
+function updateMilestonesCard() {
+  renderPracticeMilestonesUI();
+}
+
 
 
 // ==========================================================================
@@ -3647,7 +3736,7 @@ function applyProfileData(name, section, avatar) {
 function handleProfileSubmit() {
   const nameInput = document.getElementById("memberName");
   const msgEl = document.getElementById("memberNameValidationMsg");
-  const submitBtn = document.getElementById("saveProfileBtn");
+  const submitBtn = document.getElementById("setupProfileSubmitBtn") || document.getElementById("saveProfileBtn");
   const rawName = nameInput ? nameInput.value.trim() : "";
   const name = toTitleCase(rawName);
   if (nameInput) nameInput.value = name;
@@ -7239,7 +7328,7 @@ function validateNameInput(inputEl, msgEl, btnEl) {
 function initNameValidation() {
   const setupInput = document.getElementById("memberName");
   const setupMsg = document.getElementById("memberNameValidationMsg");
-  const setupBtn = document.getElementById("saveProfileBtn");
+  const setupBtn = document.getElementById("setupProfileSubmitBtn") || document.getElementById("saveProfileBtn");
 
   if (setupInput) {
     setupInput.addEventListener("input", () => {
@@ -9843,6 +9932,8 @@ window.handleProfileVoicePartChange = handleProfileVoicePartChange;
 window.saveProfileFromModal = saveProfileFromModal;
 window.openProfileModal = openProfileModal;
 window.closeProfileModal = closeProfileModal;
+window.updateHeaderIdentityBadge = updateHeaderIdentityBadge;
+window.updateMilestonesCard = updateMilestonesCard;
 window.closeProfileModalOnBackdrop = closeProfileModalOnBackdrop;
 window.initIdentityAndPracticeTracking = initIdentityAndPracticeTracking;
 window.renderPracticeMilestonesUI = renderPracticeMilestonesUI;
