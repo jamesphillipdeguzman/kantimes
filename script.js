@@ -23,7 +23,513 @@ function compareSemver(v1, v2) {
 }
 
 // --- APPS SCRIPT WEB APP URL ---
+// --- APPS SCRIPT WEB APP URL ---
 const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycby6r8JCXFOeuDqk8mlrTFAY5G5jOUOcoljMIC-ow1tlStLj3EVBpEWE_q9iT_sRngEa/exec";
+
+// ==========================================================================
+// 1. CONFIGURATION & BRING YOUR OWN GOOGLE SHEET (STAKE REPERTOIRE ENGINE)
+// ==========================================================================
+const DEFAULT_SHEET_ID = "1-TPqYS9fINnyowq4mfKbxmb6ceEI8gAEsyuhOb19d6U";
+const TEMPLATE_SHEET_URL = `https://docs.google.com/spreadsheets/d/${DEFAULT_SHEET_ID}/copy`;
+
+/**
+ * Extracts pure Google Sheet ID from a raw ID or full Google Sheets URL.
+ * Matches:
+ *   - Raw IDs (e.g. 1-TPqYS9fINnyowq4mfKbxmb6ceEI8gAEsyuhOb19d6U)
+ *   - Full URLs (e.g. https://docs.google.com/spreadsheets/d/1-TPqYS9fINnyowq4mfKbxmb6ceEI8gAEsyuhOb19d6U/edit?pli=1&gid=0#gid=0)
+ */
+function extractSheetId(input) {
+  if (!input || typeof input !== "string") return "";
+  const trimmed = input.trim();
+  const urlMatch = trimmed.match(/\/spreadsheets\/d\/([a-zA-Z0-9-_]+)/);
+  if (urlMatch && urlMatch[1]) {
+    return urlMatch[1];
+  }
+  const rawMatch = trimmed.match(/^([a-zA-Z0-9-_]{20,})$/);
+  if (rawMatch && rawMatch[1]) {
+    return rawMatch[1];
+  }
+  return "";
+}
+
+/**
+ * Optional helper to extract specific tab gid if provided in URL.
+ */
+function extractSheetGid(input) {
+  if (!input || typeof input !== "string") return "0";
+  const match = input.match(/[?&#]gid=([0-9]+)/);
+  return match ? match[1] : "0";
+}
+
+/**
+ * Returns active Google Sheet ID from localStorage, falling back to DEFAULT_SHEET_ID.
+ */
+function getActiveSheetId() {
+  const customId = localStorage.getItem("kantimes_active_sheet_id");
+  return customId && customId.trim() ? customId.trim() : DEFAULT_SHEET_ID;
+}
+
+/**
+ * Returns cached songs from localStorage (0ms offline PWA startup).
+ */
+function getCachedSongs() {
+  try {
+    const raw = localStorage.getItem("kantimes_cached_songs");
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed) && parsed.length > 0) {
+        return parsed;
+      }
+    }
+  } catch (e) {
+    console.warn("[Kantimes] Error parsing kantimes_cached_songs:", e);
+  }
+  return null;
+}
+
+/**
+ * Auto-converts Google Drive share links into iframe-friendly preview URLs
+ * to eliminate CORS blocks and direct downloads on mobile browsers.
+ */
+function sanitizeDriveUrl(url) {
+  if (!url || typeof url !== "string") return "";
+  const trimmed = url.trim();
+  const fileIdMatch = trimmed.match(/\/file\/d\/([a-zA-Z0-9_-]+)/) ||
+                      trimmed.match(/[?&]id=([a-zA-Z0-9_-]+)/);
+  if (fileIdMatch && fileIdMatch[1]) {
+    return `https://drive.google.com/file/d/${fileIdMatch[1]}/preview`;
+  }
+  return trimmed;
+}
+
+/**
+ * Sanitizes resource URLs for Google Drive or general web endpoints.
+ */
+function sanitizeResourceUrl(url) {
+  if (!url || typeof url !== "string") return "";
+  const trimmed = url.trim();
+  if (trimmed.includes("drive.google.com") || trimmed.includes("docs.google.com/file/")) {
+    return sanitizeDriveUrl(trimmed);
+  }
+  return trimmed;
+}
+
+/**
+ * Robust RFC 4180 CSV parser that handles:
+ *   - Quoted strings containing commas, quotes ("" -> "), and newlines
+ *   - Empty trailing cells & blank rows
+ */
+function parseCSV(text) {
+  if (!text || typeof text !== "string") return [];
+  const rows = [];
+  let currentRow = [];
+  let currentVal = "";
+  let inQuotes = false;
+
+  const str = text.replace(/\r\n/g, "\n").replace(/\r/g, "\n");
+
+  for (let i = 0; i < str.length; i++) {
+    const char = str[i];
+    const nextChar = str[i + 1];
+
+    if (inQuotes) {
+      if (char === '"' && nextChar === '"') {
+        currentVal += '"';
+        i++; // skip escaped quote
+      } else if (char === '"') {
+        inQuotes = false;
+      } else {
+        currentVal += char;
+      }
+    } else {
+      if (char === '"') {
+        inQuotes = true;
+      } else if (char === ',') {
+        currentRow.push(currentVal.trim());
+        currentVal = "";
+      } else if (char === '\n') {
+        currentRow.push(currentVal.trim());
+        if (currentRow.some(c => c.length > 0)) {
+          rows.push(currentRow);
+        }
+        currentRow = [];
+        currentVal = "";
+      } else {
+        currentVal += char;
+      }
+    }
+  }
+
+  if (currentVal.length > 0 || currentRow.length > 0) {
+    currentRow.push(currentVal.trim());
+    if (currentRow.some(c => c.length > 0)) {
+      rows.push(currentRow);
+    }
+  }
+
+  return rows;
+}
+
+/**
+ * Aggregates multiple Google Sheet rows with the same song title
+ * into a single structured song object:
+ * {
+ *   "title": "Go Tell It on the Mountain",
+ *   "hymn_number": 1208,
+ *   "category": "Christmas Devotional 2026",
+ *   "resources": [
+ *     { "part": "all", "label": "Full Score (PDF)", "url": "https://..." },
+ *     { "part": "tenor", "label": "Tenor Track", "url": "https://youtu.be/..." }
+ *   ]
+ * }
+ */
+function groupRowsIntoSongs(rows) {
+  if (!rows || rows.length < 2) return [];
+
+  const headers = rows[0].map(h => (h || "").trim().toLowerCase());
+
+  const findCol = (exactMatches, substringMatches = []) => {
+    for (let i = 0; i < headers.length; i++) {
+      const clean = headers[i].replace(/[^a-z0-9]/g, "");
+      if (exactMatches.some(e => clean === e.replace(/[^a-z0-9]/g, ""))) {
+        return i;
+      }
+    }
+    for (let i = 0; i < headers.length; i++) {
+      const clean = headers[i].replace(/[^a-z0-9]/g, "");
+      if (substringMatches.some(s => clean.includes(s.replace(/[^a-z0-9]/g, "")))) {
+        return i;
+      }
+    }
+    return -1;
+  };
+
+  const titleIdx = findCol(["title", "songtitle", "hymntitle"], ["title", "song", "name"]);
+  const hymnNumIdx = findCol(["hymnnumber", "hymn", "number"], ["hymn", "number", "num"]);
+  const categoryIdx = findCol(["category", "season", "event"], ["category", "season", "event"]);
+  const partIdx = findCol(["voicepart", "voice", "part"], ["voice", "part", "section"]);
+  const labelIdx = findCol(["resourcelabel", "label", "description"], ["label", "desc"]);
+  const urlIdx = findCol(["resourceurl", "url", "link"], ["url", "link", "href"]);
+
+  const actualTitleIdx = titleIdx !== -1 ? titleIdx : 0;
+  const songsMap = new Map();
+
+  for (let i = 1; i < rows.length; i++) {
+    const row = rows[i];
+    if (!row || row.length === 0) continue;
+
+    const rawTitle = (row[actualTitleIdx] || "").trim();
+    if (!rawTitle) continue;
+
+    const titleKey = rawTitle.toLowerCase();
+    const rawHymnNum = hymnNumIdx !== -1 ? (row[hymnNumIdx] || "").trim() : "";
+    const hymnNumber = rawHymnNum && !isNaN(parseInt(rawHymnNum, 10)) ? parseInt(rawHymnNum, 10) : null;
+
+    const category = categoryIdx !== -1 ? (row[categoryIdx] || "").trim() : "Active Repertoire";
+    const voicePart = partIdx !== -1 ? (row[partIdx] || "").trim() : "all";
+    const resourceLabel = labelIdx !== -1 ? (row[labelIdx] || "").trim() : "";
+    const rawUrl = urlIdx !== -1 ? (row[urlIdx] || "").trim() : "";
+
+    if (!songsMap.has(titleKey)) {
+      const slug = rawTitle.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
+      const isPast = category.toLowerCase().includes("archive") || category.toLowerCase().includes("october 2026") || category.toLowerCase().includes("past");
+
+      songsMap.set(titleKey, {
+        id: hymnNumber ? `hymn-${hymnNumber}` : `song-${slug}`,
+        title: rawTitle,
+        hymn_number: hymnNumber,
+        number: hymnNumber,
+        category: category || "Active Repertoire",
+        event: category || "Active Repertoire",
+        collection: category || "Active Repertoire",
+        status: isPast ? "archived" : "active",
+        isArchived: isPast,
+        archived: isPast,
+        part: "All Voices",
+        resources: [],
+        audioTracks: [],
+        sheetUrl: "",
+        videoUrl: "",
+        note: ""
+      });
+    }
+
+    const song = songsMap.get(titleKey);
+
+    if (!song.hymn_number && hymnNumber) {
+      song.hymn_number = hymnNumber;
+      song.number = hymnNumber;
+    }
+    if ((!song.category || song.category === "Active Repertoire") && category) {
+      song.category = category;
+      song.event = category;
+      song.collection = category;
+    }
+
+    if (rawUrl) {
+      const sanitizedUrl = sanitizeResourceUrl(rawUrl);
+      const cleanPart = voicePart ? voicePart.trim().toLowerCase() : "all";
+      const defaultLabel = cleanPart && cleanPart !== "all" 
+        ? `${cleanPart.charAt(0).toUpperCase() + cleanPart.slice(1)} Track` 
+        : "Rehearsal Resource";
+      const finalLabel = resourceLabel || defaultLabel;
+
+      const resObj = {
+        part: cleanPart,
+        label: finalLabel,
+        url: sanitizedUrl
+      };
+
+      song.resources.push(resObj);
+
+      // Auto-populate backward-compatible fields for media player & preview
+      const lowerUrl = sanitizedUrl.toLowerCase();
+      const lowerLabel = finalLabel.toLowerCase();
+
+      // Sheet preview (PDF or Drive)
+      if (!song.sheetUrl && (lowerUrl.includes(".pdf") || lowerUrl.includes("drive.google.com") || lowerLabel.includes("pdf") || lowerLabel.includes("sheet") || lowerLabel.includes("score"))) {
+        song.sheetUrl = sanitizedUrl;
+      }
+
+      // Rehearsal Video / YouTube
+      if (!song.videoUrl && (lowerUrl.includes("youtube.com") || lowerUrl.includes("youtu.be") || lowerUrl.endsWith(".mp4") || lowerLabel.includes("video"))) {
+        song.videoUrl = sanitizedUrl;
+      }
+
+      // Dedicated Audio Track (mp3, wav, m4a, church audio assets)
+      const isAudioFile = lowerUrl.includes(".mp3") || lowerUrl.includes(".wav") || lowerUrl.includes(".m4a") || lowerUrl.includes("assets.churchofjesuschrist.org");
+      const isAudioTrackLabel = lowerLabel.includes("track") || lowerLabel.includes("audio") || lowerLabel.includes("accompaniment") || lowerLabel.includes("piano") || lowerLabel.includes("organ");
+      if (isAudioFile || (isAudioTrackLabel && !lowerUrl.includes("youtube") && !lowerUrl.includes("youtu.be"))) {
+        song.audioTracks.push({
+          name: finalLabel,
+          src: sanitizedUrl,
+          part: cleanPart
+        });
+      }
+    }
+  }
+
+  return Array.from(songsMap.values());
+}
+
+/**
+ * Stale-While-Revalidate Engine:
+ * Fetches and parses CSV from public Google Sheet endpoint.
+ * Persists offline to localStorage ("kantimes_cached_songs"),
+ * and smoothly updates song lists.
+ */
+async function loadSongsFromSheet(sheetId, options = {}) {
+  const isBackground = Boolean(options.isBackground);
+  const userInitiated = Boolean(options.userInitiated);
+  const reset = Boolean(options.reset);
+
+  const targetSheetId = sheetId || getActiveSheetId();
+  const csvUrl = `https://docs.google.com/spreadsheets/d/${targetSheetId}/export?format=csv&gid=0`;
+
+  try {
+    const res = await fetch(csvUrl, {
+      cache: "no-cache",
+      headers: { "Cache-Control": "no-cache, no-store, must-revalidate" }
+    });
+
+    if (!res.ok) {
+      throw new Error(`HTTP ${res.status}`);
+    }
+
+    const text = await res.text();
+
+    if (text.trim().startsWith("<!DOCTYPE") || text.trim().startsWith("<html")) {
+      throw new Error("Sheet returned HTML. Please ensure Google Sheet is shared as 'Anyone with the link can view'.");
+    }
+
+    const rows = parseCSV(text);
+    if (!rows || rows.length < 2) {
+      throw new Error("Sheet contains no data rows or has invalid CSV format.");
+    }
+
+    const songs = groupRowsIntoSongs(rows);
+    if (!songs || songs.length === 0) {
+      throw new Error("No songs could be parsed from sheet columns.");
+    }
+
+    // Persist to offline PWA storage
+    localStorage.setItem("kantimes_cached_songs", JSON.stringify(songs));
+
+    // Update active user settings repertoire
+    const settings = getUserSettings();
+    settings.songs = songs;
+    saveUserSettings(settings);
+
+    // Smoothly re-render UI components
+    populateSongSelectDropdown();
+    const select = document.getElementById("targetSong");
+    const activeSong = (select && select.value) ? select.value : songs[0].title;
+    renderSelectedSongResource(activeSong);
+    renderRepertoireList();
+    renderArchivedRepertoireSection();
+    updateStakeSheetStatusUI();
+
+    if (userInitiated || reset) {
+      showToast(reset ? "Reset to Master Repertoire! ✨" : `Connected & synced ${songs.length} pieces from Google Sheet! 🎶`);
+    } else if (!isBackground) {
+      showToast(`Synced ${songs.length} pieces from Google Sheet! 🎶`);
+    }
+
+    return songs;
+  } catch (err) {
+    console.warn("[Kantimes] loadSongsFromSheet warning (offline or permission issue):", err);
+
+    if (userInitiated) {
+      showToast(`⚠️ Sync failed: ${err.message || 'Check Sheet permissions or connection'}`);
+      const errEl = document.getElementById("stakeSheetError");
+      if (errEl) {
+        errEl.textContent = `⚠️ Could not sync: ${err.message || 'Ensure sheet is shared as Anyone with link can view.'}`;
+        errEl.style.display = "block";
+      }
+    }
+
+    // Offline Chapel Mode: Fail gracefully and leave cached songs rendered
+    return null;
+  }
+}
+
+/**
+ * Handles "Connect & Sync" button click in Stake Sheet Switcher modal.
+ */
+async function handleStakeSheetConnect() {
+  const inputEl = document.getElementById("stakeSheetInput");
+  const errEl = document.getElementById("stakeSheetError");
+  const rawInput = inputEl ? inputEl.value.trim() : "";
+
+  if (!rawInput) {
+    if (errEl) {
+      errEl.textContent = "⚠️ Please enter a Google Sheet URL or Sheet ID.";
+      errEl.style.display = "block";
+    }
+    if (inputEl) inputEl.focus();
+    return;
+  }
+
+  const sheetId = extractSheetId(rawInput);
+  if (!sheetId) {
+    if (errEl) {
+      errEl.textContent = "⚠️ Invalid Google Sheet URL or ID format. Please check the link.";
+      errEl.style.display = "block";
+    }
+    if (inputEl) inputEl.focus();
+    return;
+  }
+
+  if (errEl) {
+    errEl.style.display = "none";
+    errEl.textContent = "";
+  }
+
+  localStorage.setItem("kantimes_active_sheet_id", sheetId);
+  updateStakeSheetStatusUI();
+  closeStakeSheetModal();
+  showToast("Connecting to Stake Sheet... ⏳");
+
+  await loadSongsFromSheet(sheetId, { isBackground: false, userInitiated: true });
+}
+
+/**
+ * Handles "Reset to Default Repertoire" in Stake Sheet Switcher modal.
+ */
+async function resetToDefaultRepertoire() {
+  localStorage.removeItem("kantimes_active_sheet_id");
+  updateStakeSheetStatusUI();
+  const inputEl = document.getElementById("stakeSheetInput");
+  if (inputEl) inputEl.value = "";
+  const errEl = document.getElementById("stakeSheetError");
+  if (errEl) errEl.style.display = "none";
+  closeStakeSheetModal();
+  showToast("Resetting to Master Repertoire... 🔄");
+
+  await loadSongsFromSheet(DEFAULT_SHEET_ID, { isBackground: false, reset: true });
+}
+
+/**
+ * Updates status indicator and details in Stake Sheet Switcher modal.
+ */
+function updateStakeSheetStatusUI() {
+  const activeId = getActiveSheetId();
+  const isDefault = (activeId === DEFAULT_SHEET_ID);
+
+  const badge = document.getElementById("stakeSourceStatusBadge");
+  const details = document.getElementById("stakeSourceDetails");
+  const input = document.getElementById("stakeSheetInput");
+
+  if (badge) {
+    if (isDefault) {
+      badge.textContent = "Default Master";
+      badge.className = "stake-source-badge badge-default";
+    } else {
+      badge.textContent = "Custom Stake Sheet";
+      badge.className = "stake-source-badge badge-custom";
+    }
+  }
+
+  if (details) {
+    if (isDefault) {
+      details.innerHTML = `Using official master repertoire sheet (<span class="code-font">${DEFAULT_SHEET_ID.slice(0, 8)}...</span>).`;
+    } else {
+      details.innerHTML = `Connected to custom stake sheet: <strong class="code-font">${escapeHtml(activeId)}</strong>`;
+    }
+  }
+
+  if (input && !input.value) {
+    input.value = isDefault ? "" : activeId;
+  }
+}
+
+function openStakeSheetModal() {
+  const modal = document.getElementById("stakeSheetModal");
+  if (!modal) return;
+  updateStakeSheetStatusUI();
+  const errEl = document.getElementById("stakeSheetError");
+  if (errEl) {
+    errEl.style.display = "none";
+    errEl.textContent = "";
+  }
+  const input = document.getElementById("stakeSheetInput");
+  const activeId = getActiveSheetId();
+  if (input) {
+    input.value = (activeId === DEFAULT_SHEET_ID) ? "" : activeId;
+  }
+  modal.classList.add("active");
+  document.body.style.overflow = "hidden";
+}
+
+function closeStakeSheetModal() {
+  const modal = document.getElementById("stakeSheetModal");
+  if (modal) modal.classList.remove("active");
+  document.body.style.overflow = "";
+}
+
+function closeStakeSheetOnBackdrop(e) {
+  if (e.target && e.target.id === "stakeSheetModal") {
+    closeStakeSheetModal();
+  }
+}
+
+function initStakeRepertoireSync() {
+  updateStakeSheetStatusUI();
+  const cached = getCachedSongs();
+  if (cached && cached.length > 0) {
+    const settings = getUserSettings();
+    settings.songs = cached;
+    saveUserSettings(settings);
+    populateSongSelectDropdown();
+    const select = document.getElementById("targetSong");
+    const activeSong = (select && select.value) ? select.value : cached[0].title;
+    renderSelectedSongResource(activeSong);
+  }
+
+  if (navigator.onLine) {
+    loadSongsFromSheet(getActiveSheetId(), { isBackground: true });
+  }
+}
 
 // --- AVATAR ASSET DEFINITIONS ---
 const CHOIR_AVATARS = [
@@ -612,19 +1118,27 @@ function formatYouTubeEmbedUrl(url) {
   if (!url || !url.trim()) return "";
   const trimmed = url.trim();
   if (trimmed.includes("youtube.com/embed/")) {
+    const sep = trimmed.includes("?") ? "&" : "?";
+    if (!trimmed.includes("playsinline=1")) {
+      return `${trimmed}${sep}enablejsapi=1&playsinline=1`;
+    }
     return trimmed;
   }
-  const watchMatch = trimmed.match(/(?:youtube\.com\/(?:[^\/]+\/.+\/|(?:v|e(?:mbed)?)\/|.*[?&]v=)|youtu\.be\/)([^"&?\/\s]{11})/i);
+  const watchMatch = trimmed.match(/(?:youtube\.com\/(?:[^\/]+\/.+\/|(?:v|e(?:mbed)?|shorts)\/|.*[?&]v=)|youtu\.be\/)([^"&?\/\s]{11})/i);
   if (watchMatch && watchMatch[1]) {
-    return `https://www.youtube.com/embed/${watchMatch[1]}?enablejsapi=1`;
+    return `https://www.youtube.com/embed/${watchMatch[1]}?enablejsapi=1&playsinline=1`;
   }
   return trimmed;
 }
 
 function getUserSettings(forceSync = false) {
+  const cachedSongs = getCachedSongs();
   const stored = localStorage.getItem("kantimes_user_settings") || localStorage.getItem("kantime_user_settings");
   if (!stored) {
     const fresh = JSON.parse(JSON.stringify(DEFAULT_USER_SETTINGS));
+    if (cachedSongs && cachedSongs.length > 0) {
+      fresh.songs = cachedSongs;
+    }
     fresh.appVersion = APP_VERSION;
     fresh.repertoireVersion = REPERTOIRE_VERSION;
     saveUserSettings(fresh);
@@ -632,7 +1146,9 @@ function getUserSettings(forceSync = false) {
   }
   try {
     const parsed = JSON.parse(stored);
-    let songs = Array.isArray(parsed.songs) && parsed.songs.length > 0 ? parsed.songs : DEFAULT_USER_SETTINGS.songs;
+    let songs = (cachedSongs && cachedSongs.length > 0 && !forceSync)
+      ? cachedSongs
+      : (Array.isArray(parsed.songs) && parsed.songs.length > 0 ? parsed.songs : DEFAULT_USER_SETTINGS.songs);
 
     const storedAppVersion = parsed.appVersion || "2.6.0";
     const storedRepVersion = parsed.repertoireVersion || "2.6.0";
@@ -1495,7 +2011,7 @@ function renderSelectedSongResource(songKey) {
 
   let actionsHtml = "";
 
-  const localPdf = song.localSheetUrl || (song.resources && song.resources.pdf) || "";
+  const localPdf = song.localSheetUrl || (song.resources && !Array.isArray(song.resources) && song.resources.pdf) || "";
   if (localPdf) {
     actionsHtml += `<button class="btn-link" type="button" onclick="openResourceModal('${escapeHtml(song.title)} (Local Sheet)', '${escapeHtml(localPdf)}', 'doc')">🎼 Preview Sheet (Offline PDF) <span class="badge-cached-offline">Offline Ready</span></button> `;
   }
@@ -1504,7 +2020,7 @@ function renderSelectedSongResource(songKey) {
     const isGoogleDrive = song.sheetUrl.includes("drive.google.com");
     const offlineBadge = isOffline ? ` <span class="badge-offline-req">⚠️ Requires Internet</span>` : "";
     if (isGoogleDrive) {
-      actionsHtml += `<button class="btn-link ${isOffline ? 'link-disabled-offline' : ''}" type="button" onclick="${isOffline ? "showToast('Google Drive requires an active internet connection.')" : `openResourceModal('${escapeHtml(song.title)} (Sheet)', '${escapeHtml(song.sheetUrl)}', 'doc')`}">🎼 Preview Drive Sheet${offlineBadge}</button> `;
+      actionsHtml += `<button class="btn-link ${isOffline ? 'link-disabled-offline' : ''}" type="button" onclick="${isOffline ? "showToast('Google Drive requires an active internet connection.')" : `openResourceModal('${escapeHtml(song.title)} (Sheet)', '${escapeHtml(sanitizeDriveUrl(song.sheetUrl))}', 'doc')`}">🎼 Preview Drive Sheet${offlineBadge}</button> `;
       const directFolderUrl = song.sheetUrl.replace('/embeddedfolderview', '/drive/folders').split('#')[0];
       actionsHtml += `<a class="btn-link ${isOffline ? 'link-disabled-offline' : ''}" href="${isOffline ? 'javascript:void(0);' : escapeHtml(directFolderUrl)}" ${isOffline ? `onclick="showToast('Google Drive requires an active internet connection.')"` : 'target="_blank" rel="noopener noreferrer"'}>📁 Open Drive Folder ↗${offlineBadge}</a> `;
     } else {
@@ -1512,13 +2028,81 @@ function renderSelectedSongResource(songKey) {
     }
   }
 
-  const localVideo = song.localVideoUrl || (song.resources && song.resources.video && song.resources.video.endsWith('.mp4') ? song.resources.video : "");
+  const localVideo = song.localVideoUrl || (song.resources && !Array.isArray(song.resources) && song.resources.video && song.resources.video.endsWith('.mp4') ? song.resources.video : "");
   if (localVideo) {
     actionsHtml += `<button class="btn-link" type="button" onclick="openResourceModal('${escapeHtml(song.title)} (Video)', '${escapeHtml(localVideo)}', 'video')">▶️ Rehearsal Video <span class="badge-cached-offline">Offline Ready</span></button> `;
   } else if (song.videoUrl) {
     const offlineBadge = isOffline ? ` <span class="badge-offline-req">⚠️ Requires Internet</span>` : "";
     const embedUrl = formatYouTubeEmbedUrl(song.videoUrl);
     actionsHtml += `<button class="btn-link ${isOffline ? 'link-disabled-offline' : ''}" type="button" onclick="${isOffline ? "showToast('YouTube streaming requires an active internet connection.')" : `openResourceModal('${escapeHtml(song.title)} (Video)', '${escapeHtml(embedUrl)}', 'video')`}">▶️ Watch Video${offlineBadge}</button> `;
+  }
+
+  let extraResourcesHtml = "";
+  if (Array.isArray(song.resources) && song.resources.length > 0) {
+    let resPillsHtml = "";
+    song.resources.forEach(res => {
+      if (!res || !res.url) return;
+      const cleanUrl = res.url.trim();
+      const part = (res.part || "all").toLowerCase();
+      const label = res.label || (part ? part.toUpperCase() : "Resource");
+      const isDrive = cleanUrl.includes("drive.google.com");
+      const isYt = cleanUrl.includes("youtube.com") || cleanUrl.includes("youtu.be");
+      const isAudio = cleanUrl.includes(".mp3") || cleanUrl.includes(".wav") || cleanUrl.includes(".m4a") || cleanUrl.includes("assets.churchofjesuschrist.org");
+      const isPdf = cleanUrl.toLowerCase().includes(".pdf");
+      const offlineBadge = isOffline && !cleanUrl.includes("kantimes-resources") ? ` <span class="badge-offline-req">⚠️ Online</span>` : "";
+
+      let icon = "🔗";
+      let clickAction = "";
+
+      if (isPdf || isDrive) {
+        icon = "🎼";
+        const previewUrl = isDrive ? sanitizeDriveUrl(cleanUrl) : cleanUrl;
+        clickAction = `onclick="openResourceModal('${escapeHtml(song.title)} - ${escapeHtml(label)}', '${escapeHtml(previewUrl)}', 'doc')"`;
+      } else if (isYt) {
+        icon = "▶️";
+        const embedUrl = formatYouTubeEmbedUrl(cleanUrl);
+        clickAction = `onclick="openResourceModal('${escapeHtml(song.title)} - ${escapeHtml(label)}', '${escapeHtml(embedUrl)}', 'video')"`;
+      } else if (isAudio) {
+        icon = "🎧";
+        clickAction = `onclick="selectAudioTrack('${escapeHtml(cleanUrl)}', this)"`;
+      }
+
+      if (clickAction) {
+        resPillsHtml += `
+          <button type="button" class="song-resource-pill ${isOffline && !cleanUrl.includes('kantimes-resources') ? 'link-disabled-offline' : ''}"
+            ${isOffline && !cleanUrl.includes('kantimes-resources') ? `onclick="showToast('Online resource requires an active internet connection.')"` : clickAction}
+            title="${escapeHtml(label)} (${escapeHtml(part)})">
+            <span class="res-part-badge" data-voice="${escapeHtml(part)}">${escapeHtml(part)}</span>
+            <span class="res-label">${icon} ${escapeHtml(label)}</span>
+            ${offlineBadge}
+          </button>
+        `;
+      } else {
+        resPillsHtml += `
+          <a class="song-resource-pill ${isOffline ? 'link-disabled-offline' : ''}"
+            href="${isOffline ? 'javascript:void(0);' : escapeHtml(cleanUrl)}"
+            ${isOffline ? `onclick="showToast('Online resource requires an active internet connection.')"` : 'target="_blank" rel="noopener noreferrer"'}
+            title="${escapeHtml(label)}">
+            <span class="res-part-badge" data-voice="${escapeHtml(part)}">${escapeHtml(part)}</span>
+            <span class="res-label">${icon} ${escapeHtml(label)}</span>
+            ${offlineBadge}
+          </a>
+        `;
+      }
+    });
+
+    if (resPillsHtml) {
+      extraResourcesHtml = `
+        <div class="song-resources-wrap">
+          <div class="song-resources-header">
+            <span>📑 Repertoire Resources &amp; Voice Tracks (${song.resources.length})</span>
+          </div>
+          <div class="song-resources-pills">
+            ${resPillsHtml}
+          </div>
+        </div>
+      `;
+    }
   }
 
   let localAudioHtml = "";
@@ -1599,6 +2183,7 @@ function renderSelectedSongResource(songKey) {
           ${localAudioHtml}
           ${renderSelfCheckMicHtml()}
           <div class="song-actions">${actionsHtml}</div>
+          ${extraResourcesHtml}
           ${noteHtml}
           ${embedHtml}
         </div>
@@ -4012,7 +4597,15 @@ function openResourceModal(title, url, type) {
   const wrapper = document.getElementById("modalWrapper");
 
   if (modalTitle) modalTitle.innerText = title;
-  if (iframe) iframe.src = url;
+
+  let finalUrl = url;
+  if (finalUrl && finalUrl.includes("drive.google.com")) {
+    finalUrl = sanitizeDriveUrl(finalUrl);
+  } else if (type === 'video' && finalUrl && (finalUrl.includes("youtube.com") || finalUrl.includes("youtu.be"))) {
+    finalUrl = formatYouTubeEmbedUrl(finalUrl);
+  }
+
+  if (iframe) iframe.src = finalUrl;
   if (wrapper) {
     if (type === 'doc') {
       wrapper.classList.add('doc-view');
@@ -8155,11 +8748,16 @@ window.addEventListener("DOMContentLoaded", function () {
   initTutorialLang();
   syncOfflinePracticeQueue();
   initPWAInstallBanner();
+  initStakeRepertoireSync();
 });
 
 // Close modals on Escape key
 document.addEventListener("keydown", function (e) {
   if (e.key === "Escape") {
+    const stakeModal = document.getElementById("stakeSheetModal");
+    if (stakeModal && stakeModal.classList.contains("active")) {
+      closeStakeSheetModal();
+    }
     const singerModal = document.getElementById("singerDetailsModal");
     if (singerModal && singerModal.classList.contains("active")) {
       closeSingerDetailsModal();
@@ -8215,3 +8813,16 @@ window.playPianoNote = playPianoNote;
 window.stopPianoNote = stopPianoNote;
 window.dampAllPianoNotes = dampAllPianoNotes;
 window.unlockPianoAudioContext = unlockPianoAudioContext;
+window.DEFAULT_SHEET_ID = DEFAULT_SHEET_ID;
+window.extractSheetId = extractSheetId;
+window.extractSheetGid = extractSheetGid;
+window.getActiveSheetId = getActiveSheetId;
+window.getCachedSongs = getCachedSongs;
+window.loadSongsFromSheet = loadSongsFromSheet;
+window.openStakeSheetModal = openStakeSheetModal;
+window.closeStakeSheetModal = closeStakeSheetModal;
+window.closeStakeSheetOnBackdrop = closeStakeSheetOnBackdrop;
+window.handleStakeSheetConnect = handleStakeSheetConnect;
+window.resetToDefaultRepertoire = resetToDefaultRepertoire;
+window.sanitizeResourceUrl = sanitizeResourceUrl;
+window.sanitizeDriveUrl = sanitizeDriveUrl;

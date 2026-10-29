@@ -731,11 +731,11 @@ header {
   display: flex;
   align-items: center;
   justify-content: center;
-  max-width: 520px;
+  max-width: 540px;
   margin: 0 auto;
   position: relative;
-  padding: 0 72px 0 0;
-  /* allowance for theme toggle and gear buttons */
+  padding: 0 134px 0 0;
+  /* allowance for theme toggle, stake sheet, and settings buttons */
 }
 
 .header-actions {
@@ -749,6 +749,7 @@ header {
 }
 
 .theme-quick-btn,
+.sheet-sync-btn,
 .settings-btn {
   background: rgba(255, 255, 255, 0.16);
   border: 1px solid rgba(255, 255, 255, 0.28);
@@ -767,12 +768,14 @@ header {
   touch-action: manipulation;
 }
 
-.theme-quick-btn:hover {
+.theme-quick-btn:hover,
+.sheet-sync-btn:hover {
   background: rgba(255, 255, 255, 0.28);
   transform: scale(1.08);
 }
 
-.theme-quick-btn:active {
+.theme-quick-btn:active,
+.sheet-sync-btn:active {
   transform: scale(0.94);
 }
 
@@ -819,17 +822,28 @@ header {
   }
 }
 
+@media (max-width: 480px) {
+  .header-inner {
+    padding-right: 124px;
+  }
+}
+
 /* Tighten gap on very small screens */
 @media (max-width: 360px) {
   .header-actions {
-    gap: 5px;
+    gap: 4px;
+  }
+
+  .header-inner {
+    padding-right: 114px;
   }
 
   .theme-quick-btn,
+  .sheet-sync-btn,
   .settings-btn {
-    width: 34px;
-    height: 34px;
-    font-size: 1.05rem;
+    width: 33px;
+    height: 33px;
+    font-size: 1rem;
   }
 }
 
@@ -7730,4 +7744,360 @@ body.piano-fullscreen-active {
   font-weight: 700;
   min-height: 36px;
   margin: 0;
+}
+
+/* ==========================================================================
+   STAKE REPERTOIRE SOURCE SWITCHER MODAL & DYNAMIC SHEET STYLES
+   ========================================================================== */
+
+.stake-sheet-modal-box {
+  max-width: 480px;
+  width: 92%;
+  display: flex;
+  flex-direction: column;
+  border-radius: var(--radius-lg, 16px);
+  overflow: hidden;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.28);
+}
+
+.stake-sheet-title-wrap h3 {
+  font-size: 1.15rem;
+  font-weight: 800;
+  color: var(--text, #0f172a);
+  margin-bottom: 2px;
+}
+
+.stake-sheet-subtitle {
+  font-size: 0.78rem;
+  color: var(--text-muted, #64748b);
+  margin: 0;
+  line-height: 1.35;
+}
+
+.stake-sheet-modal-body {
+  padding: 18px 20px 22px;
+}
+
+/* Active Source Status Card */
+.stake-source-status-card {
+  background: #f8fafc;
+  border: 1px solid var(--border, #e2e8f0);
+  border-radius: var(--radius-md, 10px);
+  padding: 12px 14px;
+}
+
+.stake-source-status-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+
+.stake-source-label {
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: var(--text-muted, #64748b);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.stake-source-badge {
+  font-size: 0.75rem;
+  font-weight: 800;
+  padding: 3px 10px;
+  border-radius: var(--radius-full, 999px);
+  display: inline-flex;
+  align-items: center;
+  letter-spacing: 0.02em;
+}
+
+.stake-source-badge.badge-default {
+  background: #ecfdf5;
+  color: #065f46;
+  border: 1px solid #a7f3d0;
+}
+
+.stake-source-badge.badge-custom {
+  background: #eff6ff;
+  color: #1d4ed8;
+  border: 1px solid #bfdbfe;
+}
+
+.stake-source-details {
+  font-size: 0.82rem;
+  color: var(--text, #334155);
+  line-height: 1.4;
+  word-break: break-all;
+}
+
+.code-font {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 0.78rem;
+  padding: 1px 4px;
+  background: rgba(0, 0, 0, 0.05);
+  border-radius: 4px;
+}
+
+/* Template Copy Section */
+.stake-sheet-template-box {
+  margin-top: 16px;
+  background: #fffbeb;
+  border: 1px dashed #fde68a;
+  border-radius: var(--radius-md, 10px);
+  padding: 12px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.stake-template-info {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.stake-template-info strong {
+  font-size: 0.82rem;
+  color: #92400e;
+}
+
+.stake-template-info span {
+  font-size: 0.76rem;
+  color: #b45309;
+  line-height: 1.35;
+}
+
+.btn-copy-template {
+  background: #ffffff !important;
+  color: #92400e !important;
+  border: 1px solid #fcd34d !important;
+  font-size: 0.8rem;
+  font-weight: 750;
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 6px 14px;
+  border-radius: var(--radius-sm, 6px);
+  width: auto;
+  align-self: flex-start;
+  transition: all 0.18s ease;
+}
+
+.btn-copy-template:hover {
+  background: #fef3c7 !important;
+  border-color: #f59e0b !important;
+  transform: translateY(-1px);
+}
+
+.stake-sheet-error {
+  color: #dc2626;
+  font-size: 0.8rem;
+  margin-top: 6px;
+  line-height: 1.35;
+}
+
+.stake-sheet-modal-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 12px 20px 16px;
+  background: #f8fafc;
+  border-top: 1px solid var(--border, #e2e8f0);
+}
+
+.stake-sheet-modal-footer .btn {
+  margin: 0;
+  min-height: 40px;
+  font-size: 0.88rem;
+  font-weight: 700;
+}
+
+.btn-reset-source {
+  font-size: 0.8rem !important;
+  white-space: nowrap;
+}
+
+/* Song Resources Multi-Part Grid */
+.song-resources-wrap {
+  margin-top: 12px;
+  background: #f8fafc;
+  border: 1px solid var(--border, #e2e8f0);
+  border-radius: var(--radius-md, 10px);
+  padding: 10px 12px;
+}
+
+.song-resources-header {
+  font-size: 0.78rem;
+  font-weight: 750;
+  color: var(--text-muted, #64748b);
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  margin-bottom: 8px;
+}
+
+.song-resources-pills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.song-resource-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 12px;
+  background: #ffffff;
+  border: 1px solid var(--border, #cbd5e1);
+  border-radius: var(--radius-full, 999px);
+  color: var(--text, #1e293b);
+  font-size: 0.8rem;
+  font-weight: 650;
+  text-decoration: none;
+  cursor: pointer;
+  transition: all 0.18s ease;
+  user-select: none;
+  touch-action: manipulation;
+}
+
+.song-resource-pill:hover {
+  background: #eff6ff;
+  border-color: #93c5fd;
+  color: #1d4ed8;
+  transform: translateY(-1px);
+}
+
+.song-resource-pill:active {
+  transform: scale(0.97);
+}
+
+.res-part-badge {
+  font-size: 0.68rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  padding: 1px 6px;
+  border-radius: 4px;
+  background: #f1f5f9;
+  color: #475569;
+}
+
+.res-part-badge[data-voice="soprano"],
+.res-part-badge[data-voice="s"] {
+  background: #eff6ff;
+  color: #2563eb;
+}
+
+.res-part-badge[data-voice="alto"],
+.res-part-badge[data-voice="a"] {
+  background: #f0fdfa;
+  color: #0f766e;
+}
+
+.res-part-badge[data-voice="tenor"],
+.res-part-badge[data-voice="t"] {
+  background: #ecfdf5;
+  color: #059669;
+}
+
+.res-part-badge[data-voice="bass"],
+.res-part-badge[data-voice="b"] {
+  background: #fffbeb;
+  color: #b45309;
+}
+
+/* Dark Mode Overrides */
+[data-theme="dark"] .stake-sheet-modal-box {
+  background-color: var(--bg-modal, #131b2e) !important;
+  color: var(--text-primary, #f1f5f9);
+}
+
+[data-theme="dark"] .stake-sheet-title-wrap h3 {
+  color: #f1f5f9 !important;
+}
+
+[data-theme="dark"] .stake-sheet-subtitle {
+  color: #94a3b8 !important;
+}
+
+[data-theme="dark"] .stake-source-status-card {
+  background: #182238;
+  border-color: rgba(255, 255, 255, 0.12);
+}
+
+[data-theme="dark"] .stake-source-details {
+  color: #cbd5e1;
+}
+
+[data-theme="dark"] .code-font {
+  background: rgba(255, 255, 255, 0.08);
+  color: #93c5fd;
+}
+
+[data-theme="dark"] .stake-source-badge.badge-default {
+  background: rgba(16, 185, 129, 0.16);
+  color: #6ee7b7;
+  border-color: rgba(16, 185, 129, 0.35);
+}
+
+[data-theme="dark"] .stake-source-badge.badge-custom {
+  background: rgba(59, 130, 246, 0.16);
+  color: #93c5fd;
+  border-color: rgba(59, 130, 246, 0.35);
+}
+
+[data-theme="dark"] .stake-sheet-template-box {
+  background: rgba(245, 158, 11, 0.1);
+  border-color: rgba(245, 158, 11, 0.3);
+}
+
+[data-theme="dark"] .stake-template-info strong {
+  color: #fde68a;
+}
+
+[data-theme="dark"] .stake-template-info span {
+  color: #fcd34d;
+}
+
+[data-theme="dark"] .btn-copy-template {
+  background: #1e293b !important;
+  color: #fde68a !important;
+  border-color: rgba(245, 158, 11, 0.4) !important;
+}
+
+[data-theme="dark"] .btn-copy-template:hover {
+  background: rgba(245, 158, 11, 0.2) !important;
+}
+
+[data-theme="dark"] .stake-sheet-modal-footer {
+  background: #182238;
+  border-top-color: rgba(255, 255, 255, 0.1);
+}
+
+[data-theme="dark"] .song-resources-wrap {
+  background: #182238;
+  border-color: rgba(255, 255, 255, 0.12);
+}
+
+[data-theme="dark"] .song-resources-header {
+  color: #94a3b8;
+}
+
+[data-theme="dark"] .song-resource-pill {
+  background: rgba(255, 255, 255, 0.08);
+  border-color: rgba(255, 255, 255, 0.18);
+  color: #e2e8f0;
+}
+
+[data-theme="dark"] .song-resource-pill:hover {
+  background: rgba(59, 130, 246, 0.22);
+  border-color: #60a5fa;
+  color: #ffffff;
+}
+
+[data-theme="dark"] .res-part-badge {
+  background: rgba(255, 255, 255, 0.12);
+  color: #cbd5e1;
 }

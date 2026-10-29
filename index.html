@@ -55,6 +55,8 @@
         </div>
       </div>
       <div class="header-actions">
+        <button type="button" class="sheet-sync-btn" id="openStakeSheetBtn" onclick="openStakeSheetModal()"
+          aria-label="Stake / Repertoire Source" title="Stake / Repertoire Source (Google Sheet)">📊</button>
         <button type="button" class="theme-quick-btn" id="themeQuickToggleBtn" onclick="toggleQuickTheme()"
           aria-label="Toggle Dark / Light Theme" title="Toggle Dark/Light Mode">🌙</button>
         <button type="button" class="settings-btn" id="openSettingsBtn" onclick="openSettingsModal()"
@@ -637,6 +639,64 @@
       </div>
     </div>
 
+    <!-- Stake / Repertoire Source Switcher Modal -->
+    <div id="stakeSheetModal" class="modal-backdrop" onclick="closeStakeSheetOnBackdrop(event)" role="dialog"
+      aria-modal="true" aria-labelledby="stakeSheetModalTitle">
+      <div class="modal-box stake-sheet-modal-box">
+        <div class="modal-header">
+          <div class="stake-sheet-title-wrap">
+            <h3 id="stakeSheetModalTitle">📊 Stake / Repertoire Source</h3>
+            <p class="stake-sheet-subtitle">Connect any public LDS Stake Google Sheet for instant repertoire sync</p>
+          </div>
+          <button class="modal-close-btn" type="button" onclick="closeStakeSheetModal()"
+            aria-label="Close modal">&times;</button>
+        </div>
+
+        <div class="modal-body stake-sheet-modal-body">
+          <!-- Active Source Status Indicator -->
+          <div class="stake-source-status-card">
+            <div class="stake-source-status-top">
+              <span class="stake-source-label">Active Source:</span>
+              <span class="stake-source-badge badge-default" id="stakeSourceStatusBadge">Default Master</span>
+            </div>
+            <div class="stake-source-details" id="stakeSourceDetails">
+              Using official master repertoire sheet.
+            </div>
+          </div>
+
+          <div class="settings-section" style="margin-top: 14px;">
+            <label for="stakeSheetInput">Google Sheet URL or ID</label>
+            <input type="text" id="stakeSheetInput" placeholder="Paste Google Sheet URL or pure Sheet ID..."
+              onkeydown="if(event.key==='Enter')handleStakeSheetConnect()">
+            <p class="settings-hint">
+              Ensure your Google Sheet is set to <strong>&ldquo;Anyone with the link can view&rdquo;</strong> (Share &gt; General access).
+            </p>
+            <div class="stake-sheet-error" id="stakeSheetError" style="display: none;"></div>
+          </div>
+
+          <div class="stake-sheet-template-box">
+            <div class="stake-template-info">
+              <strong>Need a starter repertoire sheet?</strong>
+              <span>Make a copy of our template with Title, Hymn Number, Category, Voice Part, Resource Label, and Resource URL columns.</span>
+            </div>
+            <a href="https://docs.google.com/spreadsheets/d/1-TPqYS9fINnyowq4mfKbxmb6ceEI8gAEsyuhOb19d6U/copy"
+              target="_blank" rel="noopener noreferrer" class="btn btn-outline btn-copy-template" id="copySheetTemplateBtn">
+              📑 Copy Sheet Template ↗
+            </a>
+          </div>
+        </div>
+
+        <div class="modal-footer stake-sheet-modal-footer">
+          <button type="button" class="btn btn-outline btn-reset-source" id="resetStakeSheetBtn" onclick="resetToDefaultRepertoire()">
+            🔄 Reset to Default Repertoire
+          </button>
+          <button type="button" class="btn btn-primary btn-connect-source" id="connectStakeSheetBtn" onclick="handleStakeSheetConnect()">
+            ⚡ Connect &amp; Sync
+          </button>
+        </div>
+      </div>
+    </div>
+
     <!-- Personal Settings / Preferences / Profile Modal -->
     <div id="settingsModal" class="modal-backdrop" onclick="closeSettingsOnBackdrop(event)" role="dialog"
       aria-modal="true" aria-labelledby="settingsModalTitle">
@@ -772,6 +832,17 @@
               <p class="settings-hint">When disabled (default for post-conference mode), archived pieces are hidden from
                 the active practice hub. When enabled, they appear in a collapsible "Archived / Past Conferences"
                 section on your practice dashboard.</p>
+            </div>
+
+            <div class="settings-section" style="margin-top: 14px;">
+              <div class="settings-section-title-wrap">
+                <h4 class="settings-section-title">📊 Stake Repertoire Source</h4>
+              </div>
+              <p class="settings-section-desc settings-hint">Sync repertoire dynamically from any public LDS Stake Google Sheet.</p>
+              <button type="button" class="btn btn-outline" style="width: 100%; margin-top: 8px; justify-content: center;"
+                onclick="closeSettingsModal(); openStakeSheetModal();">
+                📋 Switch Stake / Repertoire Sheet
+              </button>
             </div>
 
             <div class="repertoire-header-row" style="margin-top: 16px;">
