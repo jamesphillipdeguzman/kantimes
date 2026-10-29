@@ -860,45 +860,17 @@
             <div class="stake-sheet-error" id="stakeSheetError" style="display: none;"></div>
           </div>
 
-          <!-- Collapsible Quick Guide for Stake Music Directors -->
-          <details class="stake-guide-accordion" id="stakeGuideAccordion">
-            <summary class="stake-guide-summary">
-              <span>📖 How to set up your Stake's Repertoire</span>
-              <span class="accordion-arrow">▾</span>
+          <details class="repertoire-guide-details" style="margin: 1rem 0; border: 1px solid var(--border-color, #334155); border-radius: 8px; padding: 0.5rem 0.75rem; background: var(--bg-surface-secondary, rgba(255,255,255,0.03));">
+            <summary style="cursor: pointer; font-weight: 600; font-size: 0.9rem; user-select: none;">
+              📖 How to set up your Stake's Repertoire
             </summary>
-            <div class="stake-guide-content">
-              <div class="stake-guide-steps">
-                <div class="stake-guide-step">
-                  <div class="step-badge">1</div>
-                  <div class="step-body">
-                    <strong>Copy the Template</strong>
-                    <p>Duplicate our clean starter sheet into your Google Drive via the <em>Copy Sheet Template</em>
-                      button below.</p>
-                  </div>
-                </div>
-                <div class="stake-guide-step">
-                  <div class="step-badge">2</div>
-                  <div class="step-body">
-                    <strong>Add Songs &amp; Publish</strong>
-                    <p>Fill in your songs, voice parts, and links, then go to:
-                      <code
-                        class="guide-path">File &gt; Share &gt; Publish to web &gt; Link tab &gt; Comma-separated values (.csv) &gt; Publish</code>.
-                    </p>
-                  </div>
-                </div>
-                <div class="stake-guide-step">
-                  <div class="step-badge">3</div>
-                  <div class="step-body">
-                    <strong>Paste &amp; Sync</strong>
-                    <p>Paste the spreadsheet link into the input box above and tap <strong>&ldquo;Connect &amp;
-                        Sync&rdquo;</strong>.</p>
-                  </div>
-                </div>
-              </div>
-              <div class="stake-guide-member-callout">
-                💡 <strong>Note for Choir Members:</strong> You don&rsquo;t need to configure a sheet! Just open the
-                link provided by your music coordinator or use the Default Master repertoire.
-              </div>
+            <div class="guide-steps" style="margin-top: 0.75rem; font-size: 0.85rem; line-height: 1.5; color: var(--text-muted, #94a3b8);">
+              <ol style="padding-left: 1.2rem; margin: 0;">
+                <li>Make a copy of our Repertoire Template.</li>
+                <li>Fill in your pieces, categories, voice parts, and sheet/audio links.</li>
+                <li>In Google Sheets, go to <strong>File &gt; Share &gt; Publish to web</strong>, choose <strong>Comma-separated values (.csv)</strong>, and click Publish.</li>
+                <li>Paste that link into the field above and tap <strong>Connect &amp; Sync</strong>.</li>
+              </ol>
             </div>
           </details>
 
@@ -916,7 +888,7 @@
           </div>
         </div>
 
-        <div class="modal-footer stake-sheet-modal-footer">
+        <div class="modal-footer stake-sheet-modal-footer repertoire-modal-actions">
           <button type="button" class="btn btn-outline btn-reset-source" id="btnResetDefault"
             onclick="resetToDefaultRepertoire()">
             🔄 Reset to Default Repertoire

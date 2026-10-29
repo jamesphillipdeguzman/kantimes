@@ -8138,30 +8138,60 @@ body.piano-fullscreen-active {
   line-height: 1.35;
 }
 
-.stake-sheet-modal-footer {
-  display: flex;
-  align-items: center;
+.stake-sheet-modal-footer,
+.modal-footer,
+.repertoire-modal-actions {
+  display: flex !important;
+  flex-direction: row;
   justify-content: space-between;
-  gap: 10px;
-  padding: 12px 20px 16px;
+  align-items: center;
+  gap: 0.75rem;
+  margin-top: 1.25rem;
+  padding: 12px 18px 16px;
   background: #f8fafc;
   border-top: 1px solid var(--border, #e2e8f0);
+  width: 100%;
+  box-sizing: border-box;
   flex-shrink: 0;
   position: sticky;
   bottom: 0;
   z-index: 10;
 }
 
+.repertoire-modal-actions button,
+.modal-footer button,
+.stake-sheet-modal-footer button,
 .stake-sheet-modal-footer .btn {
+  flex: 1 1 0; /* equal width split */
+  min-width: 0;
+  white-space: nowrap;
+  padding: 0.65rem 0.75rem;
+  font-size: 0.88rem;
   margin: 0;
   min-height: 40px;
-  font-size: 0.88rem;
   font-weight: 700;
+  box-sizing: border-box;
 }
 
 .btn-reset-source {
-  font-size: 0.8rem !important;
+  font-size: 0.82rem !important;
   white-space: nowrap;
+}
+
+@media (max-width: 480px) {
+  .modal-footer,
+  .repertoire-modal-actions,
+  .stake-sheet-modal-footer {
+    flex-direction: column-reverse; /* stack vertically on small phones */
+    gap: 0.5rem;
+  }
+  .repertoire-modal-actions button,
+  .modal-footer button,
+  .stake-sheet-modal-footer button,
+  .stake-sheet-modal-footer .btn {
+    width: 100%;
+    flex: none;
+  }
 }
 
 /* Song Resources Multi-Part Grid */
@@ -8369,9 +8399,25 @@ body.piano-fullscreen-active {
   background: rgba(245, 158, 11, 0.2) !important;
 }
 
-[data-theme="dark"] .stake-sheet-modal-footer {
+[data-theme="dark"] .stake-sheet-modal-footer,
+[data-theme="dark"] .modal-footer,
+[data-theme="dark"] .repertoire-modal-actions,
+.dark .stake-sheet-modal-footer,
+.dark .modal-footer,
+.dark .repertoire-modal-actions {
   background: #182238;
   border-top-color: rgba(255, 255, 255, 0.1);
+}
+
+[data-theme="dark"] .repertoire-guide-details,
+.dark .repertoire-guide-details {
+  border-color: rgba(255, 255, 255, 0.15) !important;
+  background: rgba(255, 255, 255, 0.04) !important;
+}
+
+[data-theme="dark"] .repertoire-guide-details summary,
+.dark .repertoire-guide-details summary {
+  color: #93c5fd;
 }
 
 [data-theme="dark"] .song-resources-wrap {
@@ -9427,17 +9473,22 @@ body.piano-fullscreen-active {
    Modal Overflow & Sticky Action Footer Fix
    ========================================================================== */
 .modal-card,
-.modal-content {
+.modal-content,
+#repertoireModal .modal-dialog,
+.stake-sheet-modal-box {
   max-height: 85vh; /* Prevent modal from exceeding viewport height */
   display: flex;
   flex-direction: column;
 }
 
 /* Make the modal body scrollable while keeping headers and footers sticky/visible */
-.modal-body {
+.modal-body,
+.stake-sheet-modal-body {
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
   padding-right: 0.5rem; /* prevent content shifting against scrollbar */
+  flex: 1 1 auto;
+  min-height: 0;
 }
 
 /* If the modal uses a single card without separate body/footer containers */
@@ -9447,17 +9498,39 @@ body.piano-fullscreen-active {
   -webkit-overflow-scrolling: touch;
 }
 
-.modal-footer {
+.modal-footer,
+.repertoire-modal-actions {
+  display: flex !important;
+  flex-direction: row;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.75rem;
+  margin-top: 1.25rem;
+  width: 100%;
+  box-sizing: border-box;
   flex-shrink: 0;
   position: sticky;
   bottom: 0;
   z-index: 10;
 }
 
-/* Ensure footer action buttons remain visible and properly aligned */
-#btnConnectSync,
-#connectStakeSheetBtn,
-#btnResetDefault,
-#resetStakeSheetBtn {
-  flex-shrink: 0;
+.repertoire-modal-actions button,
+.modal-footer button {
+  flex: 1 1 0; /* equal width split */
+  min-width: 0;
+  white-space: nowrap;
+  padding: 0.65rem 0.75rem;
+  font-size: 0.9rem;
+}
+
+@media (max-width: 480px) {
+  .modal-footer,
+  .repertoire-modal-actions {
+    flex-direction: column-reverse; /* stack vertically on small phones */
+    gap: 0.5rem;
+  }
+  .repertoire-modal-actions button,
+  .modal-footer button {
+    width: 100%;
+  }
 }
