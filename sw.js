@@ -212,15 +212,15 @@ self.addEventListener("fetch", (event) => {
         .then((networkResponse) => {
           if (networkResponse && networkResponse.status === 200) {
             const responseToCache = networkResponse.clone();
+            const canonicalResponseToCache = networkResponse.clone();
+            const relativePath = url.pathname.endsWith("script.js")
+              ? "./script.js"
+              : url.pathname.endsWith("style.css")
+                ? "./css/style.css"
+                : "./manifest.json";
             caches.open(CACHE_NAME).then((cache) => {
               cache.put(request, responseToCache);
-              // Also update canonical relative path in cache
-              const relativePath = url.pathname.endsWith("script.js")
-                ? "./script.js"
-                : url.pathname.endsWith("style.css")
-                  ? "./css/style.css"
-                  : "./manifest.json";
-              cache.put(relativePath, networkResponse.clone());
+              cache.put(relativePath, canonicalResponseToCache);
             });
           }
           return networkResponse;

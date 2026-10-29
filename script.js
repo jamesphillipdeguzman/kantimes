@@ -7949,33 +7949,43 @@ function openVocalTipsModal(e) {
     if (typeof e.stopPropagation === "function") e.stopPropagation();
   }
 
-  // Close settings modal if open
-  const settingsModal = document.getElementById("settingsModal");
-  if (settingsModal) {
-    settingsModal.classList.remove("active", "open", "show");
-    settingsModal.style.display = "none";
-  }
-
-  // Ensure any other lingering overlay/backdrop is cleaned up
-  document.querySelectorAll(".modal-backdrop.active, .modal.active").forEach(el => {
-    if (el && el.id !== "vocalTipsModal") {
-      el.classList.remove("active", "open", "show");
-      el.style.display = "none";
-      if (typeof el.setAttribute === "function") {
-        el.setAttribute("aria-hidden", "true");
+  // Hide any other active modals first
+  document.querySelectorAll(".modal.active, .modal.open, .modal-backdrop.active, .modal-backdrop.open").forEach(m => {
+    if (m && m.id !== "vocalTipsModal") {
+      m.classList.remove("active", "open");
+      m.style.display = "none";
+      if (typeof m.setAttribute === "function") {
+        m.setAttribute("aria-hidden", "true");
       }
     }
   });
 
-  // Show dedicated Vocal Tips modal
-  const vocalTipsModal = document.getElementById("vocalTipsModal");
-  if (vocalTipsModal) {
-    vocalTipsModal.classList.add("active", "open", "show");
-    vocalTipsModal.style.display = "flex";
-    if (typeof vocalTipsModal.setAttribute === "function") {
-      vocalTipsModal.setAttribute("aria-hidden", "false");
+  const modalVocalTips = document.getElementById("vocalTipsModal") || document.getElementById("tipsModal");
+  if (modalVocalTips) {
+    modalVocalTips.style.display = "flex";
+    modalVocalTips.classList.add("active", "open");
+    if (typeof modalVocalTips.setAttribute === "function") {
+      modalVocalTips.setAttribute("aria-hidden", "false");
     }
     document.body.style.overflow = "hidden";
+  }
+}
+
+function closeVocalTipsModal() {
+  const modalVocalTips = document.getElementById("vocalTipsModal") || document.getElementById("tipsModal");
+  if (!modalVocalTips) return;
+  modalVocalTips.classList.remove("active", "open");
+  modalVocalTips.style.display = "none";
+  if (typeof modalVocalTips.setAttribute === "function") {
+    modalVocalTips.setAttribute("aria-hidden", "true");
+  }
+  document.body.style.overflow = "";
+}
+
+function closeVocalTipsOnBackdrop(e) {
+  const modalVocalTips = document.getElementById("vocalTipsModal") || document.getElementById("tipsModal");
+  if (e && (e.target === modalVocalTips || (e.target && (e.target.id === "vocalTipsModal" || e.target.classList.contains("modal-backdrop"))))) {
+    closeVocalTipsModal();
   }
 }
 
@@ -7984,61 +7994,56 @@ function handleVocalTipsClick(e) {
 }
 
 function initVocalTipsButton() {
-  const btnVocalTips = document.getElementById("btnVocalTips") || document.querySelector(".btn-vocal-tips") || document.querySelector('[data-action="vocal-tips"]');
-  const vocalTipsModal = document.getElementById("vocalTipsModal");
+  const btnVocalTips = document.getElementById("btnVocalTips") || document.querySelector(".btn-vocal-tips");
+  const modalVocalTips = document.getElementById("vocalTipsModal") || document.getElementById("tipsModal");
 
-  if (btnVocalTips && vocalTipsModal) {
+  if (btnVocalTips && modalVocalTips) {
     btnVocalTips.onclick = (e) => {
       e.preventDefault();
       e.stopPropagation();
 
-      // Close settings modal if open
-      const settingsModal = document.getElementById("settingsModal");
-      if (settingsModal) {
-        settingsModal.classList.remove("active", "open", "show");
-        settingsModal.style.display = "none";
-      }
+      // Hide any other active modals first
+      document.querySelectorAll(".modal.active, .modal.open, .modal-backdrop.active, .modal-backdrop.open").forEach(m => {
+        m.classList.remove("active", "open");
+        m.style.display = "none";
+      });
 
-      // Show dedicated Vocal Tips modal
-      vocalTipsModal.classList.add("active", "open", "show");
-      vocalTipsModal.style.display = "flex";
-      if (typeof vocalTipsModal.setAttribute === "function") {
-        vocalTipsModal.setAttribute("aria-hidden", "false");
+      // Reveal Vocal Tips modal cleanly
+      modalVocalTips.style.display = "flex";
+      modalVocalTips.classList.add("active", "open");
+      if (typeof modalVocalTips.setAttribute === "function") {
+        modalVocalTips.setAttribute("aria-hidden", "false");
       }
       document.body.style.overflow = "hidden";
     };
-  }
 
-  // Bind close buttons inside vocalTipsModal
-  const closeBtns = document.querySelectorAll("#vocalTipsModal .modal-close-btn, #vocalTipsModal .btn-close-modal, #btnCloseVocalTips, #vocalTipsModal .vocal-tips-modal-footer button");
-  closeBtns.forEach(btn => {
-    btn.onclick = (e) => {
-      if (e) {
-        e.preventDefault();
-        e.stopPropagation();
+    // Ensure close buttons inside vocal tips work cleanly
+    modalVocalTips.querySelectorAll(".btn-close, .close-modal, [data-close], .modal-close-btn, #btnCloseVocalTips").forEach(btn => {
+      btn.onclick = (e) => {
+        if (e && typeof e.preventDefault === "function") e.preventDefault();
+        modalVocalTips.classList.remove("active", "open");
+        modalVocalTips.style.display = "none";
+        if (typeof modalVocalTips.setAttribute === "function") {
+          modalVocalTips.setAttribute("aria-hidden", "true");
+        }
+        document.body.style.overflow = "";
+      };
+    });
+
+    // Dismiss on backdrop tap
+    modalVocalTips.onclick = (e) => {
+      if (e.target === modalVocalTips) {
+        modalVocalTips.classList.remove("active", "open");
+        modalVocalTips.style.display = "none";
+        if (typeof modalVocalTips.setAttribute === "function") {
+          modalVocalTips.setAttribute("aria-hidden", "true");
+        }
+        document.body.style.overflow = "";
       }
-      closeVocalTipsModal();
     };
-  });
+  }
 }
 initVocalTipsButton();
-
-function closeVocalTipsModal() {
-  const modal = document.getElementById("vocalTipsModal");
-  if (!modal) return;
-  modal.classList.remove("active", "open", "show");
-  modal.style.display = "none";
-  if (typeof modal.setAttribute === "function") {
-    modal.setAttribute("aria-hidden", "true");
-  }
-  document.body.style.overflow = "";
-}
-
-function closeVocalTipsOnBackdrop(e) {
-  if (e && e.target && (e.target.id === "vocalTipsModal" || e.target.classList.contains("modal-backdrop"))) {
-    closeVocalTipsModal();
-  }
-}
 
 function filterVocalCategory(cat) {
   const pills = document.querySelectorAll(".vocal-filter-pill");

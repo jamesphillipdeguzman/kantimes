@@ -1154,8 +1154,9 @@
           </div>
         </div>
       </div>
+    </div>
 
-      <!-- Vocal Warm-Ups & Singing Tips Modal -->
+    <!-- Vocal Warm-Ups & Singing Tips Modal -->
       <div id="vocalTipsModal" class="modal-backdrop" onclick="closeVocalTipsOnBackdrop(event)" role="dialog" aria-modal="true" aria-labelledby="vocalTipsModalTitle" style="display: none;">
         <div class="modal-box vocal-tips-modal-box">
           <div class="modal-header">
@@ -1170,8 +1171,7 @@
                 onclick="exportVocalDrillsToPdf()" title="Export All Vocal Drills to printable PDF">
                 📄 Export PDF
               </button>
-              <button class="modal-close-btn" type="button" onclick="closeVocalTipsModal()"
-                aria-label="Close modal">&times;</button>
+              <button class="modal-close-btn btn-close" type="button" data-close onclick="closeVocalTipsModal()" aria-label="Close modal">&times;</button>
             </div>
           </div>
 
@@ -1474,7 +1474,7 @@
           </div>
 
           <div class="modal-footer vocal-tips-modal-footer">
-            <button type="button" class="btn btn-primary" id="btnCloseVocalTips" onclick="closeVocalTipsModal()">Done / Return to Practice</button>
+            <button type="button" class="btn btn-primary btn-close" id="btnCloseVocalTips" data-close onclick="closeVocalTipsModal()">Done / Return to Practice</button>
           </div>
         </div>
       </div>

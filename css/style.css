@@ -9544,3 +9544,12 @@ body.piano-fullscreen-active {
     width: 100%;
   }
 }
+/* Vocal Tips Modal Active / Open Display Assurance */
+#vocalTipsModal.active,
+#vocalTipsModal.open {
+  display: flex !important;
+  visibility: visible !important;
+  opacity: 1 !important;
+  z-index: 99999 !important;
+  pointer-events: auto !important;
+}
