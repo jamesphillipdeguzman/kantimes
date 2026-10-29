@@ -2158,12 +2158,16 @@ input[type="text"].input-invalid {
   pointer-events: auto;
 }
 
-.modal-box {
+.modal-box,
+.modal-card,
+.modal-content,
+.modal-dialog,
+#repertoireModal .modal-dialog {
   background: #ffffff;
   border-radius: var(--radius-lg);
   width: 100%;
   max-width: 560px;
-  max-height: 90vh;
+  max-height: 85vh; /* Prevent modal from exceeding viewport height */
   display: flex;
   flex-direction: column;
   overflow: hidden;
@@ -2185,6 +2189,7 @@ input[type="text"].input-invalid {
   padding: 14px 18px;
   border-bottom: 1px solid var(--border);
   background: var(--card-bg-subtle);
+  flex-shrink: 0;
 }
 
 .modal-header h3 {
@@ -2216,10 +2221,14 @@ input[type="text"].input-invalid {
 
 .modal-body {
   padding: 10px;
-  flex: 1;
+  flex: 1 1 auto;
+  min-height: 0;
   display: flex;
   flex-direction: column;
   background: var(--bg-modal, var(--card-bg, #ffffff));
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  padding-right: 0.5rem; /* prevent content shifting against scrollbar */
 }
 
 #videoModal .modal-body {
@@ -7819,6 +7828,7 @@ body.piano-fullscreen-active {
 .stake-sheet-modal-box {
   max-width: 480px;
   width: 92%;
+  max-height: 85vh; /* Prevent modal from exceeding viewport height */
   display: flex;
   flex-direction: column;
   border-radius: var(--radius-lg, 16px);
@@ -7842,6 +7852,11 @@ body.piano-fullscreen-active {
 
 .stake-sheet-modal-body {
   padding: 18px 20px 22px;
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  padding-right: 0.5rem; /* prevent content shifting against scrollbar */
 }
 
 /* Active Source Status Card */
@@ -8131,6 +8146,10 @@ body.piano-fullscreen-active {
   padding: 12px 20px 16px;
   background: #f8fafc;
   border-top: 1px solid var(--border, #e2e8f0);
+  flex-shrink: 0;
+  position: sticky;
+  bottom: 0;
+  z-index: 10;
 }
 
 .stake-sheet-modal-footer .btn {
@@ -8387,6 +8406,10 @@ body.piano-fullscreen-active {
 .profile-modal-box {
   max-width: 480px;
   width: 94%;
+  max-height: 85vh; /* Prevent modal from exceeding viewport height */
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
 }
 
 .profile-modal-title-wrap h3 {
@@ -8407,6 +8430,11 @@ body.piano-fullscreen-active {
 
 .profile-modal-body {
   padding: 16px 20px;
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  padding-right: 0.5rem;
 }
 
 /* Active Handle Card */
@@ -9392,4 +9420,44 @@ body.piano-fullscreen-active {
 [data-theme="dark"] .field-hint,
 .dark .field-hint {
   color: #94a3b8;
+}
+
+
+/* ==========================================================================
+   Modal Overflow & Sticky Action Footer Fix
+   ========================================================================== */
+.modal-card,
+.modal-content {
+  max-height: 85vh; /* Prevent modal from exceeding viewport height */
+  display: flex;
+  flex-direction: column;
+}
+
+/* Make the modal body scrollable while keeping headers and footers sticky/visible */
+.modal-body {
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  padding-right: 0.5rem; /* prevent content shifting against scrollbar */
+}
+
+/* If the modal uses a single card without separate body/footer containers */
+.modal-dialog-scrollable {
+  max-height: 90vh;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.modal-footer {
+  flex-shrink: 0;
+  position: sticky;
+  bottom: 0;
+  z-index: 10;
+}
+
+/* Ensure footer action buttons remain visible and properly aligned */
+#btnConnectSync,
+#connectStakeSheetBtn,
+#btnResetDefault,
+#resetStakeSheetBtn {
+  flex-shrink: 0;
 }
