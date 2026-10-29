@@ -126,11 +126,17 @@
     <!-- Singer Profile Setup Card (Visible before sign-in / on change) -->
     <div class="card fade-in" id="profileCard">
       <h2 id="profileCardTitle">👤 Choir Member Setup</h2>
-      <label for="memberName">Full Name (Required)</label>
-      <input type="text" id="memberName" placeholder="e.g. Juan dela Cruz"
-        onblur="if(typeof toTitleCase==='function')this.value=toTitleCase(this.value)">
-      <div class="input-validation-msg" id="memberNameValidationMsg" style="display: none;">⚠️ Please enter a valid full
-        name (at least 5 characters).</div>
+      <label for="memberName">Initials or Nickname (Required)</label>
+      <input type="text" id="memberName" placeholder="e.g. JD, Sam" maxlength="6" minlength="2" required
+        autocomplete="off"
+        oninput="this.value = this.value.toUpperCase(); document.getElementById('memberNameValidationMsg').style.display = 'none';" />
+      <div class="input-validation-msg" id="memberNameValidationMsg"
+        style="display: none; color: #f87171; font-size: 0.8rem; margin-top: 0.35rem;">
+        ⚠️ Please enter your initials or nickname (2 to 6 characters).
+      </div>
+      <div class="field-hint" style="font-size: 0.8rem; color: var(--text-muted, #94a3b8); margin-top: 0.25rem;">
+        Used in your choir handle and weekly practice report (e.g., JD#8PBP).
+      </div>
 
       <label for="memberSection">Voice Part / Choir</label>
       <select id="memberSection">
@@ -752,10 +758,17 @@
           </div>
 
           <div class="settings-section">
-            <label for="profileStakeInput">Stake Name <span class="label-hint">(Optional)</span></label>
-            <input type="text" id="profileStakeInput" placeholder="e.g. Manila Philippines Stake"
-              autocomplete="organization">
-            <p class="settings-hint">Appears in your group chat practice report.</p>
+            <label for="profileStake" class="profile-field-label">STAKE / DISTRICT <span
+                class="label-hint">(OPTIONAL)</span></label>
+            <div class="stake-select-wrapper">
+              <input type="text" id="profileStake" list="phStakesList"
+                placeholder="Select or type your Stake (e.g. Iloilo Philippines Stake)" autocomplete="off" />
+              <datalist id="phStakesList">
+                <!-- Populated dynamically from data/ph-stakes.json -->
+              </datalist>
+            </div>
+            <span class="settings-hint field-hint">Appears in your group chat practice report. Start typing to
+              filter.</span>
           </div>
 
           <div class="profile-modal-actions" style="margin-top: 10px;">

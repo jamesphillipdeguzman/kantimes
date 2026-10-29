@@ -870,7 +870,7 @@ function saveProfileFromModal() {
   const identity = getUserIdentity();
   const initialsInput = document.getElementById("profileInitialsInput");
   const partSelect = document.getElementById("profileVoicePartSelect");
-  const stakeInput = document.getElementById("profileStakeInput");
+  const stakeInput = document.getElementById("profileStake") || document.getElementById("profileStakeInput");
 
   identity.initials = initialsInput ? initialsInput.value.trim().toUpperCase().slice(0, 6) : "";
   identity.part = partSelect ? partSelect.value : (identity.part || "All");
@@ -939,7 +939,7 @@ function updateIdentityUI() {
     partSelect.value = identity.part || "All";
   }
 
-  const stakeInput = document.getElementById("profileStakeInput");
+  const stakeInput = document.getElementById("profileStake") || document.getElementById("profileStakeInput");
   if (stakeInput && document.activeElement !== stakeInput) {
     stakeInput.value = identity.stake || "";
   }
@@ -1115,6 +1115,7 @@ function renderPracticeMilestonesUI() {
 function openProfileModal() {
   const modal = document.getElementById("profileModal");
   if (!modal) return;
+  initPhStakesDatalist();
   updateIdentityUI();
   updatePracticeSummaryUI();
   modal.classList.add("active");
@@ -1163,10 +1164,187 @@ document.addEventListener("ended", handleMediaStop, true);
 
 function initIdentityAndPracticeTracking() {
   getUserIdentity();
+  initPhStakesDatalist();
   updateIdentityUI();
   updatePracticeSummaryUI();
   renderPracticeMilestonesUI();
   renderSectionStandingsUI();
+}
+
+
+// ==========================================================================
+// PHILIPPINE STAKES & DISTRICTS CURATED DATASET HYDRATION
+// ==========================================================================
+const FALLBACK_PH_STAKES = [
+  // Visayas - Panay & Guimaras
+  "Iloilo Philippines Stake",
+  "Iloilo Philippines North Stake",
+  "Iloilo Philippines Central Stake",
+  "Roxas Philippines Stake",
+  "Kalibo Philippines Stake",
+  "Antique Philippines District",
+  // Visayas - Negros Island
+  "Bacolod Philippines Stake",
+  "Bacolod Philippines North Stake",
+  "Bacolod Philippines South Stake",
+  "Dumaguete Philippines Stake",
+  "Bago Philippines Stake",
+  "Cadiz Philippines Stake",
+  "San Carlos Philippines Stake",
+  "Kabankalan Philippines Stake",
+  // Visayas - Cebu & Bohol
+  "Cebu Philippines Stake",
+  "Cebu Philippines Central Stake",
+  "Cebu Philippines Liloan Stake",
+  "Cebu Philippines Consolacion Stake",
+  "Cebu Philippines Mandaue Stake",
+  "Lapu-Lapu Philippines Stake",
+  "Talisay Philippines Stake",
+  "Naga Philippines Stake",
+  "Tagbilaran Philippines Stake",
+  // Visayas - Eastern Visayas
+  "Tacloban Philippines Stake",
+  "Ormoc Philippines Stake",
+  "Carigara Philippines Stake",
+  "Catbalogan Philippines District",
+  "Calbayog Philippines District",
+  // Luzon - Metro Manila
+  "Manila Philippines Stake",
+  "Quezon City Philippines Stake",
+  "Quezon City Philippines South Stake",
+  "Quezon City Philippines North Stake",
+  "Makati Philippines Stake",
+  "Pasay Philippines Stake",
+  "Pasig Philippines Stake",
+  "Mandaluyong Philippines Stake",
+  "Marikina Philippines Stake",
+  "Parañaque Philippines Stake",
+  "Las Piñas Philippines Stake",
+  "Valenzuela Philippines Stake",
+  "Caloocan Philippines Stake",
+  "Caloocan Philippines North Stake",
+  "Taguig Philippines Stake",
+  "Fairview Philippines Stake",
+  "Novalliches Philippines Stake",
+  // Luzon - Northern & Central Luzon
+  "Baguio Philippines Stake",
+  "Urdaneta Philippines Stake",
+  "Dagupan Philippines Stake",
+  "Lingayen Philippines Stake",
+  "San Fernando La Union Philippines Stake",
+  "Laoag Philippines Stake",
+  "Tuguegarao Philippines Stake",
+  "Angeles Philippines Stake",
+  "San Fernando Pampanga Stake",
+  "Tarlac Philippines Stake",
+  "Cabanatuan Philippines Stake",
+  "Olongapo Philippines Stake",
+  "Malolos Philippines Stake",
+  // Luzon - Southern Luzon & Bicol
+  "Lucena Philippines Stake",
+  "San Pablo Philippines Stake",
+  "Batangas Philippines Stake",
+  "Lipa Philippines Stake",
+  "Cavite Philippines Stake",
+  "Dasmariñas Philippines Stake",
+  "Legazpi Philippines Stake",
+  "Naga Philippines Stake",
+  // Mindanao - Davao Region
+  "Davao Philippines Stake",
+  "Davao Philippines West Stake",
+  "Davao Philippines North Stake",
+  "Davao Philippines Buhangin Stake",
+  "Digos Philippines Stake",
+  "Tagum Philippines Stake",
+  // Mindanao - Northern Mindanao & Caraga
+  "Cagayan de Oro Philippines Stake",
+  "Cagayan de Oro Philippines East Stake",
+  "Cagayan de Oro Philippines West Stake",
+  "Iligan Philippines Stake",
+  "Butuan Philippines Stake",
+  "Surigao Philippines District",
+  "Malaybalay Philippines Stake",
+  "Valencia Philippines Stake",
+  // Mindanao - Western & Southern Mindanao
+  "General Santos Philippines Stake",
+  "General Santos Philippines North Stake",
+  "Zamboanga Philippines Stake",
+  "Zamboanga Philippines Central Stake",
+  "Pagadian Philippines Stake",
+  "Cotabato Philippines Stake"
+];
+
+let cachedPhStakesData = null;
+
+/**
+ * Hydrates <datalist id="phStakesList"> with curated Philippine stakes and districts.
+ * Fetches data/ph-stakes.json; falls back gracefully to FALLBACK_PH_STAKES when offline or if fetch fails.
+ */
+async function initPhStakesDatalist() {
+  const datalist = document.getElementById("phStakesList");
+  if (!datalist) return;
+
+  // If already populated, return early
+  if (datalist.children && datalist.children.length > 0) return;
+
+  try {
+    const res = await fetch("./data/ph-stakes.json");
+    if (!res.ok) throw new Error("HTTP " + res.status);
+    const data = await res.json();
+    cachedPhStakesData = data;
+    populatePhStakesDatalist(data);
+  } catch (err) {
+    console.warn("[Kantimes] Using offline fallback Philippine Stakes list:", err);
+    populatePhStakesDatalistFallback();
+  }
+}
+
+/**
+ * Populates datalist with structured data grouped by Region and Area.
+ */
+function populatePhStakesDatalist(data) {
+  const datalist = document.getElementById("phStakesList");
+  if (!datalist || !data) return;
+
+  const fragment = document.createDocumentFragment();
+
+  // Iterate Regions (Visayas, Luzon, Mindanao)
+  Object.keys(data).forEach(region => {
+    const areas = data[region];
+    if (!areas || typeof areas !== "object") return;
+    Object.keys(areas).forEach(area => {
+      const stakes = areas[area];
+      if (Array.isArray(stakes)) {
+        stakes.forEach(stake => {
+          const opt = document.createElement("option");
+          opt.value = stake;
+          opt.label = `${area} • ${region}`;
+          fragment.appendChild(opt);
+        });
+      }
+    });
+  });
+
+  datalist.innerHTML = "";
+  datalist.appendChild(fragment);
+}
+
+/**
+ * Populates datalist with hardcoded fallback stakes array.
+ */
+function populatePhStakesDatalistFallback() {
+  const datalist = document.getElementById("phStakesList");
+  if (!datalist) return;
+
+  const fragment = document.createDocumentFragment();
+  FALLBACK_PH_STAKES.forEach(stake => {
+    const opt = document.createElement("option");
+    opt.value = stake;
+    fragment.appendChild(opt);
+  });
+
+  datalist.innerHTML = "";
+  datalist.appendChild(fragment);
 }
 
 // ==========================================================================
@@ -9672,3 +9850,4 @@ window.getSectionStandings = getSectionStandings;
 window.recordSectionPracticeMinutes = recordSectionPracticeMinutes;
 window.initFreshStakeSectionStandings = initFreshStakeSectionStandings;
 window.renderSectionStandingsUI = renderSectionStandingsUI;
+window.initPhStakesDatalist = initPhStakesDatalist;

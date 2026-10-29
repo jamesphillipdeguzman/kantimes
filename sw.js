@@ -13,6 +13,7 @@ const PRECACHE_ASSETS = [
   "./manifest.json",
   "./version.json",
   "./songs.json",
+  "./data/ph-stakes.json",
   "./lame.min.js",
   "https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js",
   // Images & Avatars

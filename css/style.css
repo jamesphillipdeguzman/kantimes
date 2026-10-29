@@ -9291,3 +9291,105 @@ body.piano-fullscreen-active {
 .dark .section-standings-row .mins-sub {
   color: #94a3b8;
 }
+
+/* ==========================================================================
+   Stake / District Searchable Datalist Picker Styles
+   ========================================================================== */
+.stake-select-wrapper {
+  position: relative;
+  width: 100%;
+}
+
+.stake-select-wrapper input[type="text"],
+#profileStake {
+  width: 100%;
+  padding: 10px 14px;
+  padding-right: 36px;
+  font-size: 0.92rem;
+  font-weight: 500;
+  border-radius: var(--radius-md, 10px);
+  border: 1px solid var(--border, #cbd5e1);
+  background-color: var(--bg-input, #ffffff);
+  color: var(--text-primary, #0f172a);
+  box-sizing: border-box;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.stake-select-wrapper input[type="text"]:focus,
+#profileStake:focus {
+  border-color: var(--primary, #2563eb);
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.15);
+  outline: none;
+}
+
+.stake-select-wrapper::after {
+  content: "▾";
+  position: absolute;
+  right: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  pointer-events: none;
+  font-size: 0.9rem;
+  color: var(--text-muted, #64748b);
+  transition: color 0.15s ease;
+}
+
+.stake-select-wrapper:focus-within::after {
+  color: var(--primary, #2563eb);
+}
+
+.profile-field-label {
+  display: block;
+  font-size: 0.78rem;
+  font-weight: 800;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--text-secondary, #475569);
+  margin-bottom: 6px;
+}
+
+.field-hint {
+  font-size: 0.76rem;
+  color: var(--text-muted, #64748b);
+  margin-top: 5px;
+  display: block;
+  line-height: 1.35;
+}
+
+/* Dark mode overrides */
+[data-theme="dark"] .stake-select-wrapper input[type="text"],
+[data-theme="dark"] #profileStake,
+.dark .stake-select-wrapper input[type="text"],
+.dark #profileStake {
+  background-color: var(--bg-input, #1a243c);
+  border-color: var(--border, #23314e);
+  color: var(--text-primary, #f1f5f9);
+}
+
+[data-theme="dark"] .stake-select-wrapper input[type="text"]:focus,
+[data-theme="dark"] #profileStake:focus,
+.dark .stake-select-wrapper input[type="text"]:focus,
+.dark #profileStake:focus {
+  border-color: var(--primary, #3b82f6);
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.25);
+}
+
+[data-theme="dark"] .stake-select-wrapper::after,
+.dark .stake-select-wrapper::after {
+  color: #94a3b8;
+}
+
+[data-theme="dark"] .stake-select-wrapper:focus-within::after,
+.dark .stake-select-wrapper:focus-within::after {
+  color: #60a5fa;
+}
+
+[data-theme="dark"] .profile-field-label,
+.dark .profile-field-label {
+  color: #94a3b8;
+}
+
+[data-theme="dark"] .field-hint,
+.dark .field-hint {
+  color: #94a3b8;
+}
