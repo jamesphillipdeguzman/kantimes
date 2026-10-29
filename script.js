@@ -389,9 +389,9 @@ async function loadSongsFromSheet(sheetIdOrUrl, options = {}) {
     settings.songs = songs;
     saveUserSettings(settings);
 
-    // Smoothly re-render UI components
-    populateSongSelectDropdown();
-    const select = document.getElementById("targetSong");
+    // Smoothly re-render UI components strictly with newly synced repertoire
+    populateSongDropdown(songs);
+    const select = document.getElementById("songSelect") || document.querySelector(".rehearsal-song-select") || document.getElementById("targetSong");
     const activeSong = (select && select.value) ? select.value : songs[0].title;
     renderSelectedSongResource(activeSong);
     renderRepertoireList();
@@ -613,8 +613,8 @@ function initStakeRepertoireSync() {
     const settings = getUserSettings();
     settings.songs = cached;
     saveUserSettings(settings);
-    populateSongSelectDropdown();
-    const select = document.getElementById("targetSong");
+    populateSongDropdown(cached);
+    const select = document.getElementById("songSelect") || document.querySelector(".rehearsal-song-select") || document.getElementById("targetSong");
     const activeSong = (select && select.value) ? select.value : cached[0].title;
     renderSelectedSongResource(activeSong);
   }
@@ -2345,11 +2345,15 @@ function formatYouTubeEmbedUrl(url) {
 
 function getUserSettings(forceSync = false) {
   const cachedSongs = getCachedSongs();
+  const customSheetId = localStorage.getItem("kantimes_active_sheet_id");
+  const isCustomSheet = Boolean(customSheetId && customSheetId.trim() && customSheetId.trim() !== DEFAULT_SHEET_ID);
   const stored = localStorage.getItem("kantimes_user_settings") || localStorage.getItem("kantime_user_settings");
   if (!stored) {
     const fresh = JSON.parse(JSON.stringify(DEFAULT_USER_SETTINGS));
     if (cachedSongs && cachedSongs.length > 0) {
       fresh.songs = cachedSongs;
+    } else if (isCustomSheet) {
+      fresh.songs = [];
     }
     fresh.appVersion = APP_VERSION;
     fresh.repertoireVersion = REPERTOIRE_VERSION;
@@ -2360,78 +2364,81 @@ function getUserSettings(forceSync = false) {
     const parsed = JSON.parse(stored);
     let songs = (cachedSongs && cachedSongs.length > 0 && !forceSync)
       ? cachedSongs
-      : (Array.isArray(parsed.songs) && parsed.songs.length > 0 ? parsed.songs : DEFAULT_USER_SETTINGS.songs);
+      : (Array.isArray(parsed.songs) && parsed.songs.length > 0 ? parsed.songs : (isCustomSheet ? [] : DEFAULT_USER_SETTINGS.songs));
 
     const storedAppVersion = parsed.appVersion || "2.6.0";
     const storedRepVersion = parsed.repertoireVersion || "2.6.0";
     const needsMigration = forceSync || compareSemver(REPERTOIRE_VERSION, storedRepVersion) > 0 || compareSemver(APP_VERSION, storedAppVersion) > 0;
 
-    // 1. Ensure all October 2026 Stake Conference pieces are archived
-    let hasArchivedOctober = false;
-    songs.forEach(s => {
-      const isOctober = (s.id && (s.id.startsWith("song_oct_") || s.id === "song_1" || s.id === "song_2" || s.id === "song_3" || s.id === "song_4" || s.id === "song_5")) ||
-        (s.event && (s.event.includes("Oct 24–25") || s.event.includes("October 2026") || s.event.includes("Stake Choir Prep")));
-      if (isOctober) {
-        if (!s.isArchived || s.status !== "archived") {
-          hasArchivedOctober = true;
+    // Only apply default stake conference archives, active defaults injection, and default metadata sync when on default master sheet
+    if (!isCustomSheet) {
+      // 1. Ensure all October 2026 Stake Conference pieces are archived
+      let hasArchivedOctober = false;
+      songs.forEach(s => {
+        const isOctober = (s.id && (s.id.startsWith("song_oct_") || s.id === "song_1" || s.id === "song_2" || s.id === "song_3" || s.id === "song_4" || s.id === "song_5")) ||
+          (s.event && (s.event.includes("Oct 24–25") || s.event.includes("October 2026") || s.event.includes("Stake Choir Prep")));
+        if (isOctober) {
+          if (!s.isArchived || s.status !== "archived") {
+            hasArchivedOctober = true;
+          }
+          s.event = "October 2026 Stake Conference";
+          s.collection = "October 2026 Stake Conference";
+          s.status = "archived";
+          s.isArchived = true;
+          s.archived = true;
+          s.archivedDate = s.archivedDate || "2026-10-25";
         }
-        s.event = "October 2026 Stake Conference";
-        s.collection = "October 2026 Stake Conference";
-        s.status = "archived";
-        s.isArchived = true;
-        s.archived = true;
-        s.archivedDate = s.archivedDate || "2026-10-25";
-      }
-    });
+      });
 
-    // 2. Ensure all active default pieces (Christmas Devotional 2026 / Current Practice) exist and are active
-    const activeDefaults = DEFAULT_USER_SETTINGS.songs.filter(d => !d.isArchived);
-    let hasAddedActiveDefaults = false;
+      // 2. Ensure all active default pieces (Christmas Devotional 2026 / Current Practice) exist and are active
+      const activeDefaults = DEFAULT_USER_SETTINGS.songs.filter(d => !d.isArchived);
+      let hasAddedActiveDefaults = false;
 
-    activeDefaults.forEach(defSong => {
-      const existing = songs.find(s => s.id === defSong.id || s.title === defSong.title);
-      if (existing) {
-        if (existing.isArchived) {
-          existing.isArchived = false;
-          existing.archived = false;
-          existing.status = "active";
-          existing.event = defSong.event;
-          existing.collection = defSong.collection;
+      activeDefaults.forEach(defSong => {
+        const existing = songs.find(s => s.id === defSong.id || s.title === defSong.title);
+        if (existing) {
+          if (existing.isArchived) {
+            existing.isArchived = false;
+            existing.archived = false;
+            existing.status = "active";
+            existing.event = defSong.event;
+            existing.collection = defSong.collection;
+            hasAddedActiveDefaults = true;
+          }
+        } else {
+          // Place active songs at top of list
+          const lastActiveIdx = songs.map(s => !s.isArchived).lastIndexOf(true);
+          if (lastActiveIdx !== -1) {
+            songs.splice(lastActiveIdx + 1, 0, JSON.parse(JSON.stringify(defSong)));
+          } else {
+            songs.unshift(JSON.parse(JSON.stringify(defSong)));
+          }
           hasAddedActiveDefaults = true;
         }
-      } else {
-        // Place active songs at top of list
-        const lastActiveIdx = songs.map(s => !s.isArchived).lastIndexOf(true);
-        if (lastActiveIdx !== -1) {
-          songs.splice(lastActiveIdx + 1, 0, JSON.parse(JSON.stringify(defSong)));
-        } else {
-          songs.unshift(JSON.parse(JSON.stringify(defSong)));
+      });
+
+      // 3. Dynamic Synchronization of Default Repertoire Fields (YouTube Links, Sheet Links, Audio Tracks, Resources)
+      songs = songs.map(s => {
+        const def = DEFAULT_USER_SETTINGS.songs.find(d => d.id === s.id || d.title === s.title);
+        if (def) {
+          const hasOutdatedVideo = s.videoUrl && (s.videoUrl.includes("0wLgYc-8Tmg") || s.videoUrl !== def.videoUrl && s.id === "hymn-1208");
+          const hasOutdatedAwaySheet = (s.id === "christmas-away-in-a-manger" || s.title.includes("Away in a Manger")) && s.sheetUrl && s.sheetUrl.includes("churchofjesuschrist.org");
+
+          if (def.videoUrl && (!s.videoUrl || needsMigration || hasOutdatedVideo)) s.videoUrl = def.videoUrl;
+          if (def.sheetUrl && (!s.sheetUrl || needsMigration || hasOutdatedAwaySheet)) s.sheetUrl = def.sheetUrl;
+          if (def.audioTracks && (!s.audioTracks || needsMigration)) s.audioTracks = def.audioTracks;
+          if (def.localSheetUrl && (!s.localSheetUrl || needsMigration)) s.localSheetUrl = def.localSheetUrl;
+          if (def.localVideoUrl && (!s.localVideoUrl || needsMigration)) s.localVideoUrl = def.localVideoUrl;
+          if (def.resources && (!s.resources || needsMigration || hasOutdatedVideo)) s.resources = def.resources;
+          if (def.note && (!s.note || needsMigration)) s.note = def.note;
+          if (!s.event || (needsMigration && def.event)) s.event = def.event;
+          if (!s.collection || (needsMigration && def.collection)) s.collection = def.collection;
+          if (def.archivedDate && (needsMigration || !s.archivedDate)) s.archivedDate = def.archivedDate;
+          if (def.status && (needsMigration || !s.status)) s.status = def.status;
         }
-        hasAddedActiveDefaults = true;
-      }
-    });
-
-    // 3. Dynamic Synchronization of Default Repertoire Fields (YouTube Links, Sheet Links, Audio Tracks, Resources)
-    songs = songs.map(s => {
-      const def = DEFAULT_USER_SETTINGS.songs.find(d => d.id === s.id || d.title === s.title);
-      if (def) {
-        const hasOutdatedVideo = s.videoUrl && (s.videoUrl.includes("0wLgYc-8Tmg") || s.videoUrl !== def.videoUrl && s.id === "hymn-1208");
-        const hasOutdatedAwaySheet = (s.id === "christmas-away-in-a-manger" || s.title.includes("Away in a Manger")) && s.sheetUrl && s.sheetUrl.includes("churchofjesuschrist.org");
-
-        if (def.videoUrl && (!s.videoUrl || needsMigration || hasOutdatedVideo)) s.videoUrl = def.videoUrl;
-        if (def.sheetUrl && (!s.sheetUrl || needsMigration || hasOutdatedAwaySheet)) s.sheetUrl = def.sheetUrl;
-        if (def.audioTracks && (!s.audioTracks || needsMigration)) s.audioTracks = def.audioTracks;
-        if (def.localSheetUrl && (!s.localSheetUrl || needsMigration)) s.localSheetUrl = def.localSheetUrl;
-        if (def.localVideoUrl && (!s.localVideoUrl || needsMigration)) s.localVideoUrl = def.localVideoUrl;
-        if (def.resources && (!s.resources || needsMigration || hasOutdatedVideo)) s.resources = def.resources;
-        if (def.note && (!s.note || needsMigration)) s.note = def.note;
-        if (!s.event || (needsMigration && def.event)) s.event = def.event;
-        if (!s.collection || (needsMigration && def.collection)) s.collection = def.collection;
-        if (def.archivedDate && (needsMigration || !s.archivedDate)) s.archivedDate = def.archivedDate;
-        if (def.status && (needsMigration || !s.status)) s.status = def.status;
-      }
-      return s;
-    });
+        return s;
+      });
+    }
 
     // 4. Update Target Date if it was the old conference date
     if (parsed.targetDate === "Stake Choir Prep • Oct 24–25" || !parsed.targetDate || needsMigration) {
@@ -2559,12 +2566,52 @@ function selectQuickDuration(mins) {
   handleTimerDurationChange(mins);
 }
 
+function populateSongDropdown(songList) {
+  const songSelect = document.getElementById('songSelect') || document.querySelector('.rehearsal-song-select') || document.getElementById('targetSong');
+  if (!songSelect) return;
+
+  // Wipe existing options completely
+  songSelect.innerHTML = '';
+
+  // If empty, show fallback
+  if (!songList || songList.length === 0) {
+    const emptyOpt = document.createElement('option');
+    emptyOpt.value = '';
+    emptyOpt.textContent = 'No songs found in connected sheet';
+    songSelect.appendChild(emptyOpt);
+    return;
+  }
+
+  // Populate strictly the synced repertoire
+  songList.forEach((song, idx) => {
+    const opt = document.createElement('option');
+    opt.value = song.title;
+    const voicePart = song.voicePart || (song.part && song.part !== 'All' ? song.part : '');
+    const partSuffix = voicePart ? ` (${voicePart})` : '';
+    opt.textContent = `${song.title}${partSuffix}`;
+    if (idx === 0) opt.selected = true;
+    songSelect.appendChild(opt);
+  });
+
+  // Trigger change event to update active timer/resource links for the first song
+  songSelect.dispatchEvent(new Event('change'));
+}
+
 function populateSongSelectDropdown() {
-  const select = document.getElementById("targetSong");
+  const select = document.getElementById('songSelect') || document.querySelector('.rehearsal-song-select') || document.getElementById('targetSong');
   if (!select) return;
+
+  const customSheetId = localStorage.getItem("kantimes_active_sheet_id");
+  const isCustomSheet = Boolean(customSheetId && customSheetId.trim() && customSheetId.trim() !== DEFAULT_SHEET_ID);
 
   const settings = getUserSettings();
   const songs = settings.songs || [];
+
+  if (isCustomSheet) {
+    populateSongDropdown(songs);
+    return;
+  }
+
   const showPast = Boolean(settings.showPastRepertoire);
   const savedSong = localStorage.getItem("kantime_target_song");
 
@@ -3404,10 +3451,11 @@ function renderSelectedSongResource(songKey) {
 }
 
 function handleSongSelectionChange() {
-  const targetSelect = document.getElementById("targetSong");
+  const targetSelect = document.getElementById("songSelect") || document.querySelector(".rehearsal-song-select") || document.getElementById("targetSong");
   const selectedSong = targetSelect ? targetSelect.value : "";
   if (selectedSong) {
     localStorage.setItem("kantime_target_song", selectedSong);
+    localStorage.setItem("kantimes_target_song", selectedSong);
   }
   renderSelectedSongResource(selectedSong);
 }
@@ -10171,3 +10219,5 @@ window.updateActiveProfileDisplay = updateActiveProfileDisplay;
 window.validateUser = validateUser;
 window.cancelProfileEdit = cancelProfileEdit;
 window.handleSongSelectionChange = handleSongSelectionChange;
+window.populateSongDropdown = populateSongDropdown;
+window.populateSongSelectDropdown = populateSongSelectDropdown;
