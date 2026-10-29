@@ -818,14 +818,15 @@ function fallbackCopyText(text) {
 }
 
 /**
- * Real-time handle preview as user types initials in the modal.
+ * Real-time handle preview as user types nickname/initials.
  */
-function handleProfileInitialsInput(inputEl) {
+function handleProfileNicknameInput(inputEl) {
+  if (!inputEl) inputEl = document.getElementById("profileNickname") || document.getElementById("profileInitialsInput");
   if (!inputEl) return;
   const clean = inputEl.value.toUpperCase().slice(0, 6);
   inputEl.value = clean;
   const identity = getUserIdentity();
-  const partSelect = document.getElementById("profileVoicePartSelect");
+  const partSelect = document.getElementById("profileVoicePart") || document.getElementById("profileVoicePartSelect");
   const part = partSelect ? partSelect.value : (identity.part || "All");
   const name = clean.trim() ? clean.trim() : part;
   const handleEl = document.getElementById("profileModalDisplayHandle");
@@ -834,12 +835,52 @@ function handleProfileInitialsInput(inputEl) {
   }
 }
 
+function handleProfileInitialsInput(inputEl) {
+  return handleProfileNicknameInput(inputEl);
+}
+
 /**
- * Real-time handle & icon update when voice part changes in the modal.
+ * Validates initials or nickname in real-time (2 to 6 characters).
+ */
+function validateNicknameInput(inputEl) {
+  if (!inputEl) inputEl = document.getElementById("profileNickname");
+  if (!inputEl) return false;
+  const val = inputEl.value.trim().toUpperCase();
+  inputEl.value = val.slice(0, 6);
+  const msgEl = document.getElementById("profileNicknameValidationMsg");
+  const saveBtn = document.getElementById("btnSaveProfileVoice");
+
+  handleProfileNicknameInput(inputEl);
+
+  if (val.length === 0) {
+    inputEl.classList.remove("input-invalid");
+    if (msgEl) msgEl.style.display = "none";
+    if (saveBtn) saveBtn.disabled = true;
+    return false;
+  }
+
+  if (val.length < 2 || val.length > 6) {
+    inputEl.classList.add("input-invalid");
+    if (msgEl) {
+      msgEl.textContent = "⚠️ Please enter 2 to 6 characters.";
+      msgEl.style.display = "block";
+    }
+    if (saveBtn) saveBtn.disabled = true;
+    return false;
+  }
+
+  inputEl.classList.remove("input-invalid");
+  if (msgEl) msgEl.style.display = "none";
+  if (saveBtn) saveBtn.disabled = false;
+  return true;
+}
+
+/**
+ * Real-time handle & icon update when voice part changes.
  */
 function handleProfileVoicePartChange(selectEl) {
-  const initialsInput = document.getElementById("profileInitialsInput");
-  const clean = initialsInput ? initialsInput.value.trim().toUpperCase() : "";
+  const nicknameInput = document.getElementById("profileNickname") || document.getElementById("profileInitialsInput");
+  const clean = nicknameInput ? nicknameInput.value.trim().toUpperCase() : "";
   const identity = getUserIdentity();
   const part = selectEl ? selectEl.value : (identity.part || "All");
   const name = clean ? clean : part;
@@ -864,11 +905,44 @@ function handleProfileVoicePartChange(selectEl) {
 }
 
 /**
- * Saves profile data from #profileModal to localStorage.
+ * Saves profile data from Profile & Voice tab to localStorage.
  */
-function saveProfileFromModal(e) {
+function saveProfileVoiceSettings(e) {
   if (e && typeof e.preventDefault === "function") {
     e.preventDefault();
+  }
+
+  const nicknameInput = document.getElementById("profileNickname") || document.getElementById("profileInitialsInput") || document.getElementById("settingMemberName");
+  const fullNameInput = document.getElementById("profileFullName") || document.getElementById("settingMemberName");
+  const partSelect = document.getElementById("profileVoicePart") || document.getElementById("profileVoicePartSelect") || document.getElementById("settingMemberSection");
+  const stakeInput = document.getElementById("profileStake") || document.getElementById("profileStakeInput");
+  const msgEl = document.getElementById("profileNicknameValidationMsg");
+
+  const rawNickname = nicknameInput ? nicknameInput.value.trim().toUpperCase() : "";
+  const fullName = fullNameInput ? fullNameInput.value.trim() : "";
+  const part = partSelect ? partSelect.value : "All";
+  const stake = stakeInput ? stakeInput.value.trim() : "";
+  const avatar = selectedSettingAvatarFile || selectedAvatarFile || "";
+
+  // Validate nickname: required, 2-6 chars
+  if (!rawNickname || rawNickname.length < 2 || rawNickname.length > 6) {
+    if (nicknameInput) {
+      nicknameInput.classList.add("input-invalid");
+      nicknameInput.focus();
+    }
+    if (msgEl) {
+      msgEl.textContent = "⚠️ Please enter 2 to 6 characters.";
+      msgEl.style.display = "block";
+    }
+    showToast("⚠️ Please enter a valid initials or nickname (2 to 6 characters).");
+    return false;
+  }
+
+  if (nicknameInput) {
+    nicknameInput.classList.remove("input-invalid");
+  }
+  if (msgEl) {
+    msgEl.style.display = "none";
   }
 
   // 1. Retrieve current identity
@@ -876,7 +950,7 @@ function saveProfileFromModal(e) {
   try {
     identity = getUserIdentity();
   } catch (err) {
-    console.warn("[Kantimes] Error retrieving identity in saveProfileFromModal:", err);
+    console.warn("[Kantimes] Error retrieving identity in saveProfileVoiceSettings:", err);
     identity = {
       tag: "8K2P",
       initials: "",
@@ -885,33 +959,38 @@ function saveProfileFromModal(e) {
     };
   }
 
-  // 2. Read values from inputs
-  const initialsInput = document.getElementById("profileInitialsInput");
-  const partSelect = document.getElementById("profileVoicePartSelect");
-  const stakeInput = document.getElementById("profileStake") || document.getElementById("profileStakeInput");
+  identity.fullName = fullName;
+  identity.initials = rawNickname;
+  identity.part = part;
+  identity.stake = stake;
+  identity.avatar = avatar;
 
-  identity.initials = initialsInput ? initialsInput.value.trim().toUpperCase().slice(0, 6) : (identity.initials || "");
-  identity.part = partSelect ? partSelect.value : (identity.part || "All");
-  identity.stake = stakeInput ? stakeInput.value.trim() : (identity.stake || "");
-
-  // 3. Persist to localStorage
+  // 2. Persist to localStorage
   try {
     localStorage.setItem("kantimes_user_identity", JSON.stringify(identity));
   } catch (err) {
     console.error("[Kantimes] Error writing identity to localStorage:", err);
   }
 
-  // 4. Sync with choir_voice for compatibility with other legacy components
+  // 3. Sync legacy keys for backward compatibility
   try {
-    if (identity.part && identity.part !== "All") {
-      localStorage.setItem("choir_voice", identity.part);
-      localStorage.setItem("choir_section", identity.part);
+    if (fullName) {
+      localStorage.setItem("choir_name", fullName);
+    } else if (rawNickname) {
+      localStorage.setItem("choir_name", rawNickname);
+    }
+    if (part && part !== "All") {
+      localStorage.setItem("choir_voice", part);
+      localStorage.setItem("choir_section", part);
+    }
+    if (avatar) {
+      localStorage.setItem("choir_avatar", avatar);
     }
   } catch (err) {
-    console.warn("[Kantimes] Error syncing choir_voice:", err);
+    console.warn("[Kantimes] Error syncing legacy choir keys:", err);
   }
 
-  // 5. Downstream UI refreshes safely wrapped in try-catches
+  // 4. Downstream UI refreshes safely wrapped in try-catches
   try {
     updateIdentityUI();
   } catch (err) {
@@ -930,12 +1009,20 @@ function saveProfileFromModal(e) {
     console.warn("[Kantimes] Error in renderPracticeMilestonesUI:", err);
   }
 
-  // 6. Properly close modal and re-enable body scroll
   try {
-    closeProfileModal();
+    if (typeof updateActiveProfileDisplay === "function") {
+      updateActiveProfileDisplay(fullName || rawNickname, part, avatar);
+    }
   } catch (err) {
-    console.error("[Kantimes] Error calling closeProfileModal:", err);
-    const modal = document.getElementById("profileModal");
+    console.warn("[Kantimes] Error in updateActiveProfileDisplay:", err);
+  }
+
+  // 5. Close settings modal cleanly
+  try {
+    closeSettingsModal();
+  } catch (err) {
+    console.error("[Kantimes] Error calling closeSettingsModal:", err);
+    const modal = document.getElementById("settingsModal");
     if (modal) {
       modal.classList.remove("active", "open", "show");
       modal.style.display = "none";
@@ -943,12 +1030,18 @@ function saveProfileFromModal(e) {
     document.body.style.overflow = "";
   }
 
-  // 7. Trigger brief confirmation toast
+  // 6. Trigger brief confirmation toast
   try {
-    showToast("Profile saved! 🎵");
+    showToast("Profile updated! 🎵");
   } catch (err) {
-    console.log("Profile saved! 🎵");
+    console.log("Profile updated! 🎵");
   }
+
+  return true;
+}
+
+function saveProfileFromModal(e) {
+  return saveProfileVoiceSettings(e);
 }
 
 /**
@@ -980,7 +1073,7 @@ function updateIdentityUI() {
     headerIconEl.textContent = partIcons[identity.part] || "🎵";
   }
 
-  // Inside Profile Modal
+  // Live Handle Preview in Modal
   const modalHandleEl = document.getElementById("profileModalDisplayHandle");
   if (modalHandleEl) {
     modalHandleEl.textContent = handle;
@@ -989,21 +1082,6 @@ function updateIdentityUI() {
   const modalFixedTagEl = document.getElementById("profileModalFixedTag");
   if (modalFixedTagEl) {
     modalFixedTagEl.textContent = `#${identity.tag}`;
-  }
-
-  const initialsInput = document.getElementById("profileInitialsInput");
-  if (initialsInput && document.activeElement !== initialsInput) {
-    initialsInput.value = identity.initials || "";
-  }
-
-  const partSelect = document.getElementById("profileVoicePartSelect");
-  if (partSelect) {
-    partSelect.value = identity.part || "All";
-  }
-
-  const stakeInput = document.getElementById("profileStake") || document.getElementById("profileStakeInput");
-  if (stakeInput && document.activeElement !== stakeInput) {
-    stakeInput.value = identity.stake || "";
   }
 
   const avatarSymbolEl = document.getElementById("profileModalAvatarSymbol");
@@ -1019,6 +1097,37 @@ function updateIdentityUI() {
       All: "🎵"
     };
     avatarSymbolEl.textContent = partIcons[identity.part] || "🎵";
+  }
+
+  // Form inputs in Profile & Voice tab
+  const fullNameInput = document.getElementById("profileFullName");
+  if (fullNameInput && document.activeElement !== fullNameInput) {
+    fullNameInput.value = identity.fullName || localStorage.getItem("choir_name") || "";
+  }
+
+  const nicknameInput = document.getElementById("profileNickname") || document.getElementById("profileInitialsInput");
+  if (nicknameInput && document.activeElement !== nicknameInput) {
+    nicknameInput.value = identity.initials || "";
+  }
+
+  const partSelect = document.getElementById("profileVoicePart") || document.getElementById("profileVoicePartSelect");
+  if (partSelect) {
+    partSelect.value = identity.part || "All";
+  }
+
+  const stakeInput = document.getElementById("profileStake") || document.getElementById("profileStakeInput");
+  if (stakeInput && document.activeElement !== stakeInput) {
+    stakeInput.value = identity.stake || "";
+  }
+
+  // Legacy inputs sync
+  const legacyNameInput = document.getElementById("settingMemberName");
+  if (legacyNameInput && document.activeElement !== legacyNameInput) {
+    legacyNameInput.value = identity.fullName || identity.initials || localStorage.getItem("choir_name") || "";
+  }
+  const legacySection = document.getElementById("settingMemberSection");
+  if (legacySection) {
+    legacySection.value = identity.part || "";
   }
 }
 
@@ -1175,32 +1284,15 @@ function renderPracticeMilestonesUI() {
 }
 
 function openProfileModal() {
-  const modal = document.getElementById("profileModal");
-  if (!modal) return;
-  initPhStakesDatalist();
-  updateIdentityUI();
-  updatePracticeSummaryUI();
-  modal.style.display = "flex";
-  modal.classList.add("active");
-  modal.classList.add("show");
-  document.body.style.overflow = "hidden";
+  openSettingsModal('profile');
 }
 
 function closeProfileModal() {
-  const modal = document.getElementById("profileModal");
-  if (modal) {
-    modal.classList.remove("active");
-    modal.classList.remove("open");
-    modal.classList.remove("show");
-    modal.style.display = "none";
-  }
-  document.body.style.overflow = "";
+  closeSettingsModal();
 }
 
 function closeProfileModalOnBackdrop(e) {
-  if (e.target && e.target.id === "profileModal") {
-    closeProfileModal();
-  }
+  closeSettingsModal();
 }
 
 // Media player listening tracking (play/pause/ended capture)
@@ -1242,11 +1334,19 @@ function initIdentityAndPracticeTracking() {
 }
 
 function initProfileModalListeners() {
-  const saveBtn = document.getElementById("saveProfileBtn");
+  const saveBtn = document.getElementById("btnSaveProfileVoice") || document.getElementById("saveProfileBtn");
   if (saveBtn && !saveBtn.dataset.listenerBound) {
     saveBtn.dataset.listenerBound = "true";
     saveBtn.addEventListener("click", function(e) {
-      saveProfileFromModal(e);
+      saveProfileVoiceSettings(e);
+    });
+  }
+
+  const nickInput = document.getElementById("profileNickname");
+  if (nickInput && !nickInput.dataset.listenerBound) {
+    nickInput.dataset.listenerBound = "true";
+    nickInput.addEventListener("input", function() {
+      validateNicknameInput(this);
     });
   }
 }
@@ -3743,11 +3843,14 @@ function handleProfileSubmit() {
   const section = document.getElementById("memberSection").value;
   const avatar = selectedAvatarFile;
 
-  if (!name || name.length <= 4) {
+  if (!name || name.length < 2) {
     if (nameInput) nameInput.classList.add("input-invalid");
-    if (msgEl) msgEl.style.display = "block";
+    if (msgEl) {
+      msgEl.textContent = "⚠️ Please enter a valid name (at least 2 characters).";
+      msgEl.style.display = "block";
+    }
     if (submitBtn) submitBtn.disabled = true;
-    showToast("⚠️ Please enter a valid full name (at least 5 characters).");
+    showToast("⚠️ Please enter a valid name (at least 2 characters).");
     if (nameInput) nameInput.focus();
     return;
   }
@@ -3773,46 +3876,8 @@ function handleProfileSubmit() {
   showToast("Profile updated!");
 }
 
-function saveProfileFromSettings() {
-  const nameInput = document.getElementById("settingMemberName");
-  const msgEl = document.getElementById("settingMemberNameValidationMsg");
-  const saveBtn = document.getElementById("saveSettingsProfileBtn");
-  const sectionSelect = document.getElementById("settingMemberSection");
-  const rawName = nameInput ? nameInput.value.trim() : "";
-  const name = toTitleCase(rawName);
-  if (nameInput) nameInput.value = name;
-  const section = sectionSelect ? sectionSelect.value : "";
-  const avatar = selectedSettingAvatarFile;
-
-  if (!name || name.length <= 4) {
-    if (nameInput) nameInput.classList.add("input-invalid");
-    if (msgEl) msgEl.style.display = "block";
-    if (saveBtn) saveBtn.disabled = true;
-    showToast("⚠️ Please enter a valid full name (at least 5 characters).");
-    if (nameInput) nameInput.focus();
-    return false;
-  }
-  if (!section) {
-    alert("Please select your choir voice part (Soprano, Alto, Tenor, Bass, or Primary)!");
-    if (sectionSelect) sectionSelect.focus();
-    return false;
-  }
-
-  // ── Fuzzy Name Deduplication Check ──
-  const matchResult = findSimilarSinger(name);
-  if (matchResult) {
-    showDuplicateConfirmModal(matchResult.matchedSinger, {
-      name,
-      section,
-      avatar,
-      isSetting: true
-    });
-    return false;
-  }
-
-  applyProfileData(name, section, avatar);
-  showToast("Profile & Voice updated! ✨");
-  return true;
+function saveProfileFromSettings(e) {
+  return saveProfileVoiceSettings(e);
 }
 
 function switchProfile() {
@@ -5724,17 +5789,16 @@ function openSettingsModal(defaultTab = 'profile') {
   const modal = document.getElementById("settingsModal");
   if (!modal) return;
 
-  const savedName = localStorage.getItem("choir_name") || "";
-  const savedVoice = localStorage.getItem("choir_voice") || localStorage.getItem("choir_section") || "";
-  const savedAvatar = localStorage.getItem("choir_avatar") || "";
+  initPhStakesDatalist();
 
-  const nameInput = document.getElementById("settingMemberName");
-  if (nameInput) nameInput.value = savedName;
-
-  const sectionSelect = document.getElementById("settingMemberSection");
-  if (sectionSelect) sectionSelect.value = savedVoice;
+  const identity = getUserIdentity();
+  const savedName = identity.fullName || localStorage.getItem("choir_name") || "";
+  const savedVoice = identity.part || localStorage.getItem("choir_voice") || localStorage.getItem("choir_section") || "";
+  const savedAvatar = identity.avatar || localStorage.getItem("choir_avatar") || "";
 
   renderSettingAvatarPicker(savedAvatar);
+  updateIdentityUI();
+  updatePracticeSummaryUI();
 
   const settings = getUserSettings();
   const targetDateInput = document.getElementById("settingTargetDate");
@@ -5762,35 +5826,20 @@ function openSettingsModal(defaultTab = 'profile') {
 
   switchSettingsTab(defaultTab || 'profile');
 
-  const settingNameInput = document.getElementById("settingMemberName");
-  const settingMsg = document.getElementById("settingMemberNameValidationMsg");
-  const settingBtn = document.getElementById("saveSettingsProfileBtn");
-  validateNameInput(settingNameInput, settingMsg, settingBtn);
+  const nickInput = document.getElementById("profileNickname");
+  if (nickInput) {
+    validateNicknameInput(nickInput);
+  }
 
   updateThemeSegmentedControl(getSavedThemeMode());
 
   modal.classList.add("active");
+  modal.classList.add("show");
+  modal.style.display = "flex";
   document.body.style.overflow = "hidden";
 }
 
 function closeSettingsModal() {
-  const nameInput = document.getElementById("settingMemberName");
-  const sectionSelect = document.getElementById("settingMemberSection");
-  if (nameInput && sectionSelect) {
-    const curName = nameInput.value.trim();
-    const curSec = sectionSelect.value;
-    const savedName = localStorage.getItem("choir_name") || "";
-    const savedSec = localStorage.getItem("choir_voice") || localStorage.getItem("choir_section") || "";
-    const savedAv = localStorage.getItem("choir_avatar") || "";
-
-    if (curName && curName.length >= 5 && curSec && (curName !== savedName || curSec !== savedSec || selectedSettingAvatarFile !== savedAv)) {
-      const saved = saveProfileFromSettings();
-      if (saved === false) {
-        return;
-      }
-    }
-  }
-
   const timerDurSelect = document.getElementById("settingTimerDuration");
   if (timerDurSelect) {
     const selectedMins = Number(timerDurSelect.value) || 15;
@@ -5801,7 +5850,12 @@ function closeSettingsModal() {
   }
 
   const modal = document.getElementById("settingsModal");
-  if (modal) modal.classList.remove("active");
+  if (modal) {
+    modal.classList.remove("active");
+    modal.classList.remove("open");
+    modal.classList.remove("show");
+    modal.style.display = "none";
+  }
   document.body.style.overflow = "";
 }
 
@@ -7303,7 +7357,7 @@ function registerServiceWorker() {
 function validateNameInput(inputEl, msgEl, btnEl) {
   if (!inputEl) return false;
   const val = inputEl.value.trim();
-  const isValid = val.length >= 5;
+  const isValid = val.length >= 2;
 
   if (val.length === 0) {
     inputEl.classList.remove("input-invalid");
@@ -7314,7 +7368,10 @@ function validateNameInput(inputEl, msgEl, btnEl) {
 
   if (!isValid) {
     inputEl.classList.add("input-invalid");
-    if (msgEl) msgEl.style.display = "block";
+    if (msgEl) {
+      msgEl.textContent = "⚠️ Please enter at least 2 characters.";
+      msgEl.style.display = "block";
+    }
     if (btnEl) btnEl.disabled = true;
     return false;
   } else {
@@ -7347,7 +7404,7 @@ function initNameValidation() {
         }
         if (!validateNameInput(setupInput, setupMsg, setupBtn)) {
           e.preventDefault();
-          showToast("⚠️ Name must be at least 5 characters.");
+          showToast("⚠️ Name must be at least 2 characters.");
         }
       }
     });
@@ -7375,7 +7432,7 @@ function initNameValidation() {
         }
         if (!validateNameInput(settingInput, settingMsg, settingBtn)) {
           e.preventDefault();
-          showToast("⚠️ Name must be at least 5 characters.");
+          showToast("⚠️ Name must be at least 2 characters.");
         }
       }
     });
@@ -9843,9 +9900,9 @@ window.addEventListener("DOMContentLoaded", function () {
 // Close modals on Escape key
 document.addEventListener("keydown", function (e) {
   if (e.key === "Escape") {
-    const profileModal = document.getElementById("profileModal");
-    if (profileModal && profileModal.classList.contains("active")) {
-      closeProfileModal();
+    const settingsModal = document.getElementById("settingsModal");
+    if (settingsModal && settingsModal.classList.contains("active")) {
+      closeSettingsModal();
     }
     const stakeModal = document.getElementById("stakeSheetModal");
     if (stakeModal && stakeModal.classList.contains("active")) {
@@ -9929,7 +9986,11 @@ window.generatePracticeReport = generatePracticeReport;
 window.copyPracticeReport = copyPracticeReport;
 window.handleProfileInitialsInput = handleProfileInitialsInput;
 window.handleProfileVoicePartChange = handleProfileVoicePartChange;
-window.saveProfileFromModal = saveProfileFromModal;
+window.saveProfileVoiceSettings = saveProfileVoiceSettings;
+window.saveProfileFromModal = saveProfileVoiceSettings;
+window.saveProfileFromSettings = saveProfileVoiceSettings;
+window.validateNicknameInput = validateNicknameInput;
+window.handleProfileNicknameInput = handleProfileNicknameInput;
 window.openProfileModal = openProfileModal;
 window.closeProfileModal = closeProfileModal;
 window.updateHeaderIdentityBadge = updateHeaderIdentityBadge;

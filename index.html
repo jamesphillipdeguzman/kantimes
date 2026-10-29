@@ -705,114 +705,6 @@
       </div>
     </div>
 
-    <!-- Choir Identity & Practice Summary Modal -->
-    <div id="profileModal" class="modal-backdrop" onclick="closeProfileModalOnBackdrop(event)" role="dialog"
-      aria-modal="true" aria-labelledby="profileModalTitle">
-      <div class="modal-box profile-modal-box">
-        <div class="modal-header">
-          <div class="profile-modal-title-wrap">
-            <h3 id="profileModalTitle">👤 My Choir Profile</h3>
-            <p class="profile-modal-subtitle">Anonymous, collision-free identity &amp; practice tracking</p>
-          </div>
-          <button class="modal-close-btn" type="button" onclick="closeProfileModal()"
-            aria-label="Close modal">&times;</button>
-        </div>
-
-        <div class="modal-body profile-modal-body">
-          <!-- Active Handle Card -->
-          <div class="profile-handle-card">
-            <div class="profile-handle-left">
-              <span class="profile-avatar-symbol" id="profileModalAvatarSymbol">🎵</span>
-              <div class="profile-handle-meta">
-                <span class="profile-handle-label">Your Anonymous Choir Handle</span>
-                <span class="profile-handle-tag" id="profileModalDisplayHandle">Loading...</span>
-              </div>
-            </div>
-            <div class="profile-tag-pill" title="Unique collision-free Base36 tag">
-              <span class="profile-tag-fixed-label">Tag:</span>
-              <span class="profile-tag-fixed-val" id="profileModalFixedTag">#----</span>
-            </div>
-          </div>
-
-          <!-- Profile Form Inputs -->
-          <div class="settings-section" style="margin-top: 14px;">
-            <label for="profileInitialsInput">Initials or Nickname <span class="label-hint">(Optional, max 6
-                chars)</span></label>
-            <input type="text" id="profileInitialsInput" maxlength="6" placeholder="e.g. JD, Sam, Maria"
-              autocomplete="off" autocapitalize="characters" oninput="handleProfileInitialsInput(this)">
-            <p class="settings-hint">Used as your handle prefix (e.g. <code>JD#8K2P</code>). Fallback is your voice
-              part.</p>
-          </div>
-
-          <div class="settings-section">
-            <label for="profileVoicePartSelect">Primary Voice Part</label>
-            <select id="profileVoicePartSelect" onchange="handleProfileVoicePartChange(this)">
-              <option value="Soprano">Soprano</option>
-              <option value="Alto">Alto</option>
-              <option value="Tenor">Tenor</option>
-              <option value="Bass">Bass</option>
-              <option value="Accompanist">Accompanist</option>
-              <option value="Director">Director</option>
-              <option value="All">Director / All</option>
-            </select>
-          </div>
-
-          <div class="settings-section">
-            <label for="profileStake" class="profile-field-label">STAKE / DISTRICT <span
-                class="label-hint">(OPTIONAL)</span></label>
-            <div class="stake-select-wrapper">
-              <input type="text" id="profileStake" list="phStakesList"
-                placeholder="Select or type your Stake (e.g. Iloilo Philippines Stake)" autocomplete="off" />
-              <datalist id="phStakesList">
-                <!-- Populated dynamically from data/ph-stakes.json -->
-              </datalist>
-            </div>
-            <span class="settings-hint field-hint">Appears in your group chat practice report. Start typing to
-              filter.</span>
-          </div>
-
-          <div class="profile-modal-actions" style="margin-top: 10px;">
-            <button type="button" class="btn btn-primary btn-save-profile" id="saveProfileBtn"
-              onclick="saveProfileFromModal(event)">
-              💾 Save Profile
-            </button>
-          </div>
-
-          <!-- Recent Practice Summary Section -->
-          <div class="profile-practice-summary-card">
-            <div class="summary-card-header">
-              <h4>📊 This Week's Practice Summary</h4>
-              <span class="summary-time-badge" id="profileWeeklyMinutesBadge">0 mins</span>
-            </div>
-            <div class="summary-card-body">
-              <div class="summary-stat-row">
-                <span class="stat-row-label">Total Time This Week:</span>
-                <strong class="stat-row-val" id="profileSummaryTotalTime">0 minutes</strong>
-              </div>
-              <div class="summary-stat-row">
-                <span class="stat-row-label">Songs Practiced:</span>
-                <span class="stat-row-val" id="profileSummarySongCount">0 songs</span>
-              </div>
-              <div class="summary-song-list" id="profileSummarySongList">
-                <em class="summary-empty-hint">No practice sessions logged yet this week. Start a timer or play
-                  rehearsal audio to record practice!</em>
-              </div>
-            </div>
-            <div class="summary-card-footer">
-              <button type="button" class="btn btn-outline btn-copy-report" id="btnCopyPracticeReport"
-                onclick="copyPracticeReport()">
-                📋 Copy Report for Group Chat
-              </button>
-            </div>
-          </div>
-        </div>
-
-        <div class="modal-footer profile-modal-footer">
-          <button type="button" class="btn btn-outline" onclick="closeProfileModal()">Close</button>
-        </div>
-      </div>
-    </div>
-
     <!-- Stake / Repertoire Source Switcher Modal -->
     <div id="stakeSheetModal" class="modal-backdrop" onclick="closeStakeSheetOnBackdrop(event)" role="dialog"
       aria-modal="true" aria-labelledby="stakeSheetModalTitle">
@@ -928,24 +820,60 @@
 
           <!-- Tab 1: Profile & Voice (Switch Voice / Change Name) -->
           <div id="tabPanelProfile" class="settings-tab-panel tab-content active" role="tabpanel">
-            <div class="settings-section">
-              <label for="settingMemberName">Full Name</label>
-              <input type="text" id="settingMemberName" placeholder="e.g. Juan dela Cruz"
+            <!-- Active Handle Card -->
+            <div class="profile-handle-card">
+              <div class="profile-handle-left">
+                <span class="profile-avatar-symbol" id="profileModalAvatarSymbol">🎵</span>
+                <div class="profile-handle-meta">
+                  <span class="profile-handle-label">Your Anonymous Choir Handle</span>
+                  <span class="profile-handle-tag" id="profileModalDisplayHandle">Loading...</span>
+                </div>
+              </div>
+              <div class="profile-tag-pill" title="Unique collision-free Base36 tag">
+                <span class="profile-tag-fixed-label">Tag:</span>
+                <span class="profile-tag-fixed-val" id="profileModalFixedTag">#----</span>
+              </div>
+            </div>
+
+            <div class="settings-section" style="margin-top: 14px;">
+              <label for="profileFullName">Full Name <span class="label-hint">(Optional, Local in-app only)</span></label>
+              <input type="text" id="profileFullName" placeholder="e.g. Juan dela Cruz" autocomplete="name"
                 onblur="if(typeof toTitleCase==='function')this.value=toTitleCase(this.value)">
-              <div class="input-validation-msg" id="settingMemberNameValidationMsg" style="display: none;">⚠️ Please
-                enter a valid full name (at least 5 characters).</div>
+              <p class="settings-hint">Used for local in-app greetings and personal dashboard.</p>
             </div>
 
             <div class="settings-section">
-              <label for="settingMemberSection">Voice Part / Choir</label>
-              <select id="settingMemberSection">
-                <option value="">-- Select Your Voice --</option>
+              <label for="profileNickname">Initials or Nickname <span class="label-hint">(Required, 2–6 chars)</span></label>
+              <input type="text" id="profileNickname" minlength="2" maxlength="6" required placeholder="e.g. JD, SAM"
+                autocomplete="off" autocapitalize="characters"
+                oninput="this.value = this.value.toUpperCase(); if(typeof validateNicknameInput==='function')validateNicknameInput(this);">
+              <div class="input-validation-msg" id="profileNicknameValidationMsg" style="display: none;">⚠️ Please enter 2 to 6 characters.</div>
+              <p class="settings-hint">Used for handle generation (e.g. <code>JD#8K2P</code>) and group chat reports.</p>
+            </div>
+
+            <div class="settings-section">
+              <label for="profileVoicePart">Primary Voice Part</label>
+              <select id="profileVoicePart" onchange="handleProfileVoicePartChange(this)">
                 <option value="Soprano">Soprano</option>
                 <option value="Alto">Alto</option>
                 <option value="Tenor">Tenor</option>
                 <option value="Bass">Bass</option>
-                <option value="Primary">Primary</option>
+                <option value="Accompanist">Accompanist</option>
+                <option value="Director">Director</option>
+                <option value="All">Director / All</option>
               </select>
+            </div>
+
+            <div class="settings-section">
+              <label for="profileStake" class="profile-field-label">Stake / District <span class="label-hint">(Optional)</span></label>
+              <div class="stake-select-wrapper">
+                <input type="text" id="profileStake" list="phStakesList"
+                  placeholder="Select or type your Stake (e.g. Iloilo Philippines Stake)" autocomplete="off" />
+                <datalist id="phStakesList">
+                  <!-- Populated dynamically from data/ph-stakes.json -->
+                </datalist>
+              </div>
+              <span class="settings-hint field-hint">Appears in your group chat practice report. Start typing to filter.</span>
             </div>
 
             <div class="settings-section">
@@ -960,9 +888,38 @@
               </div>
             </div>
 
-            <div style="margin-top: 14px;">
-              <button type="button" class="btn btn-primary" id="saveProfileSettingsBtn"
-                onclick="saveProfileFromSettings()">Save Profile &amp; Voice</button>
+            <div class="profile-actions-row" style="margin-top: 14px;">
+              <button type="button" class="btn btn-outline" onclick="closeSettingsModal()">Cancel</button>
+              <button type="button" class="btn btn-primary" id="btnSaveProfileVoice"
+                onclick="saveProfileVoiceSettings(event)">💾 Save Profile &amp; Voice</button>
+            </div>
+
+            <!-- Recent Practice Summary Section -->
+            <div class="profile-practice-summary-card" style="margin-top: 1.5rem;">
+              <div class="summary-card-header">
+                <h4>📊 This Week's Practice Summary</h4>
+                <span class="summary-time-badge" id="profileWeeklyMinutesBadge">0 mins</span>
+              </div>
+              <div class="summary-card-body">
+                <div class="summary-stat-row">
+                  <span class="stat-row-label">Total Time This Week:</span>
+                  <strong class="stat-row-val" id="profileSummaryTotalTime">0 minutes</strong>
+                </div>
+                <div class="summary-stat-row">
+                  <span class="stat-row-label">Songs Practiced:</span>
+                  <span class="stat-row-val" id="profileSummarySongCount">0 songs</span>
+                </div>
+                <div class="summary-song-list" id="profileSummarySongList">
+                  <em class="summary-empty-hint">No practice sessions logged yet this week. Start a timer or play
+                    rehearsal audio to record practice!</em>
+                </div>
+              </div>
+              <div class="summary-card-footer">
+                <button type="button" class="btn btn-outline btn-copy-report" id="btnCopyPracticeReport"
+                  onclick="copyPracticeReport()">
+                  📋 Copy Report for Group Chat
+                </button>
+              </div>
             </div>
           </div>
 
@@ -1110,6 +1067,11 @@
             <div id="repertoireListContainer" class="repertoire-items-list">
               <!-- Rendered dynamically -->
             </div>
+          
+            <div class="modal-footer" style="margin-top: 1.5rem;">
+              <button type="button" class="btn-link btn-danger-link" onclick="resetUserSettingsToDefault()">🔄 Reset to Choir Defaults</button>
+              <button type="button" class="btn btn-primary" onclick="closeSettingsModal()">Done / Save</button>
+            </div>
           </div>
 
           <!-- Tab 3: Tutorial & Guide -->
@@ -1187,14 +1149,9 @@
               </div>
             </div>
 
-          </div>
-
-          <!-- Settings Modal Footer -->
-          <div class="settings-modal-footer">
-            <button type="button" class="btn-link btn-danger-link" onclick="resetUserSettingsToDefault()">🔄 Reset to
-              Choir Defaults</button>
-            <button type="button" class="btn btn-primary" style="width: auto; min-height: 38px; padding: 6px 18px;"
-              onclick="closeSettingsModal()">Done / Save</button>
+            <div class="modal-footer" style="margin-top: 1.5rem;">
+              <button type="button" class="btn btn-primary" onclick="closeSettingsModal()">Close Guide</button>
+            </div>
           </div>
         </div>
       </div>

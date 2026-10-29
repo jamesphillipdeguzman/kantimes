@@ -9475,7 +9475,9 @@ body.piano-fullscreen-active {
 .modal-card,
 .modal-content,
 #repertoireModal .modal-dialog,
-.stake-sheet-modal-box {
+.stake-sheet-modal-box,
+.settings-modal-dialog,
+.settings-modal-box {
   max-height: 85vh; /* Prevent modal from exceeding viewport height */
   display: flex;
   flex-direction: column;
@@ -9483,7 +9485,9 @@ body.piano-fullscreen-active {
 
 /* Make the modal body scrollable while keeping headers and footers sticky/visible */
 .modal-body,
-.stake-sheet-modal-body {
+.stake-sheet-modal-body,
+.settings-tab-content,
+.settings-modal-body {
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
   padding-right: 0.5rem; /* prevent content shifting against scrollbar */
@@ -9499,6 +9503,7 @@ body.piano-fullscreen-active {
 }
 
 .modal-footer,
+.profile-actions-row,
 .repertoire-modal-actions {
   display: flex !important;
   flex-direction: row;
@@ -9515,7 +9520,8 @@ body.piano-fullscreen-active {
 }
 
 .repertoire-modal-actions button,
-.modal-footer button {
+.modal-footer button,
+.profile-actions-row button {
   flex: 1 1 0; /* equal width split */
   min-width: 0;
   white-space: nowrap;
@@ -9525,12 +9531,14 @@ body.piano-fullscreen-active {
 
 @media (max-width: 480px) {
   .modal-footer,
+  .profile-actions-row,
   .repertoire-modal-actions {
     flex-direction: column-reverse; /* stack vertically on small phones */
     gap: 0.5rem;
   }
   .repertoire-modal-actions button,
-  .modal-footer button {
+  .modal-footer button,
+  .profile-actions-row button {
     width: 100%;
   }
 }
