@@ -3,8 +3,8 @@
 // ==========================================================================
 
 // --- APPLICATION & REPERTOIRE VERSION ---
-const APP_VERSION = "2.7.2";
-const REPERTOIRE_VERSION = "2.7.2";
+const APP_VERSION = "2.8.0";
+const REPERTOIRE_VERSION = "2.8.0";
 
 // Helper: Semantic version comparison (returns >0 if v1 > v2, <0 if v1 < v2, 0 if equal)
 function compareSemver(v1, v2) {
@@ -516,6 +516,40 @@ function updateStakeSheetStatusUI() {
   if (input && !input.value) {
     input.value = isDefault ? "" : customSource;
   }
+
+  const shareBox = document.getElementById("stakeShareLinkBox");
+  if (shareBox) {
+    shareBox.style.display = isDefault ? "none" : "block";
+  }
+}
+
+/**
+ * Copies 1-click shareable choir onboarding link (?sheet=...) to clipboard.
+ */
+function copyChoirShareLink() {
+  const customSource = localStorage.getItem("kantimes_active_sheet_id");
+  if (!customSource || !customSource.trim() || customSource.trim() === DEFAULT_SHEET_ID) {
+    showToast("⚠️ Connect a custom stake sheet first to generate a choir share link.");
+    return;
+  }
+
+  const baseUrl = (window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1")
+    ? window.location.origin + window.location.pathname
+    : "https://kantimes.vercel.app/";
+
+  const shareUrl = `${baseUrl.replace(/\/$/, "")}/?sheet=${encodeURIComponent(customSource.trim())}`;
+
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(shareUrl)
+      .then(() => {
+        showToast("Choir link copied to clipboard! 📋");
+      })
+      .catch(() => {
+        fallbackCopyText(shareUrl);
+      });
+  } else {
+    fallbackCopyText(shareUrl);
+  }
 }
 
 function openStakeSheetModal() {
@@ -550,6 +584,23 @@ function closeStakeSheetOnBackdrop(e) {
 }
 
 function initStakeRepertoireSync() {
+  // Check for 1-click choir onboarding URL parameter: ?sheet=...
+  try {
+    const urlParams = new URLSearchParams(window.location.search);
+    const sheetParam = urlParams.get("sheet");
+    if (sheetParam && sheetParam.trim()) {
+      const cleanParam = sheetParam.trim();
+      const currentActive = localStorage.getItem("kantimes_active_sheet_id");
+      if (cleanParam !== currentActive) {
+        localStorage.setItem("kantimes_active_sheet_id", cleanParam);
+        showToast("Loading Stake Repertoire from link... 🎶");
+        loadSongsFromSheet(cleanParam, { isBackground: false, userInitiated: true });
+      }
+    }
+  } catch (e) {
+    console.warn("[Kantimes] Error parsing URL search params for sheet:", e);
+  }
+
   updateStakeSheetStatusUI();
   const cached = getCachedSongs();
   if (cached && cached.length > 0) {
@@ -565,6 +616,431 @@ function initStakeRepertoireSync() {
   if (navigator.onLine) {
     loadSongsFromSheet(null, { isBackground: true });
   }
+}
+
+// ==========================================================================
+// 2. CHOIR IDENTITY & PRACTICE ENGAGEMENT SYSTEM (COLLISION-FREE ANONYMOUS TRACKING)
+// ==========================================================================
+
+/**
+ * Initializes and retrieves user pseudo-anonymous identity.
+ * Format: [Initials/Part]#[4-character Base36 Tag] (e.g. JD#8K2P or Tenor#8K2P)
+ * Eliminates collisions (1.67M combinations) while keeping zero backend or PII.
+ */
+function getUserIdentity() {
+  let identity = null;
+  try {
+    const raw = localStorage.getItem("kantimes_user_identity");
+    if (raw) identity = JSON.parse(raw);
+  } catch (e) {
+    identity = null;
+  }
+
+  if (!identity || !identity.tag) {
+    // 4-character Base36 tag (36^4 = 1,679,616 combinations)
+    const tag = Math.floor(Math.random() * Math.pow(36, 4))
+      .toString(36)
+      .toUpperCase()
+      .padStart(4, "0");
+
+    const existingPart = localStorage.getItem("choir_voice") || localStorage.getItem("choir_section") || "All";
+
+    identity = {
+      tag: tag,
+      initials: "",
+      part: existingPart, // Default voice part
+      stake: ""
+    };
+    localStorage.setItem("kantimes_user_identity", JSON.stringify(identity));
+  }
+  return identity;
+}
+
+/**
+ * Returns formatted handle string, e.g. "JD#8K2P" or "Tenor#8K2P"
+ */
+function getDisplayHandle(identity = getUserIdentity()) {
+  const name = identity.initials ? identity.initials.trim().toUpperCase() : (identity.part || "All");
+  return `${name}#${identity.tag}`;
+}
+
+/**
+ * Logs a practice activity session to localStorage ("kantimes_practice_logs").
+ * Keeps the most recent 50 sessions.
+ * Format: { id, songTitle, part, durationMinutes, timestamp }
+ */
+function logPracticeSession(songTitle, part, durationMinutes) {
+  const mins = Math.round((Number(durationMinutes) || 0) * 10) / 10;
+  if (mins <= 0) return null;
+
+  const identity = getUserIdentity();
+  let logs = [];
+  try {
+    const raw = localStorage.getItem("kantimes_practice_logs");
+    if (raw) logs = JSON.parse(raw);
+    if (!Array.isArray(logs)) logs = [];
+  } catch (e) {
+    logs = [];
+  }
+
+  const currentSong = songTitle || (document.getElementById("targetSong") ? document.getElementById("targetSong").value : "") || "General Practice";
+  const userPart = part || identity.part || "All";
+
+  const entry = {
+    id: "prac_" + Date.now() + "_" + Math.floor(Math.random() * 10000),
+    songTitle: currentSong,
+    part: userPart,
+    durationMinutes: mins,
+    timestamp: Date.now()
+  };
+
+  logs.unshift(entry);
+  if (logs.length > 50) {
+    logs = logs.slice(0, 50);
+  }
+  localStorage.setItem("kantimes_practice_logs", JSON.stringify(logs));
+
+  updatePracticeSummaryUI();
+  return entry;
+}
+
+/**
+ * Returns array of recorded practice logs.
+ */
+function getPracticeLogs() {
+  try {
+    const raw = localStorage.getItem("kantimes_practice_logs");
+    const parsed = raw ? JSON.parse(raw) : [];
+    return Array.isArray(parsed) ? parsed : [];
+  } catch (e) {
+    return [];
+  }
+}
+
+/**
+ * Calculates weekly practice stats (last 7 days):
+ * - totalMinutes
+ * - unique songs practiced
+ * - session count
+ */
+function getWeeklyPracticeSummary() {
+  const logs = getPracticeLogs();
+  const oneWeekAgo = Date.now() - (7 * 24 * 60 * 60 * 1000);
+  const recentLogs = logs.filter(item => item && item.timestamp && item.timestamp >= oneWeekAgo);
+
+  let totalMinutes = 0;
+  const songsSet = new Set();
+
+  recentLogs.forEach(item => {
+    totalMinutes += (Number(item.durationMinutes) || 0);
+    if (item.songTitle && item.songTitle.trim()) {
+      songsSet.add(item.songTitle.trim());
+    }
+  });
+
+  return {
+    totalMinutes: Math.round(totalMinutes),
+    songs: Array.from(songsSet),
+    logs: recentLogs
+  };
+}
+
+/**
+ * Generates formatted, shareable text summary for ward/stake choir group chats.
+ */
+function generatePracticeReport() {
+  const identity = getUserIdentity();
+  const handle = getDisplayHandle(identity);
+  const part = identity.part || "All";
+  const stake = (identity.stake && identity.stake.trim()) ? identity.stake.trim() : "LDS Choir";
+  const summary = getWeeklyPracticeSummary();
+
+  let songsList = "";
+  if (summary.songs && summary.songs.length > 0) {
+    songsList = summary.songs.map(s => `- ${s}`).join("\n");
+  } else {
+    songsList = "- (No songs logged yet this week)";
+  }
+
+  const dateStr = new Date().toLocaleDateString(undefined, {
+    month: "short",
+    day: "numeric",
+    year: "numeric"
+  });
+
+  return `🎵 Kantimes Practice Report\n` +
+    `Singer: ${handle} (${part} - ${stake})\n` +
+    `Total Time: ${summary.totalMinutes} minutes\n` +
+    `Songs Practiced:\n` +
+    `${songsList}\n` +
+    `Generated on ${dateStr} via Kantimes`;
+}
+
+/**
+ * Copies the practice report to clipboard with toast notification.
+ */
+function copyPracticeReport() {
+  const report = generatePracticeReport();
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(report)
+      .then(() => {
+        showToast("Copied to clipboard! 📋");
+      })
+      .catch(() => {
+        fallbackCopyText(report);
+      });
+  } else {
+    fallbackCopyText(report);
+  }
+}
+
+function fallbackCopyText(text) {
+  const ta = document.createElement("textarea");
+  ta.value = text;
+  ta.style.position = "fixed";
+  ta.style.left = "-9999px";
+  document.body.appendChild(ta);
+  ta.select();
+  try {
+    document.execCommand("copy");
+    showToast("Copied to clipboard! 📋");
+  } catch (e) {
+    showToast("Could not copy automatically. Please copy manually.");
+  }
+  document.body.removeChild(ta);
+}
+
+/**
+ * Real-time handle preview as user types initials in the modal.
+ */
+function handleProfileInitialsInput(inputEl) {
+  if (!inputEl) return;
+  const clean = inputEl.value.toUpperCase().slice(0, 6);
+  inputEl.value = clean;
+  const identity = getUserIdentity();
+  const partSelect = document.getElementById("profileVoicePartSelect");
+  const part = partSelect ? partSelect.value : (identity.part || "All");
+  const name = clean.trim() ? clean.trim() : part;
+  const handleEl = document.getElementById("profileModalDisplayHandle");
+  if (handleEl) {
+    handleEl.textContent = `${name}#${identity.tag}`;
+  }
+}
+
+/**
+ * Real-time handle & icon update when voice part changes in the modal.
+ */
+function handleProfileVoicePartChange(selectEl) {
+  const initialsInput = document.getElementById("profileInitialsInput");
+  const clean = initialsInput ? initialsInput.value.trim().toUpperCase() : "";
+  const identity = getUserIdentity();
+  const part = selectEl ? selectEl.value : (identity.part || "All");
+  const name = clean ? clean : part;
+  const handleEl = document.getElementById("profileModalDisplayHandle");
+  if (handleEl) {
+    handleEl.textContent = `${name}#${identity.tag}`;
+  }
+  const avatarSymbolEl = document.getElementById("profileModalAvatarSymbol");
+  if (avatarSymbolEl) {
+    const partIcons = {
+      Soprano: "🌸",
+      Alto: "🌿",
+      Tenor: "🍁",
+      Bass: "⚓",
+      Accompanist: "🎹",
+      Accompaniment: "🎹",
+      Director: "🎼",
+      All: "🎵"
+    };
+    avatarSymbolEl.textContent = partIcons[part] || "🎵";
+  }
+}
+
+/**
+ * Saves profile data from #profileModal to localStorage.
+ */
+function saveProfileFromModal() {
+  const identity = getUserIdentity();
+  const initialsInput = document.getElementById("profileInitialsInput");
+  const partSelect = document.getElementById("profileVoicePartSelect");
+  const stakeInput = document.getElementById("profileStakeInput");
+
+  identity.initials = initialsInput ? initialsInput.value.trim().toUpperCase().slice(0, 6) : "";
+  identity.part = partSelect ? partSelect.value : (identity.part || "All");
+  identity.stake = stakeInput ? stakeInput.value.trim() : "";
+
+  localStorage.setItem("kantimes_user_identity", JSON.stringify(identity));
+
+  // Sync with choir_voice for compatibility with other components
+  if (identity.part && identity.part !== "All") {
+    localStorage.setItem("choir_voice", identity.part);
+    localStorage.setItem("choir_section", identity.part);
+  }
+
+  updateIdentityUI();
+  updatePracticeSummaryUI();
+  showToast("Profile saved! 🎶");
+}
+
+/**
+ * Updates UI elements displaying identity & handle.
+ */
+function updateIdentityUI() {
+  const identity = getUserIdentity();
+  const handle = getDisplayHandle(identity);
+
+  // Header pill handle
+  const headerHandleEl = document.getElementById("headerIdentityHandle");
+  if (headerHandleEl) {
+    headerHandleEl.textContent = handle;
+  }
+
+  // Header icon
+  const headerIconEl = document.getElementById("headerIdentityIcon");
+  if (headerIconEl) {
+    const partIcons = {
+      Soprano: "🌸",
+      Alto: "🌿",
+      Tenor: "🍁",
+      Bass: "⚓",
+      Accompanist: "🎹",
+      Accompaniment: "🎹",
+      Director: "🎼",
+      All: "🎵"
+    };
+    headerIconEl.textContent = partIcons[identity.part] || "🎵";
+  }
+
+  // Inside Profile Modal
+  const modalHandleEl = document.getElementById("profileModalDisplayHandle");
+  if (modalHandleEl) {
+    modalHandleEl.textContent = handle;
+  }
+
+  const modalFixedTagEl = document.getElementById("profileModalFixedTag");
+  if (modalFixedTagEl) {
+    modalFixedTagEl.textContent = `#${identity.tag}`;
+  }
+
+  const initialsInput = document.getElementById("profileInitialsInput");
+  if (initialsInput && document.activeElement !== initialsInput) {
+    initialsInput.value = identity.initials || "";
+  }
+
+  const partSelect = document.getElementById("profileVoicePartSelect");
+  if (partSelect) {
+    partSelect.value = identity.part || "All";
+  }
+
+  const stakeInput = document.getElementById("profileStakeInput");
+  if (stakeInput && document.activeElement !== stakeInput) {
+    stakeInput.value = identity.stake || "";
+  }
+
+  const avatarSymbolEl = document.getElementById("profileModalAvatarSymbol");
+  if (avatarSymbolEl) {
+    const partIcons = {
+      Soprano: "🌸",
+      Alto: "🌿",
+      Tenor: "🍁",
+      Bass: "⚓",
+      Accompanist: "🎹",
+      Accompaniment: "🎹",
+      Director: "🎼",
+      All: "🎵"
+    };
+    avatarSymbolEl.textContent = partIcons[identity.part] || "🎵";
+  }
+}
+
+/**
+ * Updates practice summary inside Profile Modal.
+ */
+function updatePracticeSummaryUI() {
+  const summary = getWeeklyPracticeSummary();
+
+  const totalTimeEl = document.getElementById("profileSummaryTotalTime");
+  if (totalTimeEl) {
+    totalTimeEl.textContent = `${summary.totalMinutes} minutes`;
+  }
+
+  const badgeEl = document.getElementById("profileWeeklyMinutesBadge");
+  if (badgeEl) {
+    badgeEl.textContent = `${summary.totalMinutes} mins`;
+  }
+
+  const songCountEl = document.getElementById("profileSummarySongCount");
+  if (songCountEl) {
+    songCountEl.textContent = `${summary.songs.length} song${summary.songs.length === 1 ? "" : "s"}`;
+  }
+
+  const listEl = document.getElementById("profileSummarySongList");
+  if (listEl) {
+    if (summary.songs.length > 0) {
+      listEl.innerHTML = `
+        <ul class="summary-songs-ul">
+          ${summary.songs.map(song => `<li><span class="song-dot">🎵</span> <span class="song-name">${escapeHtml(song)}</span></li>`).join("")}
+        </ul>
+      `;
+    } else {
+      listEl.innerHTML = `<em class="summary-empty-hint">No practice sessions logged yet this week. Start a timer or play rehearsal audio to record practice!</em>`;
+    }
+  }
+}
+
+function openProfileModal() {
+  const modal = document.getElementById("profileModal");
+  if (!modal) return;
+  updateIdentityUI();
+  updatePracticeSummaryUI();
+  modal.classList.add("active");
+  document.body.style.overflow = "hidden";
+}
+
+function closeProfileModal() {
+  const modal = document.getElementById("profileModal");
+  if (modal) modal.classList.remove("active");
+  document.body.style.overflow = "";
+}
+
+function closeProfileModalOnBackdrop(e) {
+  if (e.target && e.target.id === "profileModal") {
+    closeProfileModal();
+  }
+}
+
+// Media player listening tracking (play/pause/ended capture)
+const mediaTrackStartTimes = new WeakMap();
+
+document.addEventListener("play", (e) => {
+  if (e.target && (e.target.id === "activeLocalAudio" || (e.target.classList && e.target.classList.contains("local-audio-element")))) {
+    mediaTrackStartTimes.set(e.target, Date.now());
+  }
+}, true);
+
+function handleMediaStop(e) {
+  if (e.target && (e.target.id === "activeLocalAudio" || (e.target.classList && e.target.classList.contains("local-audio-element")))) {
+    const startTime = mediaTrackStartTimes.get(e.target);
+    if (startTime) {
+      const elapsedSeconds = (Date.now() - startTime) / 1000;
+      mediaTrackStartTimes.delete(e.target);
+      const elapsedMins = Math.round((elapsedSeconds / 60) * 10) / 10;
+      if (elapsedMins >= 0.5) {
+        const currentSong = document.getElementById("targetSong") ? document.getElementById("targetSong").value : "";
+        const identity = getUserIdentity();
+        logPracticeSession(currentSong, identity.part || "All", elapsedMins);
+      }
+    }
+  }
+}
+
+document.addEventListener("pause", handleMediaStop, true);
+document.addEventListener("ended", handleMediaStop, true);
+
+function initIdentityAndPracticeTracking() {
+  getUserIdentity();
+  updateIdentityUI();
+  updatePracticeSummaryUI();
 }
 
 // --- AVATAR ASSET DEFINITIONS ---
@@ -3235,6 +3711,9 @@ function completeTimerSession() {
 
   updateDurationSelectorUI(currentDurationMins, false);
   recordCompletedSession(currentDurationMins);
+  const currentSong = document.getElementById("targetSong") ? document.getElementById("targetSong").value : "";
+  const identity = getUserIdentity();
+  logPracticeSession(currentSong, identity.part || "All", currentDurationMins);
   const stats = getWeekSessionStats();
 
   const celebrationPraise = CELEBRATION_MESSAGES[Math.floor(Math.random() * CELEBRATION_MESSAGES.length)];
@@ -3243,7 +3722,6 @@ function completeTimerSession() {
   openCompletionModal(currentDurationMins, stats);
   submitPracticeSession(currentDurationMins);
 
-  const currentSong = document.getElementById("targetSong") ? document.getElementById("targetSong").value : "";
   renderSelectedSongResource(currentSong);
 }
 
@@ -3327,12 +3805,23 @@ function toggleTimer() {
   if (timerInterval) {
     clearInterval(timerInterval);
     timerInterval = null;
+    let elapsedSeconds = 0;
     if (targetEndTime) {
-      timeRemaining = Math.max(0, Math.ceil((targetEndTime - Date.now()) / 1000));
+      const remainingSecs = Math.max(0, Math.ceil((targetEndTime - Date.now()) / 1000));
+      elapsedSeconds = Math.max(0, timerDuration - remainingSecs);
+      timeRemaining = remainingSecs;
     }
     targetEndTime = null;
     localStorage.removeItem("kantime_target_end");
     localStorage.setItem("kantime_paused_remaining", timeRemaining);
+
+    // Record partial practice session if at least 1 minute was practiced
+    const elapsedMins = Math.round((elapsedSeconds / 60) * 10) / 10;
+    if (elapsedMins >= 1) {
+      const currentSong = document.getElementById("targetSong") ? document.getElementById("targetSong").value : "";
+      const identity = getUserIdentity();
+      logPracticeSession(currentSong, identity.part || "All", elapsedMins);
+    }
 
     document.getElementById("timerDisplay").innerText = formatTime(timeRemaining);
     btn.innerText = "Resume Practice";
@@ -3342,6 +3831,7 @@ function toggleTimer() {
     stopIdleTracking();
     updateDurationSelectorUI(currentDurationMins, false);
   } else {
+    timerDuration = timeRemaining; // Set current cycle duration
     targetEndTime = Date.now() + (timeRemaining * 1000);
     localStorage.setItem("kantime_target_end", targetEndTime);
     localStorage.setItem("kantime_target_song", document.getElementById("targetSong").value);
@@ -8785,11 +9275,16 @@ window.addEventListener("DOMContentLoaded", function () {
   syncOfflinePracticeQueue();
   initPWAInstallBanner();
   initStakeRepertoireSync();
+  initIdentityAndPracticeTracking();
 });
 
 // Close modals on Escape key
 document.addEventListener("keydown", function (e) {
   if (e.key === "Escape") {
+    const profileModal = document.getElementById("profileModal");
+    if (profileModal && profileModal.classList.contains("active")) {
+      closeProfileModal();
+    }
     const stakeModal = document.getElementById("stakeSheetModal");
     if (stakeModal && stakeModal.classList.contains("active")) {
       closeStakeSheetModal();
@@ -8860,5 +9355,20 @@ window.closeStakeSheetModal = closeStakeSheetModal;
 window.closeStakeSheetOnBackdrop = closeStakeSheetOnBackdrop;
 window.handleStakeSheetConnect = handleStakeSheetConnect;
 window.resetToDefaultRepertoire = resetToDefaultRepertoire;
+window.copyChoirShareLink = copyChoirShareLink;
 window.sanitizeResourceUrl = sanitizeResourceUrl;
 window.sanitizeDriveUrl = sanitizeDriveUrl;
+window.getUserIdentity = getUserIdentity;
+window.getDisplayHandle = getDisplayHandle;
+window.logPracticeSession = logPracticeSession;
+window.getPracticeLogs = getPracticeLogs;
+window.getWeeklyPracticeSummary = getWeeklyPracticeSummary;
+window.generatePracticeReport = generatePracticeReport;
+window.copyPracticeReport = copyPracticeReport;
+window.handleProfileInitialsInput = handleProfileInitialsInput;
+window.handleProfileVoicePartChange = handleProfileVoicePartChange;
+window.saveProfileFromModal = saveProfileFromModal;
+window.openProfileModal = openProfileModal;
+window.closeProfileModal = closeProfileModal;
+window.closeProfileModalOnBackdrop = closeProfileModalOnBackdrop;
+window.initIdentityAndPracticeTracking = initIdentityAndPracticeTracking;

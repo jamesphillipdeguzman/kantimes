@@ -731,11 +731,11 @@ header {
   display: flex;
   align-items: center;
   justify-content: center;
-  max-width: 540px;
+  max-width: 620px;
   margin: 0 auto;
   position: relative;
-  padding: 0 134px 0 0;
-  /* allowance for theme toggle, stake sheet, and settings buttons */
+  padding: 0 174px 0 0;
+  /* allowance for identity badge, theme toggle, stake sheet, and settings buttons */
 }
 
 .header-actions {
@@ -746,6 +746,50 @@ header {
   display: flex;
   align-items: center;
   gap: 8px;
+}
+
+/* ── Choir Identity Header Badge & Pill ─────────────────────────────── */
+.identity-badge-btn {
+  background: rgba(255, 255, 255, 0.16);
+  border: 1px solid rgba(255, 255, 255, 0.28);
+  color: #ffffff;
+  height: 38px;
+  padding: 0 11px;
+  border-radius: 999px;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 0.8rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
+  user-select: none;
+  touch-action: manipulation;
+  white-space: nowrap;
+}
+
+.identity-badge-btn:hover {
+  background: rgba(255, 255, 255, 0.28);
+  transform: translateY(-1px);
+  box-shadow: 0 3px 8px rgba(0, 0, 0, 0.2);
+}
+
+.identity-badge-btn:active {
+  transform: scale(0.96);
+}
+
+.identity-badge-icon {
+  font-size: 0.95rem;
+  line-height: 1;
+}
+
+.identity-badge-handle {
+  max-width: 82px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  letter-spacing: 0.2px;
 }
 
 .theme-quick-btn,
@@ -824,7 +868,17 @@ header {
 
 @media (max-width: 480px) {
   .header-inner {
-    padding-right: 124px;
+    padding-right: 155px;
+  }
+
+  .identity-badge-btn {
+    padding: 0 8px;
+    height: 35px;
+  }
+
+  .identity-badge-handle {
+    max-width: 58px;
+    font-size: 0.74rem;
   }
 }
 
@@ -835,7 +889,19 @@ header {
   }
 
   .header-inner {
-    padding-right: 114px;
+    padding-right: 135px;
+  }
+
+  .identity-badge-btn {
+    width: 33px;
+    height: 33px;
+    padding: 0;
+    justify-content: center;
+    border-radius: 50%;
+  }
+
+  .identity-badge-handle {
+    display: none;
   }
 
   .theme-quick-btn,
@@ -7839,6 +7905,164 @@ body.piano-fullscreen-active {
   border-radius: 4px;
 }
 
+/* Share Link Box */
+.stake-share-link-box {
+  margin-top: 12px;
+  background: linear-gradient(135deg, rgba(37, 99, 235, 0.08) 0%, rgba(59, 130, 246, 0.04) 100%);
+  border: 1px solid rgba(59, 130, 246, 0.25);
+  border-radius: var(--radius-md, 10px);
+  padding: 12px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.stake-share-link-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.stake-share-link-info strong {
+  font-size: 0.82rem;
+  color: var(--primary-dark, #1d4ed8);
+}
+
+.stake-share-link-info span {
+  font-size: 0.76rem;
+  color: var(--text-muted, #64748b);
+  line-height: 1.35;
+}
+
+.btn-copy-choir-link {
+  background: #ffffff !important;
+  color: var(--primary-dark, #1d4ed8) !important;
+  border: 1px solid rgba(59, 130, 246, 0.4) !important;
+  font-size: 0.8rem;
+  font-weight: 750;
+  justify-content: center;
+  padding: 8px 12px;
+}
+
+.btn-copy-choir-link:hover {
+  background: rgba(37, 99, 235, 0.08) !important;
+  border-color: var(--primary-dark, #1d4ed8) !important;
+}
+
+/* Collapsible Quick Guide Accordion */
+.stake-guide-accordion {
+  margin-top: 14px;
+  border: 1px solid var(--border-color, #e2e8f0);
+  border-radius: var(--radius-md, 10px);
+  background: var(--bg-card, #f8fafc);
+  overflow: hidden;
+  transition: all 0.2s ease;
+}
+
+.stake-guide-accordion[open] {
+  border-color: rgba(59, 130, 246, 0.3);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+}
+
+.stake-guide-summary {
+  padding: 10px 14px;
+  font-size: 0.82rem;
+  font-weight: 750;
+  color: var(--text-primary, #1e293b);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  user-select: none;
+  list-style: none;
+}
+
+.stake-guide-summary::-webkit-details-marker {
+  display: none;
+}
+
+.stake-guide-summary .accordion-arrow {
+  font-size: 0.85rem;
+  color: var(--text-muted, #64748b);
+  transition: transform 0.2s ease;
+}
+
+.stake-guide-accordion[open] .stake-guide-summary .accordion-arrow {
+  transform: rotate(180deg);
+}
+
+.stake-guide-content {
+  padding: 0 14px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.stake-guide-steps {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.stake-guide-step {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+}
+
+.stake-guide-step .step-badge {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: var(--primary, #2563eb);
+  color: #ffffff;
+  font-size: 0.72rem;
+  font-weight: 800;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+
+.stake-guide-step .step-body {
+  font-size: 0.78rem;
+  color: var(--text-primary, #334155);
+  line-height: 1.4;
+}
+
+.stake-guide-step .step-body strong {
+  display: block;
+  font-size: 0.8rem;
+  color: var(--text-primary, #0f172a);
+  margin-bottom: 2px;
+}
+
+.stake-guide-step .step-body p {
+  margin: 0;
+}
+
+.guide-path {
+  display: inline-block;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 0.72rem;
+  background: rgba(0, 0, 0, 0.06);
+  padding: 2px 6px;
+  border-radius: 4px;
+  margin-top: 3px;
+  word-break: break-all;
+}
+
+.stake-guide-member-callout {
+  padding: 8px 10px;
+  background: rgba(245, 158, 11, 0.1);
+  border-left: 3px solid #f59e0b;
+  border-radius: 4px;
+  font-size: 0.74rem;
+  color: #92400e;
+  line-height: 1.35;
+}
+
 /* Template Copy Section */
 .stake-sheet-template-box {
   margin-top: 16px;
@@ -8048,6 +8272,61 @@ body.piano-fullscreen-active {
   border-color: rgba(59, 130, 246, 0.35);
 }
 
+[data-theme="dark"] .stake-share-link-box {
+  background: #182238;
+  border-color: rgba(59, 130, 246, 0.3);
+}
+
+[data-theme="dark"] .stake-share-link-info strong {
+  color: #93c5fd;
+}
+
+[data-theme="dark"] .stake-share-link-info span {
+  color: #94a3b8;
+}
+
+[data-theme="dark"] .btn-copy-choir-link {
+  background: #1e293b !important;
+  color: #93c5fd !important;
+  border-color: rgba(59, 130, 246, 0.4) !important;
+}
+
+[data-theme="dark"] .btn-copy-choir-link:hover {
+  background: rgba(59, 130, 246, 0.2) !important;
+}
+
+[data-theme="dark"] .stake-guide-accordion {
+  background: #182238;
+  border-color: rgba(255, 255, 255, 0.12);
+}
+
+[data-theme="dark"] .stake-guide-accordion[open] {
+  border-color: rgba(59, 130, 246, 0.4);
+}
+
+[data-theme="dark"] .stake-guide-summary {
+  color: #f1f5f9;
+}
+
+[data-theme="dark"] .stake-guide-step .step-body {
+  color: #cbd5e1;
+}
+
+[data-theme="dark"] .stake-guide-step .step-body strong {
+  color: #f1f5f9;
+}
+
+[data-theme="dark"] .guide-path {
+  background: rgba(255, 255, 255, 0.08);
+  color: #93c5fd;
+}
+
+[data-theme="dark"] .stake-guide-member-callout {
+  background: rgba(245, 158, 11, 0.12);
+  color: #fde68a;
+  border-left-color: #f59e0b;
+}
+
 [data-theme="dark"] .stake-sheet-template-box {
   background: rgba(245, 158, 11, 0.1);
   border-color: rgba(245, 158, 11, 0.3);
@@ -8100,4 +8379,356 @@ body.piano-fullscreen-active {
 [data-theme="dark"] .res-part-badge {
   background: rgba(255, 255, 255, 0.12);
   color: #cbd5e1;
+}
+
+/* ==========================================================================
+   Choir Identity & Practice Summary Modal Styles
+   ========================================================================== */
+.profile-modal-box {
+  max-width: 480px;
+  width: 94%;
+}
+
+.profile-modal-title-wrap h3 {
+  margin: 0;
+  font-size: 1.15rem;
+  font-weight: 800;
+  color: var(--primary-dark, #1e3a8a);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.profile-modal-subtitle {
+  margin: 2px 0 0;
+  font-size: 0.78rem;
+  color: var(--text-muted, #64748b);
+}
+
+.profile-modal-body {
+  padding: 16px 20px;
+}
+
+/* Active Handle Card */
+.profile-handle-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 14px;
+  background: linear-gradient(135deg, rgba(37, 99, 235, 0.08) 0%, rgba(59, 130, 246, 0.04) 100%);
+  border: 1px solid rgba(59, 130, 246, 0.22);
+  border-radius: 12px;
+  margin-bottom: 12px;
+}
+
+.profile-handle-left {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
+.profile-avatar-symbol {
+  font-size: 1.5rem;
+  line-height: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 42px;
+  height: 42px;
+  background: #ffffff;
+  border-radius: 50%;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.08);
+  flex-shrink: 0;
+}
+
+.profile-handle-meta {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.profile-handle-label {
+  font-size: 0.68rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--text-muted, #64748b);
+}
+
+.profile-handle-tag {
+  font-size: 1.05rem;
+  font-weight: 800;
+  color: var(--primary-dark, #1d4ed8);
+  letter-spacing: 0.3px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.profile-tag-pill {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  background: rgba(15, 23, 42, 0.06);
+  padding: 4px 8px;
+  border-radius: 6px;
+  border: 1px dashed rgba(15, 23, 42, 0.15);
+  flex-shrink: 0;
+}
+
+.profile-tag-fixed-label {
+  font-size: 0.7rem;
+  font-weight: 600;
+  color: var(--text-muted, #64748b);
+}
+
+.profile-tag-fixed-val {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: var(--text-primary, #0f172a);
+}
+
+.btn-save-profile {
+  width: 100%;
+  justify-content: center;
+  padding: 10px 16px;
+  font-weight: 700;
+}
+
+/* Practice Summary Card */
+.profile-practice-summary-card {
+  margin-top: 18px;
+  background: var(--bg-card, #f8fafc);
+  border: 1px solid var(--border-color, #e2e8f0);
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+.summary-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 14px;
+  background: rgba(0, 0, 0, 0.02);
+  border-bottom: 1px solid var(--border-color, #e2e8f0);
+}
+
+.summary-card-header h4 {
+  margin: 0;
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: var(--text-primary, #1e293b);
+}
+
+.summary-time-badge {
+  background: rgba(16, 185, 129, 0.12);
+  color: #047857;
+  border: 1px solid rgba(16, 185, 129, 0.3);
+  font-size: 0.72rem;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: 999px;
+}
+
+.summary-card-body {
+  padding: 12px 14px;
+}
+
+.summary-stat-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 0.82rem;
+  margin-bottom: 6px;
+}
+
+.stat-row-label {
+  color: var(--text-muted, #64748b);
+}
+
+.stat-row-val {
+  color: var(--text-primary, #0f172a);
+}
+
+.summary-song-list {
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px dashed var(--border-color, #e2e8f0);
+  max-height: 110px;
+  overflow-y: auto;
+}
+
+.summary-songs-ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.summary-songs-ul li {
+  font-size: 0.78rem;
+  color: var(--text-primary, #1e293b);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.summary-songs-ul li .song-dot {
+  font-size: 0.82rem;
+  line-height: 1;
+}
+
+.summary-songs-ul li .song-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.summary-empty-hint {
+  font-size: 0.76rem;
+  color: var(--text-muted, #64748b);
+  display: block;
+  line-height: 1.4;
+}
+
+.summary-card-footer {
+  padding: 10px 14px;
+  background: rgba(0, 0, 0, 0.02);
+  border-top: 1px solid var(--border-color, #e2e8f0);
+}
+
+.btn-copy-report {
+  width: 100%;
+  justify-content: center;
+  font-weight: 700;
+  background: #ffffff;
+  color: var(--primary-dark, #1d4ed8);
+  border-color: rgba(37, 99, 235, 0.35);
+  font-size: 0.82rem;
+  padding: 8px 12px;
+}
+
+.btn-copy-report:hover {
+  background: rgba(37, 99, 235, 0.08);
+  border-color: var(--primary-dark, #1d4ed8);
+}
+
+.profile-modal-footer {
+  padding: 12px 20px;
+  display: flex;
+  justify-content: flex-end;
+  border-top: 1px solid var(--border-color, #e2e8f0);
+  background: var(--bg-card, #f8fafc);
+}
+
+/* ── Dark Mode Overrides for Profile & Identity ─────────────────────── */
+[data-theme="dark"] .profile-modal-box {
+  background-color: var(--bg-modal, #131b2e) !important;
+  color: var(--text-primary, #f1f5f9);
+}
+
+[data-theme="dark"] .profile-modal-title-wrap h3 {
+  color: #f1f5f9 !important;
+}
+
+[data-theme="dark"] .profile-modal-subtitle {
+  color: #94a3b8 !important;
+}
+
+[data-theme="dark"] .profile-handle-card {
+  background: #182238;
+  border-color: rgba(59, 130, 246, 0.3);
+}
+
+[data-theme="dark"] .profile-avatar-symbol {
+  background: #1e293b;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
+}
+
+[data-theme="dark"] .profile-handle-label {
+  color: #94a3b8;
+}
+
+[data-theme="dark"] .profile-handle-tag {
+  color: #93c5fd;
+}
+
+[data-theme="dark"] .profile-tag-pill {
+  background: rgba(255, 255, 255, 0.06);
+  border-color: rgba(255, 255, 255, 0.15);
+}
+
+[data-theme="dark"] .profile-tag-fixed-label {
+  color: #94a3b8;
+}
+
+[data-theme="dark"] .profile-tag-fixed-val {
+  color: #f1f5f9;
+}
+
+[data-theme="dark"] .profile-practice-summary-card {
+  background: #182238;
+  border-color: rgba(255, 255, 255, 0.12);
+}
+
+[data-theme="dark"] .summary-card-header {
+  background: rgba(255, 255, 255, 0.03);
+  border-bottom-color: rgba(255, 255, 255, 0.1);
+}
+
+[data-theme="dark"] .summary-card-header h4 {
+  color: #f1f5f9;
+}
+
+[data-theme="dark"] .summary-time-badge {
+  background: rgba(16, 185, 129, 0.18);
+  color: #6ee7b7;
+  border-color: rgba(16, 185, 129, 0.35);
+}
+
+[data-theme="dark"] .stat-row-label {
+  color: #94a3b8;
+}
+
+[data-theme="dark"] .stat-row-val {
+  color: #f1f5f9;
+}
+
+[data-theme="dark"] .summary-song-list {
+  border-top-color: rgba(255, 255, 255, 0.1);
+}
+
+[data-theme="dark"] .summary-songs-ul li {
+  color: #e2e8f0;
+}
+
+[data-theme="dark"] .summary-empty-hint {
+  color: #94a3b8;
+}
+
+[data-theme="dark"] .summary-card-footer {
+  background: rgba(255, 255, 255, 0.03);
+  border-top-color: rgba(255, 255, 255, 0.1);
+}
+
+[data-theme="dark"] .btn-copy-report {
+  background: #1e293b;
+  color: #93c5fd;
+  border-color: rgba(59, 130, 246, 0.4);
+}
+
+[data-theme="dark"] .btn-copy-report:hover {
+  background: rgba(59, 130, 246, 0.2);
+}
+
+[data-theme="dark"] .profile-modal-footer {
+  background: #182238;
+  border-top-color: rgba(255, 255, 255, 0.1);
 }

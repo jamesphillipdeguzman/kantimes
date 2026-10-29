@@ -14,8 +14,8 @@
     content="Access hymn repertoire, practice tracks, and track your daily 15-minute practice sessions for Oct 24–25!">
 
   <!-- Open Graph Image with explicit dimensions & cache buster -->
-  <meta property="og:image" content="https://kantimes.vercel.app/images/kantimes-og-image.jpg?v=2.7.2">
-  <meta property="og:image:secure_url" content="https://kantimes.vercel.app/images/kantimes-og-image.jpg?v=2.7.2">
+  <meta property="og:image" content="https://kantimes.vercel.app/images/kantimes-og-image.jpg?v=2.8.0">
+  <meta property="og:image:secure_url" content="https://kantimes.vercel.app/images/kantimes-og-image.jpg?v=2.8.0">
   <meta property="og:image:type" content="image/jpeg">
   <meta property="og:image:width" content="1200">
   <meta property="og:image:height" content="630">
@@ -25,7 +25,7 @@
   <meta name="twitter:title" content="🎶 Kantimes | Stake Choir Practice Hub">
   <meta name="twitter:description"
     content="Access hymn repertoire, practice tracks, and track your daily 15-minute practice sessions!">
-  <meta name="twitter:image" content="https://kantimes.vercel.app/images/kantimes-og-image.jpg?v=2.7.2">
+  <meta name="twitter:image" content="https://kantimes.vercel.app/images/kantimes-og-image.jpg?v=2.8.0">
 
   <meta name="theme-color" content="#1e3a8a">
   <link rel="manifest" href="/manifest.json">
@@ -37,7 +37,7 @@
   <meta name="apple-mobile-web-app-title" content="Kantimes">
   <link rel="icon" type="image/png" sizes="192x192" href="/images/icon-192.png">
   <link rel="icon" type="image/x-icon" href="/images/favicon.ico">
-  <link rel="stylesheet" href="css/style.css?v=2.7.2">
+  <link rel="stylesheet" href="css/style.css?v=2.8.0">
 </head>
 
 <body>
@@ -50,11 +50,16 @@
           title="Tap to refresh app and check for new songs" aria-label="Refresh app and check for updates"
           onerror="this.style.display='none'">
         <div class="header-text">
-          <h1>Kantimes <span class="app-version-badge" title="Kantimes v2.7.2">v2.7.2</span></h1>
+          <h1>Kantimes <span class="app-version-badge" title="Kantimes v2.8.0">v2.8.0</span></h1>
           <p id="headerSubtitle">Christmas Devotional &amp; Current Practice</p>
         </div>
       </div>
       <div class="header-actions">
+        <button type="button" class="identity-badge-btn" id="openProfileModalBtn" onclick="openProfileModal()"
+          aria-label="My Choir Profile" title="My Choir Profile & Practice Summary">
+          <span class="identity-badge-icon" id="headerIdentityIcon">🎵</span>
+          <span class="identity-badge-handle" id="headerIdentityHandle">Profile</span>
+        </button>
         <button type="button" class="sheet-sync-btn" id="openStakeSheetBtn" onclick="openStakeSheetModal()"
           aria-label="Stake / Repertoire Source" title="Stake / Repertoire Source (Google Sheet)">📊</button>
         <button type="button" class="theme-quick-btn" id="themeQuickToggleBtn" onclick="toggleQuickTheme()"
@@ -489,7 +494,7 @@
         </p>
       </div>
       <p class="footer-credit">&copy; <span id="footerYear"></span> James Phillip De Guzman • <span
-          class="footer-version-tag">Kantimes v2.7.2</span></p>
+          class="footer-version-tag">Kantimes v2.8.0</span></p>
     </footer>
 
     <!-- Fixed Persistent Voice Pitch Checker Overlay (Corner Card) -->
@@ -574,7 +579,7 @@
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
     <script src="lame.min.js"></script>
-    <script src="script.js?v=2.7.2"></script>
+    <script src="script.js?v=2.8.0"></script>
 
     <!-- In-App Resource Viewer Modal -->
     <div id="resourceModal" class="modal-backdrop" onclick="closeModalOnBackdrop(event)">
@@ -639,6 +644,102 @@
       </div>
     </div>
 
+    <!-- Choir Identity & Practice Summary Modal -->
+    <div id="profileModal" class="modal-backdrop" onclick="closeProfileModalOnBackdrop(event)" role="dialog"
+      aria-modal="true" aria-labelledby="profileModalTitle">
+      <div class="modal-box profile-modal-box">
+        <div class="modal-header">
+          <div class="profile-modal-title-wrap">
+            <h3 id="profileModalTitle">👤 My Choir Profile</h3>
+            <p class="profile-modal-subtitle">Anonymous, collision-free identity &amp; practice tracking</p>
+          </div>
+          <button class="modal-close-btn" type="button" onclick="closeProfileModal()"
+            aria-label="Close modal">&times;</button>
+        </div>
+
+        <div class="modal-body profile-modal-body">
+          <!-- Active Handle Card -->
+          <div class="profile-handle-card">
+            <div class="profile-handle-left">
+              <span class="profile-avatar-symbol" id="profileModalAvatarSymbol">🎵</span>
+              <div class="profile-handle-meta">
+                <span class="profile-handle-label">Your Anonymous Choir Handle</span>
+                <span class="profile-handle-tag" id="profileModalDisplayHandle">Loading...</span>
+              </div>
+            </div>
+            <div class="profile-tag-pill" title="Unique collision-free Base36 tag">
+              <span class="profile-tag-fixed-label">Tag:</span>
+              <span class="profile-tag-fixed-val" id="profileModalFixedTag">#----</span>
+            </div>
+          </div>
+
+          <!-- Profile Form Inputs -->
+          <div class="settings-section" style="margin-top: 14px;">
+            <label for="profileInitialsInput">Initials or Nickname <span class="label-hint">(Optional, max 6 chars)</span></label>
+            <input type="text" id="profileInitialsInput" maxlength="6" placeholder="e.g. JD, Sam, Maria"
+              autocomplete="off" autocapitalize="characters" oninput="handleProfileInitialsInput(this)">
+            <p class="settings-hint">Used as your handle prefix (e.g. <code>JD#8K2P</code>). Fallback is your voice part.</p>
+          </div>
+
+          <div class="settings-section">
+            <label for="profileVoicePartSelect">Primary Voice Part</label>
+            <select id="profileVoicePartSelect" onchange="handleProfileVoicePartChange(this)">
+              <option value="Soprano">Soprano</option>
+              <option value="Alto">Alto</option>
+              <option value="Tenor">Tenor</option>
+              <option value="Bass">Bass</option>
+              <option value="Accompanist">Accompanist</option>
+              <option value="Director">Director</option>
+              <option value="All">Director / All</option>
+            </select>
+          </div>
+
+          <div class="settings-section">
+            <label for="profileStakeInput">Stake Name <span class="label-hint">(Optional)</span></label>
+            <input type="text" id="profileStakeInput" placeholder="e.g. Manila Philippines Stake"
+              autocomplete="organization">
+            <p class="settings-hint">Appears in your group chat practice report.</p>
+          </div>
+
+          <div class="profile-modal-actions" style="margin-top: 10px;">
+            <button type="button" class="btn btn-primary btn-save-profile" id="saveProfileBtn" onclick="saveProfileFromModal()">
+              💾 Save Profile
+            </button>
+          </div>
+
+          <!-- Recent Practice Summary Section -->
+          <div class="profile-practice-summary-card">
+            <div class="summary-card-header">
+              <h4>📊 This Week's Practice Summary</h4>
+              <span class="summary-time-badge" id="profileWeeklyMinutesBadge">0 mins</span>
+            </div>
+            <div class="summary-card-body">
+              <div class="summary-stat-row">
+                <span class="stat-row-label">Total Time This Week:</span>
+                <strong class="stat-row-val" id="profileSummaryTotalTime">0 minutes</strong>
+              </div>
+              <div class="summary-stat-row">
+                <span class="stat-row-label">Songs Practiced:</span>
+                <span class="stat-row-val" id="profileSummarySongCount">0 songs</span>
+              </div>
+              <div class="summary-song-list" id="profileSummarySongList">
+                <em class="summary-empty-hint">No practice sessions logged yet this week. Start a timer or play rehearsal audio to record practice!</em>
+              </div>
+            </div>
+            <div class="summary-card-footer">
+              <button type="button" class="btn btn-outline btn-copy-report" id="btnCopyPracticeReport" onclick="copyPracticeReport()">
+                📋 Copy Report for Group Chat
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <div class="modal-footer profile-modal-footer">
+          <button type="button" class="btn btn-outline" onclick="closeProfileModal()">Close</button>
+        </div>
+      </div>
+    </div>
+
     <!-- Stake / Repertoire Source Switcher Modal -->
     <div id="stakeSheetModal" class="modal-backdrop" onclick="closeStakeSheetOnBackdrop(event)" role="dialog"
       aria-modal="true" aria-labelledby="stakeSheetModalTitle">
@@ -663,6 +764,16 @@
               Using official master repertoire sheet.
             </div>
           </div>
+<!-- Share Link Box (Visible when a custom stake sheet is active) -->
+          <div class="stake-share-link-box" id="stakeShareLinkBox" style="display: none;">
+            <div class="stake-share-link-info">
+              <strong>Share Repertoire with Choir:</strong>
+              <span>Choir members will instantly connect to your sheet when opening your link.</span>
+            </div>
+            <button type="button" class="btn btn-outline btn-copy-choir-link" id="copyChoirShareLinkBtn" onclick="copyChoirShareLink()">
+              📋 Copy Share Link for Choir
+            </button>
+          </div>
 
           <div class="settings-section" style="margin-top: 14px;">
             <label for="stakeSheetInput">Google Sheet URL or ID</label>
@@ -673,6 +784,44 @@
             </p>
             <div class="stake-sheet-error" id="stakeSheetError" style="display: none;"></div>
           </div>
+
+          <!-- Collapsible Quick Guide for Stake Music Directors -->
+          <details class="stake-guide-accordion" id="stakeGuideAccordion">
+            <summary class="stake-guide-summary">
+              <span>📖 How to set up your Stake's Repertoire</span>
+              <span class="accordion-arrow">▾</span>
+            </summary>
+            <div class="stake-guide-content">
+              <div class="stake-guide-steps">
+                <div class="stake-guide-step">
+                  <div class="step-badge">1</div>
+                  <div class="step-body">
+                    <strong>Copy the Template</strong>
+                    <p>Duplicate our clean starter sheet into your Google Drive via the <em>Copy Sheet Template</em> button below.</p>
+                  </div>
+                </div>
+                <div class="stake-guide-step">
+                  <div class="step-badge">2</div>
+                  <div class="step-body">
+                    <strong>Add Songs &amp; Publish</strong>
+                    <p>Fill in your songs, voice parts, and links, then go to:
+                      <code class="guide-path">File &gt; Share &gt; Publish to web &gt; Link tab &gt; Comma-separated values (.csv) &gt; Publish</code>.
+                    </p>
+                  </div>
+                </div>
+                <div class="stake-guide-step">
+                  <div class="step-badge">3</div>
+                  <div class="step-body">
+                    <strong>Paste &amp; Sync</strong>
+                    <p>Paste the spreadsheet link into the input box above and tap <strong>&ldquo;Connect &amp; Sync&rdquo;</strong>.</p>
+                  </div>
+                </div>
+              </div>
+              <div class="stake-guide-member-callout">
+                💡 <strong>Note for Choir Members:</strong> You don&rsquo;t need to configure a sheet! Just open the link provided by your music coordinator or use the Default Master repertoire.
+              </div>
+            </div>
+          </details>
 
           <div class="stake-sheet-template-box">
             <div class="stake-template-info">
@@ -704,7 +853,7 @@
         <div class="modal-header">
           <div class="settings-modal-title-wrap">
             <h3 id="settingsModalTitle">⚙️ Practice Settings & Guide</h3>
-            <span class="settings-header-version">v2.7.2</span>
+            <span class="settings-header-version">v2.8.0</span>
           </div>
           <button class="modal-close-btn" type="button" onclick="closeSettingsModal()"
             aria-label="Close settings">&times;</button>

@@ -1,8 +1,8 @@
 // ==========================================================================
-// KanTimes PWA Service Worker (v2.7.2 — Dynamic Cache Invalidation & Network-First Core)
+// KanTimes PWA Service Worker (v2.8.0 — Dynamic Cache Invalidation & Network-First Core)
 // ==========================================================================
 
-const APP_VERSION = "2.7.2";
+const APP_VERSION = "2.8.0";
 const CACHE_NAME = `kantimes-cache-v${APP_VERSION}`;
 
 const PRECACHE_ASSETS = [

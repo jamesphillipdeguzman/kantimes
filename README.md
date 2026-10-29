@@ -72,6 +72,13 @@ It provides choir members with:
 - Interactive **cents deviation meter** (-50 to +50 cents) with color-coded feedback (Flat, In Tune, Sharp).
 - Starting pitch generators tailored for each choir voice part (Soprano C5, Alto A3, Tenor E3, Bass C3).
 
+### 📊 "Bring Your Own Google Sheet" (Multi-Stake Repertoire Engine)
+- **Zero-Backend Multi-Stake Scalability**: Empowers any LDS Stake Choir to connect and sync their own custom public Google Sheet repertoire without needing a backend server, database, or user authentication.
+- **Published Web CSV Endpoint**: Fetches song data directly via Google's zero-API published CSV endpoint (`/pub?output=csv`), eliminating Google sign-in barriers, API keys, and CORS restrictions.
+- **In-Browser RFC 4180 CSV Parser & Grouping**: Automatically groups multiple sheet rows with the same song title into unified song objects with dedicated voice part rehearsal tracks (Soprano, Alto, Tenor, Bass, Choir, Accompaniment) and score PDFs.
+- **Stale-While-Revalidate PWA Caching**: Delivers 0ms instant startup from `localStorage.kantimes_cached_songs` with seamless background updates. Graceful offline fallback ensures rehearsing in chapels without Wi-Fi works reliably.
+- **1-Click Shareable Choir Onboarding Link**: Music directors can generate a direct link (`https://kantimes.vercel.app/?sheet=[SHEET_ID_OR_PUB_URL]`) that automatically connects and syncs the stake repertoire for members on first tap.
+
 ### 🔒 Gated Repertoire Protection
 - Rehearsal sheet music, audio players, and external Drive links remain locked until the choir member starts the practice countdown timer.
 - Fosters active, intentional rehearsal habits.
@@ -98,6 +105,9 @@ It provides choir members with:
 
 | Version    |    Date    | Key Highlights                                                                                                                                                                                                                                                                                                                                                                  |
 | :--------- | :--------: | :------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| **v2.8.0** | 2026-10-30 | Added interactive **Stake Onboarding Guide** (collapsible 3-step walkthrough and choir member callout) inside Repertoire Source modal; added **1-Click Shareable Choir Link Generator** (`?sheet=...`) with instant member onboarding and URL param auto-sync on boot; bumped app shell and asset versioning to v2.8.0.                                                      |
+| **v2.7.3** | 2026-10-29 | Added Service Worker bypass for external Google domains (`docs.google.com`, `googleusercontent.com`, `youtube.com`) to prevent CORS rejections and opaque fetch failures; decoupled repertoire from local files to a clean, public master Google Sheet published CSV endpoint (`DEFAULT_PUB_CSV_URL`); implemented multi-URL fallback resolution supporting `/pub` URLs, standard `/d/{ID}` links, and raw Sheet IDs. |
+| **v2.7.2** | 2026-10-29 | Verified Christmas Devotional 2026 repertoire stability and initial client-side CSV parsing.                                                                                                                                                                                                                                                                                    |
 | **v2.6.0** | 2026-09-23 | Rebranded application name from KanTime to **Kantimes** across all UI elements, headers, and documentation; added **automatic cache invalidation and PWA update checks** on app launch so mobile shortcuts fetch new updates seamlessly without requiring manual re-installation.                                                                                               |
 | **v2.5.8** | 2026-09-21 | Extended maximum audio recording duration to **5 minutes**[cite: 6]; added **MP3 audio export** functionality[cite: 6]; updated recorded file naming convention to use a **generic prefix** (`kantime-practice-recording-[timestamp].mp3`) instead of specific song titles[cite: 6].                                                                                            |
 | **v2.5.7** | 2026-09-20 | Fixed rogue octave pill in **In-Browser Piano Drawer** (maximized mode); improved **maximized layout alignment** (horizontal centering + content bottom-aligned); added **automatic session cleanup** on browser close; updated app and badge versions; enhanced full project documentation.                                                                                    |
@@ -124,6 +134,12 @@ It provides choir members with:
   - Vocal reference starting pitches (Middle C / voice section starting notes)
 - **Service Worker API**: Offline asset caching and background request queueing
 - **Web App Manifest**: Standalone PWA mobile installability
+
+### Repertoire & Data Architecture
+- **"Bring Your Own Google Sheet" (BYOS)**: Decentralized, zero-auth data ingestion model enabling instant multi-stake deployment across any diocese or stake.
+- **Published CSV Export Pipeline**: High-availability, zero-cost Google Sheets CSV publication (`/pub?output=csv`).
+- **Client-Side RFC 4180 Ingestion**: Normalizes diverse spreadsheet schemas and groups voice parts into structured song objects.
+- **Stale-While-Revalidate Engine**: 0ms offline PWA hydration with background revalidation and automatic chapel offline resilience.
 
 ### Backend & Database
 - **Google Apps Script Web App**: RESTful endpoints (`doGet` for leaderboard, `doPost` for session logs)
