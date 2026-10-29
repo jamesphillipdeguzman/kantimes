@@ -29,8 +29,38 @@ const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycby6r8JCXFOeuDqk
 // ==========================================================================
 // 1. CONFIGURATION & BRING YOUR OWN GOOGLE SHEET (STAKE REPERTOIRE ENGINE)
 // ==========================================================================
-const DEFAULT_SHEET_ID = "1-TPqYS9fINnyowq4mfKbxmb6ceEI8gAEsyuhOb19d6U";
+// Clean public Master Repertoire (no personal data, published as CSV)
+const DEFAULT_PUB_CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vTOC2L6l-DyiZ_7tLd5QryiXg1-BvaE6wg1SBwDJZRbTTNOzclO0i8z97mXHGwX4UVZEDoYIuQnygBx/pub?gid=0&single=true&output=csv";
+const DEFAULT_SHEET_ID = "123fm9MSGA-FcOqN37sGrElVqhVaknl34Ii7tsr9gt8w";
 const TEMPLATE_SHEET_URL = `https://docs.google.com/spreadsheets/d/${DEFAULT_SHEET_ID}/copy`;
+
+/**
+ * Resolves any Google Sheet source (raw ID, edit URL, or published web export)
+ * to its direct CSV endpoint.
+ */
+function resolveCsvUrl(source) {
+  if (!source || typeof source !== "string" || !source.trim() || source.trim() === DEFAULT_SHEET_ID) {
+    return DEFAULT_PUB_CSV_URL;
+  }
+  const trimmed = source.trim();
+  if (trimmed.includes("/pub") || trimmed.includes("output=csv")) {
+    return trimmed.includes("output=csv")
+      ? trimmed
+      : `${trimmed.split("?")[0]}?output=csv`;
+  }
+  const sheetId = extractSheetId(trimmed) || trimmed;
+  return `https://docs.google.com/spreadsheets/d/${sheetId}/export?format=csv&gid=0`;
+}
+
+/**
+ * Returns active CSV endpoint URL:
+ * - If no custom stake sheet is set (or matches default), returns DEFAULT_PUB_CSV_URL
+ * - If custom stake provided /pub link or standard sheet ID, returns proper CSV URL
+ */
+function getActiveCsvUrl() {
+  const customSource = localStorage.getItem("kantimes_active_sheet_id");
+  return resolveCsvUrl(customSource);
+}
 
 /**
  * Extracts pure Google Sheet ID from a raw ID or full Google Sheets URL.
@@ -318,13 +348,12 @@ function groupRowsIntoSongs(rows) {
  * Persists offline to localStorage ("kantimes_cached_songs"),
  * and smoothly updates song lists.
  */
-async function loadSongsFromSheet(sheetId, options = {}) {
+async function loadSongsFromSheet(sheetIdOrUrl, options = {}) {
   const isBackground = Boolean(options.isBackground);
   const userInitiated = Boolean(options.userInitiated);
   const reset = Boolean(options.reset);
 
-  const targetSheetId = sheetId || getActiveSheetId();
-  const csvUrl = `https://docs.google.com/spreadsheets/d/${targetSheetId}/export?format=csv&gid=0`;
+  const csvUrl = sheetIdOrUrl ? resolveCsvUrl(sheetIdOrUrl) : getActiveCsvUrl();
 
   try {
     const res = await fetch(csvUrl, {
@@ -339,7 +368,7 @@ async function loadSongsFromSheet(sheetId, options = {}) {
     const text = await res.text();
 
     if (text.trim().startsWith("<!DOCTYPE") || text.trim().startsWith("<html")) {
-      throw new Error("Sheet returned HTML. Please ensure Google Sheet is shared as 'Anyone with the link can view'.");
+      throw new Error("Sheet returned HTML. Please ensure Google Sheet is shared as 'Anyone with the link can view' or Published to Web.");
     }
 
     const rows = parseCSV(text);
@@ -410,14 +439,19 @@ async function handleStakeSheetConnect() {
     return;
   }
 
-  const sheetId = extractSheetId(rawInput);
-  if (!sheetId) {
-    if (errEl) {
-      errEl.textContent = "⚠️ Invalid Google Sheet URL or ID format. Please check the link.";
-      errEl.style.display = "block";
+  // Support published web links (/pub?...), standard URLs, or pure IDs
+  let storedSource = rawInput;
+  if (!rawInput.includes("/pub") && !rawInput.includes("output=csv")) {
+    const sheetId = extractSheetId(rawInput);
+    if (!sheetId) {
+      if (errEl) {
+        errEl.textContent = "⚠️ Invalid Google Sheet URL or ID format. Please check the link.";
+        errEl.style.display = "block";
+      }
+      if (inputEl) inputEl.focus();
+      return;
     }
-    if (inputEl) inputEl.focus();
-    return;
+    storedSource = sheetId;
   }
 
   if (errEl) {
@@ -425,12 +459,12 @@ async function handleStakeSheetConnect() {
     errEl.textContent = "";
   }
 
-  localStorage.setItem("kantimes_active_sheet_id", sheetId);
+  localStorage.setItem("kantimes_active_sheet_id", storedSource);
   updateStakeSheetStatusUI();
   closeStakeSheetModal();
   showToast("Connecting to Stake Sheet... ⏳");
 
-  await loadSongsFromSheet(sheetId, { isBackground: false, userInitiated: true });
+  await loadSongsFromSheet(storedSource, { isBackground: false, userInitiated: true });
 }
 
 /**
@@ -453,8 +487,8 @@ async function resetToDefaultRepertoire() {
  * Updates status indicator and details in Stake Sheet Switcher modal.
  */
 function updateStakeSheetStatusUI() {
-  const activeId = getActiveSheetId();
-  const isDefault = (activeId === DEFAULT_SHEET_ID);
+  const customSource = localStorage.getItem("kantimes_active_sheet_id");
+  const isDefault = (!customSource || !customSource.trim() || customSource.trim() === DEFAULT_SHEET_ID);
 
   const badge = document.getElementById("stakeSourceStatusBadge");
   const details = document.getElementById("stakeSourceDetails");
@@ -474,12 +508,13 @@ function updateStakeSheetStatusUI() {
     if (isDefault) {
       details.innerHTML = `Using official master repertoire sheet (<span class="code-font">${DEFAULT_SHEET_ID.slice(0, 8)}...</span>).`;
     } else {
-      details.innerHTML = `Connected to custom stake sheet: <strong class="code-font">${escapeHtml(activeId)}</strong>`;
+      const displayId = customSource.length > 32 ? `${customSource.slice(0, 29)}...` : customSource;
+      details.innerHTML = `Connected to custom stake sheet: <strong class="code-font">${escapeHtml(displayId)}</strong>`;
     }
   }
 
   if (input && !input.value) {
-    input.value = isDefault ? "" : activeId;
+    input.value = isDefault ? "" : customSource;
   }
 }
 
@@ -493,9 +528,10 @@ function openStakeSheetModal() {
     errEl.textContent = "";
   }
   const input = document.getElementById("stakeSheetInput");
-  const activeId = getActiveSheetId();
+  const customSource = localStorage.getItem("kantimes_active_sheet_id");
+  const isDefault = (!customSource || !customSource.trim() || customSource.trim() === DEFAULT_SHEET_ID);
   if (input) {
-    input.value = (activeId === DEFAULT_SHEET_ID) ? "" : activeId;
+    input.value = isDefault ? "" : customSource;
   }
   modal.classList.add("active");
   document.body.style.overflow = "hidden";
@@ -527,7 +563,7 @@ function initStakeRepertoireSync() {
   }
 
   if (navigator.onLine) {
-    loadSongsFromSheet(getActiveSheetId(), { isBackground: true });
+    loadSongsFromSheet(null, { isBackground: true });
   }
 }
 

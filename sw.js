@@ -158,6 +158,16 @@ self.addEventListener("fetch", (event) => {
 
   const url = new URL(request.url);
 
+  // Bypass service worker caching for Google Sheets, Drive media, and YouTube APIs
+  if (
+    url.origin.includes('docs.google.com') ||
+    url.origin.includes('googleusercontent.com') ||
+    url.origin.includes('youtube.com') ||
+    url.origin.includes('youtu.be')
+  ) {
+    return; // Pass through to normal network fetch
+  }
+
   // 1️⃣ Never intercept Google Apps Script / external API calls
   if (url.hostname.includes("script.google.com")) return;
 
