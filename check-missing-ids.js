@@ -13,3 +13,4 @@ while ((match = regex.exec(script)) !== null) {
 }
 console.log('IDs in script.js but not in index.html:');
 missing.forEach(id => console.log('- ' + id));
+

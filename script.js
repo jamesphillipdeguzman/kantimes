@@ -1385,6 +1385,8 @@ function initProfileModalListeners() {
       handleEditProfileClick(e);
     };
   });
+
+  initVocalTipsButton();
 }
 
 function updateHeaderIdentityBadge() {
@@ -1531,6 +1533,7 @@ function populatePhStakesDatalist(data) {
   const datalist = document.getElementById("phStakesList");
   if (!datalist || !data) return;
 
+  if (typeof document.createDocumentFragment !== "function") return;
   const fragment = document.createDocumentFragment();
 
   // Iterate Regions (Visayas, Luzon, Mindanao)
@@ -1561,6 +1564,7 @@ function populatePhStakesDatalistFallback() {
   const datalist = document.getElementById("phStakesList");
   if (!datalist) return;
 
+  if (typeof document.createDocumentFragment !== "function") return;
   const fragment = document.createDocumentFragment();
   FALLBACK_PH_STAKES.forEach(stake => {
     const opt = document.createElement("option");
@@ -3400,8 +3404,11 @@ function renderSelectedSongResource(songKey) {
 }
 
 function handleSongSelectionChange() {
-  const selectedSong = document.getElementById("targetSong").value;
-  localStorage.setItem("kantime_target_song", selectedSong);
+  const targetSelect = document.getElementById("targetSong");
+  const selectedSong = targetSelect ? targetSelect.value : "";
+  if (selectedSong) {
+    localStorage.setItem("kantime_target_song", selectedSong);
+  }
   renderSelectedSongResource(selectedSong);
 }
 
@@ -3414,7 +3421,9 @@ function updateActiveProfileDisplay(name, section, avatar) {
   if (activeName) activeName.innerText = name;
   if (activeBadge) {
     activeBadge.innerText = section;
-    activeBadge.setAttribute("data-voice", section);
+    if (typeof activeBadge.setAttribute === "function") {
+      activeBadge.setAttribute("data-voice", section);
+    }
   }
 
   if (avatarWrap) {
@@ -3450,18 +3459,20 @@ function loadProfile() {
 
   renderAvatarPicker(savedAvatar);
 
-  if (savedName && savedName.trim().length >= 5 && savedSection) {
+  if (savedName && savedName.trim().length >= 2 && savedSection) {
     const formattedName = toTitleCase(savedName);
     if (formattedName !== savedName) {
       localStorage.setItem("choir_name", formattedName);
     }
-    document.getElementById("memberName").value = formattedName;
-    document.getElementById("memberSection").value = savedSection;
+    const memNameInput = document.getElementById("memberName");
+    if (memNameInput) memNameInput.value = formattedName;
+    const memSecInput = document.getElementById("memberSection");
+    if (memSecInput) memSecInput.value = savedSection;
     updateActiveProfileDisplay(formattedName, savedSection, savedAvatar);
 
-    profileCard.style.display = "none";
-    activeBanner.style.display = "flex";
-    mainDashboard.style.display = "block";
+    if (profileCard) profileCard.style.display = "none";
+    if (activeBanner) activeBanner.style.display = "flex";
+    if (mainDashboard) mainDashboard.style.display = "block";
 
     if (cancelBtn) cancelBtn.style.display = "inline-flex";
 
@@ -3931,29 +3942,39 @@ function cancelProfileEdit() {
   const savedAvatar = localStorage.getItem("choir_avatar") || "";
 
   if (savedName && savedSection) {
-    document.getElementById("memberName").value = savedName;
-    document.getElementById("memberSection").value = savedSection;
+    const memName = document.getElementById("memberName");
+    if (memName) memName.value = savedName;
+    const memSec = document.getElementById("memberSection");
+    if (memSec) memSec.value = savedSection;
     updateActiveProfileDisplay(savedName, savedSection, savedAvatar);
 
-    document.getElementById("profileCard").style.display = "none";
-    document.getElementById("activeProfileBanner").style.display = "flex";
-    document.getElementById("mainDashboard").style.display = "block";
+    const profCard = document.getElementById("profileCard");
+    if (profCard) profCard.style.display = "none";
+    const actBanner = document.getElementById("activeProfileBanner");
+    if (actBanner) actBanner.style.display = "flex";
+    const dash = document.getElementById("mainDashboard");
+    if (dash) dash.style.display = "block";
   }
 }
 
 function validateUser() {
-  const nameInput = document.getElementById("memberName");
+  const nameInput = document.getElementById("profileNickname") || document.getElementById("memberName") || document.getElementById("profileFullName");
   const rawName = nameInput ? nameInput.value.trim() : "";
   const name = toTitleCase(rawName);
   if (nameInput && nameInput.value !== name) {
     nameInput.value = name;
   }
-  const section = document.getElementById("memberSection").value;
-  if (!name || name.length <= 4 || !section) {
-    if (name && name.length <= 4) {
-      showToast("⚠️ Please enter a valid full name (at least 5 characters).");
+  const secEl = document.getElementById("profileVoicePart") || document.getElementById("memberSection");
+  const section = secEl ? secEl.value : (localStorage.getItem("choir_voice") || "All");
+  if (!name || name.length < 2 || !section) {
+    if (name && name.length < 2) {
+      showToast("⚠️ Please enter a valid name (at least 2 characters).");
     } else {
-      alert("Please confirm your name and voice part before starting!");
+      if (typeof alert === "function") {
+        alert("Please confirm your name and voice part before starting!");
+      } else {
+        showToast("⚠️ Please confirm your name and voice part before starting!");
+      }
     }
     switchProfile();
     return false;
@@ -4100,7 +4121,7 @@ function dismissInactivityModal(resumeSession) {
     if (timeRemaining > 0) {
       targetEndTime = Date.now() + (timeRemaining * 1000);
       localStorage.setItem("kantime_target_end", targetEndTime);
-      localStorage.setItem("kantime_target_song", document.getElementById("targetSong").value);
+      const tSel = document.getElementById("targetSong"); if (tSel) localStorage.setItem("kantime_target_song", tSel.value);
       localStorage.removeItem("kantime_paused_remaining");
 
       const btn = document.getElementById("timerBtn");
@@ -4321,7 +4342,7 @@ function updateTimerTick() {
   const now = Date.now();
   const diffMs = targetEndTime - now;
   timeRemaining = Math.max(0, Math.ceil(diffMs / 1000));
-  document.getElementById("timerDisplay").innerText = formatTime(timeRemaining);
+  const timerDisp = document.getElementById("timerDisplay"); if (timerDisp) timerDisp.innerText = formatTime(timeRemaining);
 
   const curMins = getUserSettings().timerMinutes || 15;
   const totalSecs = curMins * 60;
@@ -4361,7 +4382,7 @@ function completeTimerSession() {
   localStorage.removeItem("kantime_last_activity");
   localStorage.removeItem("kantime_halfway_triggered");
 
-  document.getElementById("timerDisplay").innerText = formatTime(timeRemaining);
+  const timerDisp = document.getElementById("timerDisplay"); if (timerDisp) timerDisp.innerText = formatTime(timeRemaining);
 
   const btn = document.getElementById("timerBtn");
   if (btn) {
@@ -4417,7 +4438,7 @@ function restoreTimerState() {
     if (now < savedEndTime) {
       targetEndTime = savedEndTime;
       timeRemaining = Math.max(0, Math.ceil((targetEndTime - now) / 1000));
-      document.getElementById("timerDisplay").innerText = formatTime(timeRemaining);
+      const timerDisp = document.getElementById("timerDisplay"); if (timerDisp) timerDisp.innerText = formatTime(timeRemaining);
 
       btn.innerText = "Pause Practice";
       btn.classList.remove("btn-primary");
@@ -4437,14 +4458,14 @@ function restoreTimerState() {
     const savedPaused = localStorage.getItem("kantime_paused_remaining");
     if (savedPaused && Number(savedPaused) > 0 && Number(savedPaused) < timerDuration) {
       timeRemaining = Number(savedPaused);
-      document.getElementById("timerDisplay").innerText = formatTime(timeRemaining);
+      const timerDisp = document.getElementById("timerDisplay"); if (timerDisp) timerDisp.innerText = formatTime(timeRemaining);
       btn.innerText = "Resume Practice";
       btn.classList.remove("btn-outline");
       btn.classList.add("btn-primary");
     } else {
       timerDuration = currentDurationMins * 60;
       timeRemaining = timerDuration;
-      document.getElementById("timerDisplay").innerText = formatTime(timeRemaining);
+      const timerDisp = document.getElementById("timerDisplay"); if (timerDisp) timerDisp.innerText = formatTime(timeRemaining);
       btn.innerText = "Start Practice";
       btn.classList.remove("btn-outline");
       btn.classList.add("btn-primary");
@@ -4484,7 +4505,7 @@ function toggleTimer() {
       logPracticeSession(currentSong, identity.part || "All", elapsedMins);
     }
 
-    document.getElementById("timerDisplay").innerText = formatTime(timeRemaining);
+    const timerDisp = document.getElementById("timerDisplay"); if (timerDisp) timerDisp.innerText = formatTime(timeRemaining);
     btn.innerText = "Resume Practice";
     btn.classList.remove("btn-outline");
     btn.classList.add("btn-primary");
@@ -4495,14 +4516,14 @@ function toggleTimer() {
     timerDuration = timeRemaining; // Set current cycle duration
     targetEndTime = Date.now() + (timeRemaining * 1000);
     localStorage.setItem("kantime_target_end", targetEndTime);
-    localStorage.setItem("kantime_target_song", document.getElementById("targetSong").value);
+    const tSel = document.getElementById("targetSong"); if (tSel) localStorage.setItem("kantime_target_song", tSel.value);
     localStorage.removeItem("kantime_paused_remaining");
 
     btn.innerText = "Pause Practice";
     btn.classList.remove("btn-primary");
     btn.classList.add("btn-outline");
 
-    renderSelectedSongResource(document.getElementById("targetSong").value);
+    const songSel = document.getElementById("targetSong"); renderSelectedSongResource(songSel ? songSel.value : "");
 
     const totalSecs = currentDurationMins * 60;
     if (timeRemaining > (totalSecs / 2)) {
@@ -6284,13 +6305,18 @@ function closeSongForm() {
 }
 
 function saveSongFromForm() {
-  const title = document.getElementById("songFormTitle").value.trim();
-  const part = document.getElementById("songFormPart").value;
+  const titleEl = document.getElementById("songFormTitle");
+  const title = titleEl ? titleEl.value.trim() : "";
+  const partEl = document.getElementById("songFormPart");
+  const part = partEl ? partEl.value : "All";
   const eventGroup = document.getElementById("songFormEvent") ? document.getElementById("songFormEvent").value.trim() || "Active Repertoire" : "Active Repertoire";
   const isArchived = document.getElementById("songFormArchived") ? document.getElementById("songFormArchived").checked : false;
-  let videoUrl = document.getElementById("songFormVideo").value.trim();
-  const sheetUrl = document.getElementById("songFormSheet").value.trim();
-  const songId = document.getElementById("editingSongId").value;
+  const videoEl = document.getElementById("songFormVideo");
+  let videoUrl = videoEl ? videoEl.value.trim() : "";
+  const sheetEl = document.getElementById("songFormSheet");
+  const sheetUrl = sheetEl ? sheetEl.value.trim() : "";
+  const idEl = document.getElementById("editingSongId");
+  const songId = idEl ? idEl.value : "";
 
   if (!title) {
     alert("Please enter a song title!");
@@ -7915,13 +7941,57 @@ document.addEventListener("visibilitychange", () => {
 });
 
 // ==========================================================================
-// VOCAL WARM-UPS & SINGING TIPS MODAL LOGIC
+// VOCAL WARM-UPS & SINGING TIPS MODAL LOGIC (REDIRECTED TO SETTINGS GUIDE TAB)
 // ==========================================================================
-function openVocalTipsModal() {
-  const modal = document.getElementById("vocalTipsModal");
-  if (!modal) return;
-  modal.classList.add("active");
-  document.body.style.overflow = "hidden";
+function openVocalTipsModal(e) {
+  if (e) {
+    if (typeof e.preventDefault === "function") e.preventDefault();
+    if (typeof e.stopPropagation === "function") e.stopPropagation();
+  }
+
+  // Ensure any hanging overlay/backdrop is cleaned up
+  document.querySelectorAll(".modal-backdrop, .modal.active").forEach(el => {
+    if (el && el.id !== "settingsModal") {
+      el.classList.remove("active", "open", "show");
+      el.style.display = "none";
+      if (typeof el.setAttribute === "function") {
+        el.setAttribute("aria-hidden", "true");
+      }
+    }
+  });
+
+  // Open Settings modal directly to the Guide / Tips tab
+  const settingsModal = document.getElementById("settingsModal");
+  if (settingsModal) {
+    if (typeof openSettingsModal === "function") {
+      openSettingsModal("tutorial");
+    } else {
+      settingsModal.classList.add("active", "open", "show");
+      settingsModal.style.display = "flex";
+      document.body.style.overflow = "hidden";
+    }
+
+    // Switch active tab to tutorial/tips
+    const guideTabBtn = document.querySelector('[data-tab="tutorial"]') || document.getElementById("tabGuide") || document.getElementById("tabBtnTutorial");
+    if (guideTabBtn && typeof guideTabBtn.click === "function") {
+      guideTabBtn.click();
+    } else if (typeof switchSettingsTab === "function") {
+      switchSettingsTab("tutorial");
+    }
+  }
+}
+
+function handleVocalTipsClick(e) {
+  return openVocalTipsModal(e);
+}
+
+function initVocalTipsButton() {
+  const btnVocalTips = document.getElementById("btnVocalTips") || document.querySelector('[data-action="vocal-tips"]') || document.querySelector(".btn-vocal-tips");
+  if (btnVocalTips) {
+    btnVocalTips.onclick = (e) => {
+      openVocalTipsModal(e);
+    };
+  }
 }
 
 function closeVocalTipsModal() {
@@ -10050,3 +10120,11 @@ window.recordSectionPracticeMinutes = recordSectionPracticeMinutes;
 window.initFreshStakeSectionStandings = initFreshStakeSectionStandings;
 window.renderSectionStandingsUI = renderSectionStandingsUI;
 window.initPhStakesDatalist = initPhStakesDatalist;
+window.openVocalTipsModal = openVocalTipsModal;
+window.closeVocalTipsModal = closeVocalTipsModal;
+window.handleVocalTipsClick = handleVocalTipsClick;
+window.initVocalTipsButton = initVocalTipsButton;
+window.updateActiveProfileDisplay = updateActiveProfileDisplay;
+window.validateUser = validateUser;
+window.cancelProfileEdit = cancelProfileEdit;
+window.handleSongSelectionChange = handleSongSelectionChange;

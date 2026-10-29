@@ -183,7 +183,7 @@
               title="Practice Piano &amp; Vocal Pitch Helper" aria-label="Toggle Piano">
               🎹 Piano
             </button>
-            <button type="button" class="btn-vocal-tips" onclick="openVocalTipsModal()"
+            <button type="button" class="btn-vocal-tips" id="btnVocalTips" data-action="vocal-tips" onclick="openVocalTipsModal(event)"
               title="Vocal Warm-Ups &amp; Singing Tips" aria-label="Open Vocal Warm-Ups &amp; Singing Tips">
               <span class="vocal-tips-icon">ℹ️</span>
               <span class="vocal-tips-text">Vocal Tips</span>
@@ -811,7 +811,7 @@
             onclick="switchSettingsTab('profile')">👤 Profile &amp; Voice</button>
           <button type="button" class="settings-tab-btn" id="tabBtnPreferences" role="tab" aria-selected="false"
             onclick="switchSettingsTab('preferences')">⚙️ Preferences &amp; Repertoire</button>
-          <button type="button" class="settings-tab-btn" id="tabBtnTutorial" role="tab" aria-selected="false"
+          <button type="button" class="settings-tab-btn" id="tabBtnTutorial" data-tab="tutorial" role="tab" aria-selected="false"
             onclick="switchSettingsTab('tutorial')">📖 Tutorial &amp; Guide</button>
         </div>
 
