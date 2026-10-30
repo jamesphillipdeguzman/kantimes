@@ -27,20 +27,38 @@ function compareSemver(v1, v2) {
 const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycby6r8JCXFOeuDqk8mlrTFAY5G5jOUOcoljMIC-ow1tlStLj3EVBpEWE_q9iT_sRngEa/exec";
 
 // ==========================================================================
+// ==========================================================================
 // 1. CONFIGURATION & BRING YOUR OWN GOOGLE SHEET (STAKE REPERTOIRE ENGINE)
 // ==========================================================================
-// Clean public Master Repertoire (no personal data, published as CSV)
-const DEFAULT_PUB_CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vTOC2L6l-DyiZ_7tLd5QryiXg1-BvaE6wg1SBwDJZRbTTNOzclO0i8z97mXHGwX4UVZEDoYIuQnygBx/pub?gid=0&single=true&output=csv";
-const DEFAULT_SHEET_ID = "123fm9MSGA-FcOqN37sGrElVqhVaknl34Ii7tsr9gt8w";
-const TEMPLATE_SHEET_URL = `https://docs.google.com/spreadsheets/d/${DEFAULT_SHEET_ID}/copy`;
+const REPERTOIRE_CONFIG = {
+  // Clones the clean 'Template' tab (gid=0) into the user's personal Google Drive
+  TEMPLATE_COPY_URL: "https://docs.google.com/spreadsheets/d/123fm9MSGA-FcOqN37sGrElVqhVaknl34Ii7tsr9gt8w/copy?gid=0"
+};
+const DEFAULT_SHEET_ID = "";
+
+/**
+ * Wires the "Copy Template" button/link directly to REPERTOIRE_CONFIG.TEMPLATE_COPY_URL
+ */
+function wireCopyTemplateButton() {
+  const btnTemplate = document.getElementById("btnCopyTemplate") || document.querySelector(".btn-copy-template") || document.getElementById("copySheetTemplateBtn");
+  if (btnTemplate) {
+    if (btnTemplate.tagName.toLowerCase() === "a") {
+      btnTemplate.href = REPERTOIRE_CONFIG.TEMPLATE_COPY_URL;
+      btnTemplate.target = "_blank";
+      btnTemplate.rel = "noopener noreferrer";
+    } else {
+      btnTemplate.onclick = () => window.open(REPERTOIRE_CONFIG.TEMPLATE_COPY_URL, "_blank");
+    }
+  }
+}
 
 /**
  * Resolves any Google Sheet source (raw ID, edit URL, or published web export)
  * to its direct CSV endpoint.
  */
 function resolveCsvUrl(source) {
-  if (!source || typeof source !== "string" || !source.trim() || source.trim() === DEFAULT_SHEET_ID) {
-    return DEFAULT_PUB_CSV_URL;
+  if (!source || typeof source !== "string" || !source.trim()) {
+    return "";
   }
   const trimmed = source.trim();
   if (trimmed.includes("/pub") || trimmed.includes("output=csv")) {
@@ -49,16 +67,20 @@ function resolveCsvUrl(source) {
       : `${trimmed.split("?")[0]}?output=csv`;
   }
   const sheetId = extractSheetId(trimmed) || trimmed;
-  return `https://docs.google.com/spreadsheets/d/${sheetId}/export?format=csv&gid=0`;
+  const gid = extractSheetGid(trimmed);
+  return `https://docs.google.com/spreadsheets/d/${sheetId}/export?format=csv&gid=${gid}`;
 }
 
 /**
  * Returns active CSV endpoint URL:
- * - If no custom stake sheet is set (or matches default), returns DEFAULT_PUB_CSV_URL
- * - If custom stake provided /pub link or standard sheet ID, returns proper CSV URL
+ * - Strictly dynamic based on localStorage (saved when a user inputs their own published CSV link)
+ * - Returns empty string if no sheet is configured
  */
 function getActiveCsvUrl() {
   const customSource = localStorage.getItem("kantimes_active_sheet_id");
+  if (!customSource || !customSource.trim()) {
+    return "";
+  }
   return resolveCsvUrl(customSource);
 }
 
@@ -92,11 +114,11 @@ function extractSheetGid(input) {
 }
 
 /**
- * Returns active Google Sheet ID from localStorage, falling back to DEFAULT_SHEET_ID.
+ * Returns active Google Sheet ID or URL from localStorage, or empty string if not configured.
  */
 function getActiveSheetId() {
   const customId = localStorage.getItem("kantimes_active_sheet_id");
-  return customId && customId.trim() ? customId.trim() : DEFAULT_SHEET_ID;
+  return customId && customId.trim() ? customId.trim() : "";
 }
 
 /**
@@ -452,6 +474,14 @@ async function loadSongsFromSheet(sheetIdOrUrl, options = {}) {
   const reset = Boolean(options.reset);
 
   const csvUrl = sheetIdOrUrl ? resolveCsvUrl(sheetIdOrUrl) : getActiveCsvUrl();
+  if (!csvUrl) {
+    if (userInitiated) {
+      showToast("⚠️ No Google Sheet configured. Connect a sheet or copy the template to begin.");
+    }
+    renderRepertoireEmptyState();
+    return [];
+  }
+
   const fetchUrl = csvUrl.includes("?") 
     ? `${csvUrl}&_t=${Date.now()}` 
     : `${csvUrl}?_t=${Date.now()}`;
@@ -573,10 +603,14 @@ async function handleStakeSheetConnect() {
 }
 
 /**
- * Handles "Reset to Default Repertoire" in Stake Sheet Switcher modal.
+ * Handles "Reset / Disconnect Repertoire" in Stake Sheet Switcher modal.
  */
 async function resetToDefaultRepertoire() {
   localStorage.removeItem("kantimes_active_sheet_id");
+  localStorage.removeItem("kantimes_cached_songs");
+  const settings = getUserSettings();
+  settings.songs = [];
+  saveUserSettings(settings);
   initFreshStakeSectionStandings(false);
   updateStakeSheetStatusUI();
   const inputEl = document.getElementById("stakeSheetInput");
@@ -584,9 +618,10 @@ async function resetToDefaultRepertoire() {
   const errEl = document.getElementById("stakeSheetError");
   if (errEl) errEl.style.display = "none";
   closeStakeSheetModal();
-  showToast("Resetting to Master Repertoire... 🔄");
-
-  await loadSongsFromSheet(DEFAULT_SHEET_ID, { isBackground: false, reset: true });
+  populateSongDropdown([]);
+  renderRepertoireEmptyState();
+  renderRepertoireList();
+  showToast("Repertoire disconnected. Connect your stake sheet to sync! 📑");
 }
 
 /**
@@ -594,38 +629,38 @@ async function resetToDefaultRepertoire() {
  */
 function updateStakeSheetStatusUI() {
   const customSource = localStorage.getItem("kantimes_active_sheet_id");
-  const isDefault = (!customSource || !customSource.trim() || customSource.trim() === DEFAULT_SHEET_ID);
+  const isConnected = Boolean(customSource && customSource.trim());
 
   const badge = document.getElementById("stakeSourceStatusBadge");
   const details = document.getElementById("stakeSourceDetails");
   const input = document.getElementById("stakeSheetInput");
 
   if (badge) {
-    if (isDefault) {
-      badge.textContent = "Default Master";
-      badge.className = "stake-source-badge badge-default";
-    } else {
-      badge.textContent = "Custom Stake Sheet";
+    if (isConnected) {
+      badge.textContent = "Connected Stake Sheet";
       badge.className = "stake-source-badge badge-custom";
+    } else {
+      badge.textContent = "Not Connected";
+      badge.className = "stake-source-badge badge-default";
     }
   }
 
   if (details) {
-    if (isDefault) {
-      details.innerHTML = `Using official master repertoire sheet (<span class="code-font">${DEFAULT_SHEET_ID.slice(0, 8)}...</span>).`;
-    } else {
+    if (isConnected) {
       const displayId = customSource.length > 32 ? `${customSource.slice(0, 29)}...` : customSource;
       details.innerHTML = `Connected to custom stake sheet: <strong class="code-font">${escapeHtml(displayId)}</strong>`;
+    } else {
+      details.innerHTML = `No sheet connected. Connect your published CSV link or <a href="${REPERTOIRE_CONFIG.TEMPLATE_COPY_URL}" target="_blank" rel="noopener noreferrer">copy the template ↗</a>.`;
     }
   }
 
   if (input && !input.value) {
-    input.value = isDefault ? "" : customSource;
+    input.value = isConnected ? customSource : "";
   }
 
   const shareBox = document.getElementById("stakeShareLinkBox");
   if (shareBox) {
-    shareBox.style.display = isDefault ? "none" : "block";
+    shareBox.style.display = isConnected ? "block" : "none";
   }
 }
 
@@ -634,7 +669,7 @@ function updateStakeSheetStatusUI() {
  */
 function copyChoirShareLink() {
   const customSource = localStorage.getItem("kantimes_active_sheet_id");
-  if (!customSource || !customSource.trim() || customSource.trim() === DEFAULT_SHEET_ID) {
+  if (!customSource || !customSource.trim()) {
     showToast("⚠️ Connect a custom stake sheet first to generate a choir share link.");
     return;
   }
@@ -662,6 +697,7 @@ function openStakeSheetModal() {
   const modal = document.getElementById("stakeSheetModal");
   if (!modal) return;
   updateStakeSheetStatusUI();
+  wireCopyTemplateButton();
   const errEl = document.getElementById("stakeSheetError");
   if (errEl) {
     errEl.style.display = "none";
@@ -669,9 +705,8 @@ function openStakeSheetModal() {
   }
   const input = document.getElementById("stakeSheetInput");
   const customSource = localStorage.getItem("kantimes_active_sheet_id");
-  const isDefault = (!customSource || !customSource.trim() || customSource.trim() === DEFAULT_SHEET_ID);
   if (input) {
-    input.value = isDefault ? "" : customSource;
+    input.value = customSource ? customSource.trim() : "";
   }
   modal.classList.add("active");
   document.body.style.overflow = "hidden";
@@ -690,6 +725,8 @@ function closeStakeSheetOnBackdrop(e) {
 }
 
 function initStakeRepertoireSync() {
+  wireCopyTemplateButton();
+
   // Check for 1-click choir onboarding URL parameter: ?sheet=...
   try {
     const urlParams = new URLSearchParams(window.location.search);
@@ -709,19 +746,26 @@ function initStakeRepertoireSync() {
   }
 
   updateStakeSheetStatusUI();
-  const cached = getCachedSongs();
-  if (cached && cached.length > 0) {
-    const settings = getUserSettings();
-    settings.songs = cached;
-    saveUserSettings(settings);
-    populateSongDropdown(cached);
-    const select = document.getElementById("songSelect") || document.querySelector(".rehearsal-song-select") || document.getElementById("targetSong");
-    const activeSong = (select && select.value) ? select.value : cached[0].title;
-    renderSelectedSongResource(activeSong);
-  }
 
-  if (navigator.onLine) {
-    loadSongsFromSheet(null, { isBackground: true });
+  const customSheet = localStorage.getItem("kantimes_active_sheet_id");
+  if (customSheet && customSheet.trim()) {
+    const cached = getCachedSongs();
+    if (cached && cached.length > 0) {
+      const settings = getUserSettings();
+      settings.songs = cached;
+      saveUserSettings(settings);
+      populateSongDropdown(cached);
+      const select = document.getElementById("songSelect") || document.querySelector(".rehearsal-song-select") || document.getElementById("targetSong");
+      const activeSong = (select && select.value) ? select.value : cached[0].title;
+      renderSelectedSongResource(activeSong);
+    }
+    if (navigator.onLine) {
+      loadSongsFromSheet(customSheet, { isBackground: true });
+    }
+  } else {
+    // If no sheet URL has been configured in localStorage, display an onboarding empty state or prompt instructing the choir coordinator/member to connect their published CSV link or copy the template.
+    populateSongDropdown([]);
+    renderRepertoireEmptyState();
   }
 }
 
@@ -2481,15 +2525,10 @@ function formatYouTubeEmbedUrl(url) {
 function getUserSettings(forceSync = false) {
   const cachedSongs = getCachedSongs();
   const customSheetId = localStorage.getItem("kantimes_active_sheet_id");
-  const isCustomSheet = Boolean(customSheetId && customSheetId.trim() && customSheetId.trim() !== DEFAULT_SHEET_ID);
   const stored = localStorage.getItem("kantimes_user_settings") || localStorage.getItem("kantime_user_settings");
   if (!stored) {
     const fresh = JSON.parse(JSON.stringify(DEFAULT_USER_SETTINGS));
-    if (cachedSongs && cachedSongs.length > 0) {
-      fresh.songs = cachedSongs;
-    } else if (isCustomSheet) {
-      fresh.songs = [];
-    }
+    fresh.songs = (cachedSongs && cachedSongs.length > 0) ? cachedSongs : [];
     fresh.appVersion = APP_VERSION;
     fresh.repertoireVersion = REPERTOIRE_VERSION;
     saveUserSettings(fresh);
@@ -2499,107 +2538,27 @@ function getUserSettings(forceSync = false) {
     const parsed = JSON.parse(stored);
     let songs = (cachedSongs && cachedSongs.length > 0 && !forceSync)
       ? cachedSongs
-      : (Array.isArray(parsed.songs) && parsed.songs.length > 0 ? parsed.songs : (isCustomSheet ? [] : DEFAULT_USER_SETTINGS.songs));
-
-    const storedAppVersion = parsed.appVersion || "2.6.0";
-    const storedRepVersion = parsed.repertoireVersion || "2.6.0";
-    const needsMigration = forceSync || compareSemver(REPERTOIRE_VERSION, storedRepVersion) > 0 || compareSemver(APP_VERSION, storedAppVersion) > 0;
-
-    // Only apply default stake conference archives, active defaults injection, and default metadata sync when on default master sheet
-    if (!isCustomSheet) {
-      // 1. Ensure all October 2026 Stake Conference pieces are archived
-      let hasArchivedOctober = false;
-      songs.forEach(s => {
-        const isOctober = (s.id && (s.id.startsWith("song_oct_") || s.id === "song_1" || s.id === "song_2" || s.id === "song_3" || s.id === "song_4" || s.id === "song_5")) ||
-          (s.event && (s.event.includes("Oct 24–25") || s.event.includes("October 2026") || s.event.includes("Stake Choir Prep")));
-        if (isOctober) {
-          if (!s.isArchived || s.status !== "archived") {
-            hasArchivedOctober = true;
-          }
-          s.event = "October 2026 Stake Conference";
-          s.collection = "October 2026 Stake Conference";
-          s.status = "archived";
-          s.isArchived = true;
-          s.archived = true;
-          s.archivedDate = s.archivedDate || "2026-10-25";
-        }
-      });
-
-      // 2. Ensure all active default pieces (Christmas Devotional 2026 / Current Practice) exist and are active
-      const activeDefaults = DEFAULT_USER_SETTINGS.songs.filter(d => !d.isArchived);
-      let hasAddedActiveDefaults = false;
-
-      activeDefaults.forEach(defSong => {
-        const existing = songs.find(s => s.id === defSong.id || s.title === defSong.title);
-        if (existing) {
-          if (existing.isArchived) {
-            existing.isArchived = false;
-            existing.archived = false;
-            existing.status = "active";
-            existing.event = defSong.event;
-            existing.collection = defSong.collection;
-            hasAddedActiveDefaults = true;
-          }
-        } else {
-          // Place active songs at top of list
-          const lastActiveIdx = songs.map(s => !s.isArchived).lastIndexOf(true);
-          if (lastActiveIdx !== -1) {
-            songs.splice(lastActiveIdx + 1, 0, JSON.parse(JSON.stringify(defSong)));
-          } else {
-            songs.unshift(JSON.parse(JSON.stringify(defSong)));
-          }
-          hasAddedActiveDefaults = true;
-        }
-      });
-
-      // 3. Dynamic Synchronization of Default Repertoire Fields (YouTube Links, Sheet Links, Audio Tracks, Resources)
-      songs = songs.map(s => {
-        const def = DEFAULT_USER_SETTINGS.songs.find(d => d.id === s.id || d.title === s.title);
-        if (def) {
-          const hasOutdatedVideo = s.videoUrl && (s.videoUrl.includes("0wLgYc-8Tmg") || s.videoUrl !== def.videoUrl && s.id === "hymn-1208");
-          const hasOutdatedAwaySheet = (s.id === "christmas-away-in-a-manger" || s.title.includes("Away in a Manger")) && s.sheetUrl && s.sheetUrl.includes("churchofjesuschrist.org");
-
-          if (def.videoUrl && (!s.videoUrl || needsMigration || hasOutdatedVideo)) s.videoUrl = def.videoUrl;
-          if (def.sheetUrl && (!s.sheetUrl || needsMigration || hasOutdatedAwaySheet)) s.sheetUrl = def.sheetUrl;
-          if (def.audioTracks && (!s.audioTracks || needsMigration)) s.audioTracks = def.audioTracks;
-          if (def.localSheetUrl && (!s.localSheetUrl || needsMigration)) s.localSheetUrl = def.localSheetUrl;
-          if (def.localVideoUrl && (!s.localVideoUrl || needsMigration)) s.localVideoUrl = def.localVideoUrl;
-          if (def.resources && (!s.resources || needsMigration || hasOutdatedVideo)) s.resources = def.resources;
-          if (def.note && (!s.note || needsMigration)) s.note = def.note;
-          if (!s.event || (needsMigration && def.event)) s.event = def.event;
-          if (!s.collection || (needsMigration && def.collection)) s.collection = def.collection;
-          if (def.archivedDate && (needsMigration || !s.archivedDate)) s.archivedDate = def.archivedDate;
-          if (def.status && (needsMigration || !s.status)) s.status = def.status;
-        }
-        return s;
-      });
-    }
-
-    // 4. Update Target Date if it was the old conference date
-    if (parsed.targetDate === "Stake Choir Prep • Oct 24–25" || !parsed.targetDate || needsMigration) {
-      if (parsed.targetDate === "Stake Choir Prep • Oct 24–25" || !parsed.targetDate) {
-        parsed.targetDate = DEFAULT_USER_SETTINGS.targetDate;
-      }
-    }
+      : (Array.isArray(parsed.songs) ? parsed.songs : []);
 
     const result = {
-      targetDate: parsed.targetDate !== undefined ? parsed.targetDate : DEFAULT_USER_SETTINGS.targetDate,
-      timerMinutes: Number(parsed.timerMinutes) || DEFAULT_USER_SETTINGS.timerMinutes,
-      showPastRepertoire: parsed.showPastRepertoire !== undefined ? Boolean(parsed.showPastRepertoire) : DEFAULT_USER_SETTINGS.showPastRepertoire,
+      targetDate: parsed.targetDate !== undefined ? parsed.targetDate : (DEFAULT_USER_SETTINGS.targetDate || "Current Practice"),
+      timerMinutes: Number(parsed.timerMinutes) || DEFAULT_USER_SETTINGS.timerMinutes || 15,
+      showPastRepertoire: parsed.showPastRepertoire !== undefined ? Boolean(parsed.showPastRepertoire) : false,
       songs: songs,
       appVersion: APP_VERSION,
       repertoireVersion: REPERTOIRE_VERSION
     };
 
-    // Always persist to keep storage current and clean
     saveUserSettings(result);
-
     return result;
   } catch (e) {
     console.error("Failed to parse kantime_user_settings:", e);
-    return JSON.parse(JSON.stringify(DEFAULT_USER_SETTINGS));
+    const fallback = JSON.parse(JSON.stringify(DEFAULT_USER_SETTINGS));
+    fallback.songs = (cachedSongs && cachedSongs.length > 0) ? cachedSongs : [];
+    return fallback;
   }
 }
+
 
 function saveUserSettings(settings) {
   localStorage.setItem("kantimes_user_settings", JSON.stringify(settings));
@@ -2708,101 +2667,50 @@ function populateSongDropdown(songList) {
   // Wipe existing options completely
   songSelect.innerHTML = '';
 
-  // If empty, show fallback
+  // If empty, show fallback and render empty onboarding state if unconfigured
   if (!songList || songList.length === 0) {
     const emptyOpt = document.createElement('option');
     emptyOpt.value = '';
-    emptyOpt.textContent = 'No songs found in connected sheet';
+    const hasConfiguredSheet = Boolean(localStorage.getItem('kantimes_active_sheet_id'));
+    emptyOpt.textContent = hasConfiguredSheet ? 'No songs found in connected sheet' : 'No sheet connected (Connect sheet or copy template)';
     songSelect.appendChild(emptyOpt);
+    if (!hasConfiguredSheet && typeof renderRepertoireEmptyState === 'function') {
+      renderRepertoireEmptyState();
+    }
     return;
   }
+
+  const savedSong = localStorage.getItem("kantime_target_song") || localStorage.getItem("kantimes_target_song");
+  let matched = false;
 
   // Populate strictly the synced repertoire
   songList.forEach((song, idx) => {
     const opt = document.createElement('option');
     opt.value = song.title;
-    const voicePart = song.voicePart || (song.part && song.part !== 'All' ? song.part : '');
+    const rawPart = song.voicePart || song.part || '';
+    const voicePart = (rawPart && rawPart.trim().toLowerCase() !== 'all') ? rawPart.trim() : '';
     const partSuffix = voicePart ? ` (${voicePart})` : '';
     opt.textContent = `${song.title}${partSuffix}`;
-    if (idx === 0) opt.selected = true;
+    if (savedSong && (savedSong === song.title || savedSong === song.id)) {
+      opt.selected = true;
+      matched = true;
+    }
     songSelect.appendChild(opt);
   });
 
-  // Trigger change event to update active timer/resource links for the first song
+  if (!matched && songSelect.options.length > 0) {
+    songSelect.options[0].selected = true;
+  }
+
+  // Trigger change event to update active timer/resource links for the selected song
   songSelect.dispatchEvent(new Event('change'));
 }
 
 function populateSongSelectDropdown() {
   const select = document.getElementById('songSelect') || document.querySelector('.rehearsal-song-select') || document.getElementById('targetSong');
   if (!select) return;
-
-  const customSheetId = localStorage.getItem("kantimes_active_sheet_id");
-  const isCustomSheet = Boolean(customSheetId && customSheetId.trim() && customSheetId.trim() !== DEFAULT_SHEET_ID);
-
   const settings = getUserSettings();
-  const songs = settings.songs || [];
-
-  if (isCustomSheet) {
-    populateSongDropdown(songs);
-    return;
-  }
-
-  const showPast = Boolean(settings.showPastRepertoire);
-  const savedSong = localStorage.getItem("kantime_target_song");
-
-  const activeSongs = songs.filter(s => !s.isArchived);
-  const archivedSongs = songs.filter(s => Boolean(s.isArchived));
-
-  let html = "";
-  let matched = false;
-
-  if (!showPast) {
-    // Post-conference mode: Hide archived songs from main practice dropdown
-    if (activeSongs.length === 0) {
-      html = `<option value="" disabled selected>No active pieces (Enable past archives in Settings)</option>`;
-    } else {
-      activeSongs.forEach(s => {
-        const isSelected = (savedSong === s.title || savedSong === s.id);
-        if (isSelected) matched = true;
-        const partLabel = s.part && s.part !== "All" ? ` (${s.part})` : "";
-        html += `<option value="${escapeHtml(s.title)}" ${isSelected ? "selected" : ""}>${escapeHtml(s.title)}${escapeHtml(partLabel)}</option>`;
-      });
-    }
-  } else {
-    // When enabled, show both active pieces and past conference archives grouped
-    if (activeSongs.length > 0) {
-      html += `<optgroup label="🎵 Active Repertoire">`;
-      activeSongs.forEach(s => {
-        const isSelected = (savedSong === s.title || savedSong === s.id);
-        if (isSelected) matched = true;
-        const partLabel = s.part && s.part !== "All" ? ` (${s.part})` : "";
-        html += `<option value="${escapeHtml(s.title)}" ${isSelected ? "selected" : ""}>${escapeHtml(s.title)}${escapeHtml(partLabel)}</option>`;
-      });
-      html += `</optgroup>`;
-    }
-
-    if (archivedSongs.length > 0) {
-      html += `<optgroup label="📁 Archived / Past Conferences">`;
-      archivedSongs.forEach(s => {
-        const isSelected = (savedSong === s.title || savedSong === s.id);
-        if (isSelected) matched = true;
-        const partLabel = s.part && s.part !== "All" ? ` (${s.part})` : "";
-        const eventLabel = s.event ? ` [${s.event}]` : "";
-        html += `<option value="${escapeHtml(s.title)}" ${isSelected ? "selected" : ""}>${escapeHtml(s.title)}${escapeHtml(partLabel)}${escapeHtml(eventLabel)}</option>`;
-      });
-      html += `</optgroup>`;
-    }
-  }
-
-  select.innerHTML = html;
-
-  const visibleSongs = !showPast ? activeSongs : songs;
-  if (!matched && visibleSongs.length > 0) {
-    select.value = visibleSongs[0].title;
-    localStorage.setItem("kantime_target_song", visibleSongs[0].title);
-    localStorage.setItem("kantimes_target_song", visibleSongs[0].title);
-    renderSelectedSongResource(visibleSongs[0].title);
-  }
+  populateSongDropdown(settings.songs || []);
 }
 
 function getSongResource(songKeyOrTitle) {
@@ -3383,13 +3291,42 @@ function updateSelfCheckMicUI() {
   }
 }
 
+function renderRepertoireEmptyState() {
+  const container = document.getElementById("dynamicResourceContainer");
+  if (container) {
+    container.innerHTML = `
+      <div class="repertoire-onboarding-empty-card" style="text-align: center; padding: 28px 20px; background: var(--bg-alt, rgba(0,0,0,0.02)); border: 1px dashed var(--border); border-radius: 12px; margin: 8px 0;">
+        <span style="font-size: 2.5rem; display: block; margin-bottom: 10px;">📑</span>
+        <h3 style="margin: 0 0 8px; font-size: 1.1rem; font-weight: 700;">Connect Your Choir's Repertoire</h3>
+        <p style="margin: 0 auto 18px; font-size: 0.88rem; color: var(--text-muted); max-width: 460px; line-height: 1.5;">
+          No repertoire sheet is connected yet. Connect your Stake/Ward public Google Sheet via published CSV link, or make a copy of the official starter template.
+        </p>
+        <div style="display: flex; justify-content: center; gap: 12px; flex-wrap: wrap;">
+          <button type="button" class="btn btn-primary" onclick="openStakeSheetModal()" style="font-size: 0.85rem; padding: 9px 18px;">
+            ⚡ Connect Stake Sheet
+          </button>
+          <a href="${REPERTOIRE_CONFIG.TEMPLATE_COPY_URL}" target="_blank" rel="noopener noreferrer" class="btn btn-outline btn-copy-template" id="btnCopyTemplate" style="font-size: 0.85rem; padding: 9px 18px; text-decoration: none;">
+            📑 Copy Repertoire Template ↗
+          </a>
+        </div>
+      </div>
+    `;
+    wireCopyTemplateButton();
+  }
+}
+
 function renderSelectedSongResource(songKey) {
   const container = document.getElementById("dynamicResourceContainer");
   if (!container) return;
 
   const song = getSongResource(songKey);
   if (!song) {
-    container.innerHTML = `<div style="text-align:center; padding:16px; color:var(--text-muted); font-size:0.85rem;">No piece selected.</div>`;
+    const hasConfiguredSheet = Boolean(localStorage.getItem("kantimes_active_sheet_id"));
+    if (!hasConfiguredSheet) {
+      renderRepertoireEmptyState();
+    } else {
+      container.innerHTML = `<div style="text-align:center; padding:16px; color:var(--text-muted); font-size:0.85rem;">No piece selected.</div>`;
+    }
     return;
   }
 
@@ -10372,6 +10309,7 @@ window.addEventListener("DOMContentLoaded", function () {
   initTutorialLang();
   syncOfflinePracticeQueue();
   initPWAInstallBanner();
+  wireCopyTemplateButton();
   initStakeRepertoireSync();
   initIdentityAndPracticeTracking();
 });
@@ -10509,3 +10447,7 @@ window.handleAudioPlaybackError = handleAudioPlaybackError;
 window.selectAudioTrack = selectAudioTrack;
 window.formatDisplayName = formatDisplayName;
 window.sanitizeUrl = sanitizeUrl;
+
+window.REPERTOIRE_CONFIG = REPERTOIRE_CONFIG;
+window.wireCopyTemplateButton = wireCopyTemplateButton;
+window.renderRepertoireEmptyState = renderRepertoireEmptyState;
