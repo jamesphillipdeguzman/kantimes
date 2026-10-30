@@ -43,28 +43,28 @@
 <body>
 
   <header>
-    <div class="header-inner">
-      <div class="header-brand">
+    <div class="header-inner header-nav">
+      <div class="header-brand brand-wrap">
         <img src="images/kantimes-logo.png" alt="KanTimes Logo" class="header-logo" id="appLogoRefresh" role="button"
           tabindex="0" onclick="forceAppUpdate()" onkeydown="if(event.key==='Enter'||event.key===' ')forceAppUpdate()"
           title="Tap to refresh app and check for new songs" aria-label="Refresh app and check for updates"
           onerror="this.style.display='none'">
-        <div class="header-text">
-          <h1>Kantimes <span class="app-version-badge" title="Kantimes v2.8.0">v2.8.0</span></h1>
-          <p id="headerSubtitle">Christmas Devotional &amp; Current Practice</p>
+        <div class="header-text brand-text">
+          <h1 class="brand-title">Kantimes <span class="app-version-badge" title="Kantimes v2.8.0">v2.8.0</span></h1>
+          <p id="headerSubtitle" class="brand-subtitle">Christmas Devotional &amp; Current Practice</p>
         </div>
       </div>
-      <div class="header-actions">
-        <button type="button" class="identity-badge-btn btn-edit-profile" id="openProfileModalBtn" onclick="handleEditProfileClick(event)"
+      <div class="header-actions nav-actions">
+        <button type="button" class="identity-badge-btn btn-edit-profile user-profile-pill" id="btnProfilePill" onclick="handleEditProfileClick(event)"
           aria-label="My Choir Profile" title="My Choir Profile & Practice Summary">
-          <span class="identity-badge-icon" id="headerIdentityIcon">🎵</span>
-          <span class="identity-badge-handle" id="headerIdentityHandle">Profile</span>
+          <span class="identity-badge-icon avatar-icon" id="headerIdentityIcon">👤</span>
+          <span class="identity-badge-handle handle-text" id="headerProfileHandle">Profile</span>
         </button>
-        <button type="button" class="sheet-sync-btn" id="openStakeSheetBtn" onclick="openStakeSheetModal()"
+        <button type="button" class="sheet-sync-btn btn-icon" id="openStakeSheetBtn" onclick="openStakeSheetModal()"
           aria-label="Stake / Repertoire Source" title="Stake / Repertoire Source (Google Sheet)">📊</button>
-        <button type="button" class="theme-quick-btn" id="themeQuickToggleBtn" onclick="toggleQuickTheme()"
+        <button type="button" class="theme-quick-btn btn-icon" id="themeQuickToggleBtn" onclick="toggleQuickTheme()"
           aria-label="Toggle Dark / Light Theme" title="Toggle Dark/Light Mode">🌙</button>
-        <button type="button" class="settings-btn" id="openSettingsBtn" onclick="openSettingsModal()"
+        <button type="button" class="settings-btn btn-icon" id="openSettingsBtn" onclick="openSettingsModal()"
           aria-label="Settings" title="Settings & Practice Preferences">⚙️</button>
       </div>
     </div>

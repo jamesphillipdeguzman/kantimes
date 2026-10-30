@@ -1197,7 +1197,7 @@ function updateIdentityUI() {
   const handle = getDisplayHandle(identity);
 
   // Header pill handle
-  const headerHandleEl = document.getElementById("headerIdentityHandle");
+  const headerHandleEl = document.getElementById("headerProfileHandle") || document.getElementById("headerIdentityHandle");
   if (headerHandleEl) {
     headerHandleEl.textContent = handle;
   }
@@ -1524,7 +1524,7 @@ function initProfileModalListeners() {
     };
   }
 
-  const allEditButtons = document.querySelectorAll("#btnEditProfile, .btn-edit-profile, .edit-profile-btn, #openProfileModalBtn");
+  const allEditButtons = document.querySelectorAll("#btnEditProfile, .btn-edit-profile, .edit-profile-btn, #openProfileModalBtn, #btnProfilePill, .user-profile-pill");
   allEditButtons.forEach(btn => {
     btn.onclick = (e) => {
       handleEditProfileClick(e);

@@ -727,34 +727,78 @@ header {
   overflow: hidden;
 }
 
-.header-inner {
+/* Header Top Nav Container */
+.header-inner,
+.header-nav {
   display: flex;
   align-items: center;
-  justify-content: center;
-  max-width: 620px;
+  justify-content: space-between;
+  gap: 0.5rem;
+  padding: 0.5rem 0.75rem;
+  flex-wrap: nowrap;
+  max-width: 720px;
   margin: 0 auto;
   position: relative;
-  padding: 0 174px 0 0;
-  /* allowance for identity badge, theme toggle, stake sheet, and settings buttons */
 }
 
-.header-actions {
-  position: absolute;
-  right: 0;
-  top: 50%;
-  transform: translateY(-50%);
+/* Brand Container */
+.header-brand,
+.brand-wrap {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 0.5rem;
+  min-width: 0; /* Allows text truncation if needed */
+  flex: 1 1 auto;
+  margin: 0;
+  justify-content: flex-start;
+}
+
+.header-text,
+.brand-text {
+  min-width: 0;
+  text-align: left;
+}
+
+.brand-title,
+header h1 {
+  font-size: 1.1rem;
+  font-weight: 700;
+  white-space: nowrap;
+  margin: 0;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.brand-subtitle,
+#headerSubtitle {
+  font-size: 0.75rem;
+  color: var(--text-muted, #94a3b8);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  margin: 0;
+}
+
+/* Nav Action Controls */
+.header-actions,
+.nav-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  flex-shrink: 0;
+  position: static;
+  transform: none;
 }
 
 /* ── Choir Identity Header Badge & Pill ─────────────────────────────── */
+.user-profile-pill,
 .identity-badge-btn {
   background: rgba(255, 255, 255, 0.16);
   border: 1px solid rgba(255, 255, 255, 0.28);
   color: #ffffff;
-  height: 38px;
-  padding: 0 11px;
+  height: 36px;
+  padding: 0.25rem 0.65rem;
   border-radius: 999px;
   display: inline-flex;
   align-items: center;
@@ -769,21 +813,25 @@ header {
   white-space: nowrap;
 }
 
+.user-profile-pill:hover,
 .identity-badge-btn:hover {
   background: rgba(255, 255, 255, 0.28);
   transform: translateY(-1px);
   box-shadow: 0 3px 8px rgba(0, 0, 0, 0.2);
 }
 
+.user-profile-pill:active,
 .identity-badge-btn:active {
   transform: scale(0.96);
 }
 
+.avatar-icon,
 .identity-badge-icon {
   font-size: 0.95rem;
   line-height: 1;
 }
 
+.user-profile-pill span.handle-text,
 .identity-badge-handle {
   max-width: 82px;
   overflow: hidden;
@@ -866,50 +914,72 @@ header {
   }
 }
 
+/* Mobile Specific Adjustments (< 480px) */
 @media (max-width: 480px) {
-  .header-inner {
-    padding-right: 155px;
+  /* Hide the long subtitle in the top bar on mobile or shorten it */
+  .brand-subtitle,
+  #headerSubtitle {
+    display: none; 
   }
 
+  /* Make the choir profile pill compact on small screens */
+  .user-profile-pill,
   .identity-badge-btn {
-    padding: 0 8px;
-    height: 35px;
+    padding: 0.25rem 0.45rem;
+    font-size: 0.75rem;
+    max-width: 100px;
+    height: 32px;
   }
 
+  .user-profile-pill span.handle-text,
   .identity-badge-handle {
-    max-width: 58px;
-    font-size: 0.74rem;
-  }
-}
-
-/* Tighten gap on very small screens */
-@media (max-width: 360px) {
-  .header-actions {
-    gap: 4px;
+    max-width: 65px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
 
-  .header-inner {
-    padding-right: 135px;
-  }
-
-  .identity-badge-btn {
-    width: 33px;
-    height: 33px;
-    padding: 0;
-    justify-content: center;
-    border-radius: 50%;
-  }
-
-  .identity-badge-handle {
-    display: none;
-  }
-
+  /* Reduce action button padding */
+  .nav-actions button,
+  .nav-actions .btn-icon,
+  .header-actions button,
   .theme-quick-btn,
   .sheet-sync-btn,
   .settings-btn {
-    width: 33px;
-    height: 33px;
-    font-size: 1rem;
+    padding: 0.25rem;
+    width: 32px;
+    height: 32px;
+    font-size: 0.95rem;
+  }
+}
+
+/* Tighten gap on very small screens (< 360px) */
+@media (max-width: 360px) {
+  .nav-actions,
+  .header-actions {
+    gap: 0.2rem;
+  }
+
+  .user-profile-pill,
+  .identity-badge-btn {
+    padding: 0.2rem 0.35rem;
+    max-width: 78px;
+  }
+
+  .user-profile-pill span.handle-text,
+  .identity-badge-handle {
+    max-width: 42px;
+  }
+
+  .nav-actions button,
+  .nav-actions .btn-icon,
+  .header-actions button,
+  .theme-quick-btn,
+  .sheet-sync-btn,
+  .settings-btn {
+    width: 30px;
+    height: 30px;
+    font-size: 0.9rem;
   }
 }
 
@@ -9613,4 +9683,14 @@ body.piano-fullscreen-active {
   opacity: 1 !important;
   z-index: 99999 !important;
   pointer-events: auto !important;
+}
+
+/* Watermark Clash Prevention for Choir Member Setup Card */
+#profileCard {
+  position: relative;
+  z-index: 2;
+  background: var(--card-bg, #ffffff);
+}
+[data-theme="dark"] #profileCard {
+  background: var(--card-bg, #131b2e);
 }
