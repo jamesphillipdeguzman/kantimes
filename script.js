@@ -133,11 +133,20 @@ function sanitizeDriveUrl(url) {
 }
 
 /**
+ * Strips internal newlines, tabs, carriage returns, and edge whitespace from URLs.
+ */
+function sanitizeUrl(str) {
+  if (!str) return "";
+  return String(str).replace(/[\r\n\t]/g, "").trim();
+}
+window.sanitizeUrl = sanitizeUrl;
+
+/**
  * Sanitizes resource URLs for Google Drive or general web endpoints.
  */
 function sanitizeResourceUrl(url) {
   if (!url || typeof url !== "string") return "";
-  const trimmed = url.trim();
+  const trimmed = sanitizeUrl(url);
   if (trimmed.includes("drive.google.com") || trimmed.includes("docs.google.com/file/")) {
     return sanitizeDriveUrl(trimmed);
   }
@@ -150,9 +159,17 @@ function sanitizeResourceUrl(url) {
 function normalizeAudioUrl(url) {
   if (!url || typeof url !== "string") return "";
   let trimmed = url.trim();
-  if (trimmed.startsWith("http://")) {
+
+  // sacredsheetmusic.org rejects SSL connections; keep original protocol
+  if (trimmed.includes("sacredsheetmusic.org")) {
+    return trimmed;
+  }
+
+  const isHttpsPage = typeof window !== "undefined" && window.location && window.location.protocol ? window.location.protocol === "https:" : true;
+  if (trimmed.startsWith("http://") && isHttpsPage) {
     trimmed = trimmed.replace(/^http:\/\//i, "https://");
   }
+
   if (trimmed.includes("drive.google.com/file/d/")) {
     const match = trimmed.match(/\/file\/d\/([a-zA-Z0-9_-]+)/);
     if (match && match[1]) {
@@ -280,9 +297,9 @@ function groupRowsIntoSongs(rows) {
       category: (categoryIdx !== -1 && row[categoryIdx] !== undefined ? row[categoryIdx] : row[2])?.trim() || 'General',
       voicePart: (partIdx !== -1 && row[partIdx] !== undefined ? row[partIdx] : row[3])?.trim() || 'All',
       resourceLabel: (labelIdx !== -1 && row[labelIdx] !== undefined ? row[labelIdx] : row[4])?.trim() || 'Sheet Music',
-      resourceUrl: (urlIdx !== -1 && row[urlIdx] !== undefined ? row[urlIdx] : row[5])?.trim() || '',
-      audioUrl: (audioUrlIdx !== -1 && row[audioUrlIdx] !== undefined ? row[audioUrlIdx] : row[6])?.trim() || '',
-      videoUrl: (videoUrlIdx !== -1 && row[videoUrlIdx] !== undefined ? row[videoUrlIdx] : row[7])?.trim() || '' // Column H: YouTube / Video URL
+      resourceUrl: sanitizeUrl(urlIdx !== -1 && row[urlIdx] !== undefined ? row[urlIdx] : row[5]),
+      audioUrl: sanitizeUrl(audioUrlIdx !== -1 && row[audioUrlIdx] !== undefined ? row[audioUrlIdx] : row[6]),
+      videoUrl: sanitizeUrl(videoUrlIdx !== -1 && row[videoUrlIdx] !== undefined ? row[videoUrlIdx] : row[7])
     };
 
     if (parsedSong.audioUrl.includes('drive.google.com/file/d/')) {
@@ -435,10 +452,13 @@ async function loadSongsFromSheet(sheetIdOrUrl, options = {}) {
   const reset = Boolean(options.reset);
 
   const csvUrl = sheetIdOrUrl ? resolveCsvUrl(sheetIdOrUrl) : getActiveCsvUrl();
+  const fetchUrl = csvUrl.includes("?") 
+    ? `${csvUrl}&_t=${Date.now()}` 
+    : `${csvUrl}?_t=${Date.now()}`;
 
   try {
-    const res = await fetch(csvUrl, {
-      cache: "no-cache",
+    const res = await fetch(fetchUrl, {
+      cache: "no-store",
       headers: { "Cache-Control": "no-cache, no-store, must-revalidate" }
     });
 
@@ -1845,15 +1865,23 @@ let selectedAvatarFile = "";
 // Handles multiple names, trims excess/duplicate whitespace, and capitalizes hyphenated names (e.g. "anne-marie" -> "Anne-Marie")
 function toTitleCase(str) {
   if (!str || typeof str !== "string") return "";
-  return str
-    .trim()
+  const trimmed = str.trim();
+  // Preserve intentional all-caps initials or choir tags (e.g. "JD", "JP", "ALL")
+  if (trimmed.length <= 4 && trimmed === trimmed.toUpperCase() && !trimmed.includes(" ")) {
+    return trimmed;
+  }
+  return trimmed
     .replace(/\s+/g, " ")
     .split(" ")
     .map(word => {
+      if (word.length <= 4 && word === word.toUpperCase() && !word.includes("-")) {
+        return word;
+      }
       return word
         .split("-")
         .map(part => {
           if (!part) return "";
+          if (part.length <= 4 && part === part.toUpperCase()) return part;
           return part.charAt(0).toUpperCase() + part.slice(1).toLowerCase();
         })
         .join("-");
@@ -1861,6 +1889,19 @@ function toTitleCase(str) {
     .join(" ");
 }
 window.toTitleCase = toTitleCase;
+
+function formatDisplayName(input) {
+  if (!input) return "";
+  const trimmed = input.trim();
+  // Preserve intentional all-caps initials or choir tags (e.g. "JD", "JP", "ALL")
+  if (trimmed.length <= 4 && trimmed === trimmed.toUpperCase()) {
+    return trimmed;
+  }
+  // Only title case if mixed or lower case
+  return toTitleCase(trimmed);
+}
+window.formatDisplayName = formatDisplayName;
+window.sanitizeUrl = sanitizeUrl;
 
 // Helper to normalize avatar image source path
 function getAvatarImgSrc(filename) {
@@ -3361,10 +3402,7 @@ function renderSelectedSongResource(songKey) {
   let resPillsHtml = "";
   const rawResourceUrl = (song.resourceUrl || "").trim();
   const rawResourceLabel = (song.resourceLabel || "Sheet Music").trim();
-  let rawAudioUrl = (song.audioUrl || (song.audioTracks && song.audioTracks.length > 0 ? song.audioTracks[0].src : "") || "").trim();
-  if (rawAudioUrl.startsWith("http://")) {
-    rawAudioUrl = rawAudioUrl.replace(/^http:\/\//i, "https://");
-  }
+  let rawAudioUrl = normalizeAudioUrl(song.audioUrl || (song.audioTracks && song.audioTracks.length > 0 ? song.audioTracks[0].src : "") || "");
   const rawVideoUrl = (song.videoUrl || "").trim();
   const localPdf = song.localSheetUrl || (song.resources && !Array.isArray(song.resources) && song.resources.pdf) || "";
   const localVideo = song.localVideoUrl || (song.resources && !Array.isArray(song.resources) && song.resources.video && song.resources.video.endsWith('.mp4') ? song.resources.video : "");
@@ -3399,10 +3437,7 @@ function renderSelectedSongResource(songKey) {
 
   if (tracks.length > 1) {
     tracks.forEach((track) => {
-      let trackSrc = (track.src || "").trim();
-      if (trackSrc.startsWith("http://")) {
-        trackSrc = trackSrc.replace(/^http:\/\//i, "https://");
-      }
+      let trackSrc = normalizeAudioUrl(track.src || "");
       const part = (track.part || "").toLowerCase();
       const isActive = (trackSrc === rawAudioUrl) ? "active" : "";
       resPillsHtml += `
@@ -3468,8 +3503,7 @@ function renderSelectedSongResource(songKey) {
         clickAction = `onclick="openResourceModal('${escapeHtml(song.title)} - ${escapeHtml(label)}', '${escapeHtml(embedUrl)}', 'video')"`;
       } else if (isAudio) {
         icon = "🎧";
-        let audioSrc = cleanUrl;
-        if (audioSrc.startsWith("http://")) audioSrc = audioSrc.replace(/^http:\/\//i, "https://");
+        let audioSrc = normalizeAudioUrl(cleanUrl);
         clickAction = `onclick="selectAudioTrack('${escapeHtml(audioSrc)}', this, '${escapeHtml(label)}')"` ;
       }
 
@@ -3687,7 +3721,7 @@ function loadProfile() {
   renderAvatarPicker(savedAvatar);
 
   if (savedName && savedName.trim().length >= 2 && savedSection) {
-    const formattedName = toTitleCase(savedName);
+    const formattedName = formatDisplayName(savedName);
     if (formattedName !== savedName) {
       localStorage.setItem("choir_name", formattedName);
     }
@@ -4113,7 +4147,7 @@ function handleProfileSubmit() {
   const msgEl = document.getElementById("memberNameValidationMsg");
   const submitBtn = document.getElementById("setupProfileSubmitBtn") || document.getElementById("saveProfileBtn");
   const rawName = nameInput ? nameInput.value.trim() : "";
-  const name = toTitleCase(rawName);
+  const name = formatDisplayName(rawName);
   if (nameInput) nameInput.value = name;
   const section = document.getElementById("memberSection").value;
   const avatar = selectedAvatarFile;
@@ -4164,7 +4198,7 @@ function switchProfile() {
 }
 
 function cancelProfileEdit() {
-  const savedName = toTitleCase(localStorage.getItem("choir_name") || "");
+  const savedName = formatDisplayName(localStorage.getItem("choir_name") || "");
   const savedSection = localStorage.getItem("choir_voice") || localStorage.getItem("choir_section");
   const savedAvatar = localStorage.getItem("choir_avatar") || "";
 
@@ -4187,7 +4221,7 @@ function cancelProfileEdit() {
 function validateUser() {
   const nameInput = document.getElementById("profileNickname") || document.getElementById("memberName") || document.getElementById("profileFullName");
   const rawName = nameInput ? nameInput.value.trim() : "";
-  const name = toTitleCase(rawName);
+  const name = formatDisplayName(rawName);
   if (nameInput && nameInput.value !== name) {
     nameInput.value = name;
   }
@@ -7338,10 +7372,7 @@ function _printTutorialFallback() {
 // --- PWA, OFFLINE QUEUE & AUDIO HELPERS ---
 function selectAudioTrack(trackSrc, pillEl, trackName) {
   if (!trackSrc) return;
-  let finalSrc = trackSrc.trim();
-  if (finalSrc.startsWith("http://")) {
-    finalSrc = finalSrc.replace(/^http:\/\//i, "https://");
-  }
+  let finalSrc = normalizeAudioUrl(trackSrc);
 
   const badgeEl = document.getElementById("activeTrackTitleBadge");
   if (badgeEl) {
@@ -7370,7 +7401,7 @@ function selectAudioTrack(trackSrc, pillEl, trackName) {
     }
     extWrapper.innerHTML = `
       <p style="margin: 0 0 8px; font-size: 0.82rem; color: var(--text-muted);">Hosted on external streaming platform:</p>
-      <a href="${escapeHtml(finalSrc)}" target="_blank" rel="noopener noreferrer" class="btn-audio-external">▶ Listen on External Host ↗</a>
+      <a href="${escapeHtml(finalSrc)}" target="_blank" rel="noopener noreferrer" class="btn-audio-external">▶ Stream / Download Audio (External) ↗</a>
     `;
     extWrapper.style.display = "block";
   } else {
@@ -7404,7 +7435,7 @@ function handleAudioPlaybackError(audioEl, audioUrl) {
   if (container.querySelector(".audio-stream-fallback")) return;
 
   let streamUrl = audioUrl || audioEl.src;
-  if (streamUrl && streamUrl.startsWith("http://")) {
+  if (streamUrl && !streamUrl.includes("sacredsheetmusic.org") && streamUrl.startsWith("http://") && (typeof window !== "undefined" && window.location && window.location.protocol === "https:")) {
     streamUrl = streamUrl.replace(/^http:\/\//i, "https://");
   }
 
@@ -7413,10 +7444,10 @@ function handleAudioPlaybackError(audioEl, audioUrl) {
   fallbackDiv.style.cssText = "margin-top: 10px; text-align: center; padding: 10px; background: var(--bg-alt, rgba(0,0,0,0.03)); border: 1px dashed var(--border); border-radius: 8px;";
   fallbackDiv.innerHTML = `
     <p style="margin: 0 0 8px; font-size: 0.8rem; color: var(--text-muted);">
-      ⚠️ Direct audio playback failed or was blocked by the host.
+      ⚠️ Direct audio playback failed or was blocked by host/browser restrictions.
     </p>
     <a href="${escapeHtml(streamUrl)}" target="_blank" rel="noopener noreferrer" class="btn-audio-external">
-      ▶ Listen on External Host ↗
+      ▶ Stream / Download Audio (External) ↗
     </a>
   `;
   container.appendChild(fallbackDiv);
@@ -7759,14 +7790,14 @@ function initNameValidation() {
     });
     setupInput.addEventListener("blur", () => {
       if (setupInput.value) {
-        setupInput.value = toTitleCase(setupInput.value);
+        setupInput.value = formatDisplayName(setupInput.value);
       }
       validateNameInput(setupInput, setupMsg, setupBtn);
     });
     setupInput.addEventListener("keydown", (e) => {
       if (e.key === "Enter") {
         if (setupInput.value) {
-          setupInput.value = toTitleCase(setupInput.value);
+          setupInput.value = formatDisplayName(setupInput.value);
         }
         if (!validateNameInput(setupInput, setupMsg, setupBtn)) {
           e.preventDefault();
@@ -7787,14 +7818,14 @@ function initNameValidation() {
     });
     settingInput.addEventListener("blur", () => {
       if (settingInput.value) {
-        settingInput.value = toTitleCase(settingInput.value);
+        settingInput.value = formatDisplayName(settingInput.value);
       }
       validateNameInput(settingInput, settingMsg, settingBtn);
     });
     settingInput.addEventListener("keydown", (e) => {
       if (e.key === "Enter") {
         if (settingInput.value) {
-          settingInput.value = toTitleCase(settingInput.value);
+          settingInput.value = formatDisplayName(settingInput.value);
         }
         if (!validateNameInput(settingInput, settingMsg, settingBtn)) {
           e.preventDefault();
@@ -7810,7 +7841,7 @@ function initNameValidation() {
     if (el) {
       el.addEventListener("blur", () => {
         if (el.value) {
-          el.value = toTitleCase(el.value);
+          el.value = formatDisplayName(el.value);
         }
       });
     }
@@ -10476,3 +10507,5 @@ window.renderSelectedSongResource = renderSelectedSongResource;
 window.getYouTubeId = getYouTubeId;
 window.handleAudioPlaybackError = handleAudioPlaybackError;
 window.selectAudioTrack = selectAudioTrack;
+window.formatDisplayName = formatDisplayName;
+window.sanitizeUrl = sanitizeUrl;
