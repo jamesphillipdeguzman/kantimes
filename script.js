@@ -526,8 +526,56 @@ function groupRowsIntoSongs(rows) {
  * Persists offline to localStorage ("kantimes_cached_songs"),
  * and smoothly updates song lists.
  */
+/**
+ * Strict CSV Repertoire Parser:
+ * Parses raw CSV text and groups rows into clean song objects without merging defaults.
+ */
+function parseRepertoireCsv(csvText) {
+  const rows = parseCSV(csvText);
+  return groupRowsIntoSongs(rows);
+}
+window.parseRepertoireCsv = parseRepertoireCsv;
+
+/**
+ * Sets and persists the active choir repertoire across memory and cache.
+ */
+function setActiveRepertoire(parsedSongs) {
+  const songs = Array.isArray(parsedSongs) ? parsedSongs : [];
+  localStorage.setItem("kantimes_repertoire_cache", JSON.stringify(songs));
+  localStorage.setItem("kantimes_cached_songs", JSON.stringify(songs));
+
+  const settings = getUserSettings();
+  settings.songs = songs;
+  saveUserSettings(settings);
+
+  populateSongDropdown(songs);
+  const select = document.getElementById("songSelect") || document.querySelector(".rehearsal-song-select") || document.getElementById("targetSong");
+  const activeSong = (select && select.value) ? select.value : (songs[0] ? songs[0].title : "");
+  if (activeSong) {
+    renderSelectedSongResource(activeSong);
+  }
+  renderRepertoireList();
+  renderArchivedRepertoireSection();
+  updateStakeSheetStatusUI();
+}
+window.setActiveRepertoire = setActiveRepertoire;
+
+/**
+ * Synchronizes repertoire dynamically from connected Google Sheet.
+ */
+async function syncRepertoire(options = {}) {
+  const silent = Boolean(options.silent || options.isBackground);
+  const activeSheet = getActiveSheetId();
+  if (!activeSheet) {
+    renderRepertoireEmptyState();
+    return [];
+  }
+  return await loadSongsFromSheet(activeSheet, { isBackground: silent, userInitiated: !silent });
+}
+window.syncRepertoire = syncRepertoire;
+
 async function loadSongsFromSheet(sheetIdOrUrl, options = {}) {
-  const isBackground = Boolean(options.isBackground);
+  const isBackground = Boolean(options.isBackground || options.silent);
   const userInitiated = Boolean(options.userInitiated);
   const reset = Boolean(options.reset);
 
@@ -540,14 +588,17 @@ async function loadSongsFromSheet(sheetIdOrUrl, options = {}) {
     return [];
   }
 
-  const fetchUrl = csvUrl.includes("?") 
-    ? `${csvUrl}&_t=${Date.now()}` 
-    : `${csvUrl}?_t=${Date.now()}`;
+  const separator = csvUrl.includes("?") ? "&" : "?";
+  const fetchUrl = `${csvUrl}${separator}_nocache=${Date.now()}&_t=${Date.now()}`;
 
   try {
     const res = await fetch(fetchUrl, {
       cache: "no-store",
-      headers: { "Cache-Control": "no-cache, no-store, must-revalidate" }
+      headers: {
+        "Cache-Control": "no-cache, no-store, must-revalidate",
+        "Pragma": "no-cache",
+        "Expires": "0"
+      }
     });
 
     if (!res.ok) {
@@ -560,36 +611,21 @@ async function loadSongsFromSheet(sheetIdOrUrl, options = {}) {
       throw new Error("Sheet returned HTML. Please ensure Google Sheet is shared as 'Anyone with the link can view' or Published to Web.");
     }
 
-    const rows = parseCSV(text);
-    if (!rows || rows.length < 2) {
-      throw new Error("Sheet contains no data rows or has invalid CSV format.");
-    }
-
-    const songs = groupRowsIntoSongs(rows);
+    const songs = parseRepertoireCsv(text);
     if (!songs || songs.length === 0) {
       throw new Error("No songs could be parsed from sheet columns.");
     }
 
-    // Persist to offline PWA storage
-    localStorage.setItem("kantimes_cached_songs", JSON.stringify(songs));
+    // Check if repertoire changed compared to cached version
+    const cachedRaw = localStorage.getItem("kantimes_repertoire_cache") || localStorage.getItem("kantimes_cached_songs");
+    const hasChanged = !cachedRaw || cachedRaw !== JSON.stringify(songs);
 
-    // Update active user settings repertoire
-    const settings = getUserSettings();
-    settings.songs = songs;
-    saveUserSettings(settings);
-
-    // Smoothly re-render UI components strictly with newly synced repertoire
-    populateSongDropdown(songs);
-    const select = document.getElementById("songSelect") || document.querySelector(".rehearsal-song-select") || document.getElementById("targetSong");
-    const activeSong = (select && select.value) ? select.value : songs[0].title;
-    renderSelectedSongResource(activeSong);
-    renderRepertoireList();
-    renderArchivedRepertoireSection();
-    updateStakeSheetStatusUI();
+    // Persist to active memory, offline storage, and update UI
+    setActiveRepertoire(songs);
 
     if (userInitiated || reset) {
       showToast(reset ? "Reset to Master Repertoire! ✨" : `Connected & synced ${songs.length} pieces from Google Sheet! 🎶`);
-    } else if (!isBackground) {
+    } else if (!isBackground && hasChanged) {
       showToast(`Synced ${songs.length} pieces from Google Sheet! 🎶`);
     }
 
@@ -652,6 +688,9 @@ async function handleStakeSheetConnect() {
   if (prevActiveSheet !== storedSource) {
     initFreshStakeSectionStandings(true);
   }
+  // Wipe stale cache before fetching so new sheet columns immediately take effect
+  localStorage.removeItem("kantimes_repertoire_cache");
+  localStorage.removeItem("kantimes_cached_songs");
   localStorage.setItem("kantimes_active_sheet_id", storedSource);
   updateStakeSheetStatusUI();
   closeStakeSheetModal();
@@ -846,21 +885,17 @@ function initStakeRepertoireSync() {
 
   const customSheet = localStorage.getItem("kantimes_active_sheet_id");
   if (customSheet && customSheet.trim()) {
+    // 1. Render immediately from local cache (fast and offline-ready)
     const cached = getCachedSongs();
     if (cached && cached.length > 0) {
-      const settings = getUserSettings();
-      settings.songs = cached;
-      saveUserSettings(settings);
-      populateSongDropdown(cached);
-      const select = document.getElementById("songSelect") || document.querySelector(".rehearsal-song-select") || document.getElementById("targetSong");
-      const activeSong = (select && select.value) ? select.value : cached[0].title;
-      renderSelectedSongResource(activeSong);
+      setActiveRepertoire(cached);
     }
+    // 2. In background, re-validate dynamically with cache-busting fetch
     if (navigator.onLine) {
-      loadSongsFromSheet(customSheet, { isBackground: true });
+      syncRepertoire({ silent: true });
     }
   } else {
-    // If no sheet URL has been configured in localStorage, display an onboarding empty state or prompt instructing the choir coordinator/member to connect their published CSV link or copy the template.
+    // If no sheet URL has been configured, show unconfigured onboarding empty state
     populateSongDropdown([]);
     renderRepertoireEmptyState();
   }
@@ -2275,22 +2310,22 @@ const DEFAULT_USER_SETTINGS = {
       sheetUrl: "http://sacredsheetmusic.org/music/inline_download_file?download_id=181717&name=Away_in_a_Manger.pdf",
       resourceUrl: "http://sacredsheetmusic.org/music/inline_download_file?download_id=181717&name=Away_in_a_Manger.pdf",
       resourceLabel: "Sheet Music (PDF)",
-      audioUrl: "kantimes-resources/Christmas%20Devotional%202026/Away_in_a_Manger__Organ_.mp3",
+      audioUrl: "kantimes-resources/Christmas%20Devotional%202026/Away_in_a_Manger_Piano_.mp3",
       localSheetUrl: "kantimes-resources/Christmas%20Devotional%202026/Away_in_a_Manger.pdf",
       resources: {
         pdf: "kantimes-resources/Christmas Devotional 2026/Away_in_a_Manger.pdf",
         audio: {
-          organ: "kantimes-resources/Christmas Devotional 2026/Away_in_a_Manger__Organ_.mp3"
+          piano: "kantimes-resources/Christmas Devotional 2026/Away_in_a_Manger_Piano_.mp3"
         }
       },
       audioTracks: [
         {
-          name: "Organ Accompaniment",
-          src: "kantimes-resources/Christmas%20Devotional%202026/Away_in_a_Manger__Organ_.mp3"
+          name: "Piano Accompaniment",
+          src: "kantimes-resources/Christmas%20Devotional%202026/Away_in_a_Manger_Piano_.mp3"
         }
       ],
       tags: ["Christmas", "Hymns"],
-      note: "Hymn #206. Organ rehearsal accompaniment track available offline."
+      note: "Hymn #206. Piano rehearsal accompaniment track available offline."
     },
     {
       id: "christmas-light-of-the-world",
@@ -2620,9 +2655,42 @@ function formatYouTubeEmbedUrl(url) {
 }
 
 function getUserSettings(forceSync = false) {
-  const cachedSongs = getCachedSongs();
   const customSheetId = localStorage.getItem("kantimes_active_sheet_id");
+  const cachedSongs = getCachedSongs();
   const stored = localStorage.getItem("kantimes_user_settings") || localStorage.getItem("kantime_user_settings");
+
+  // When a Google Sheet is connected, songs MUST ONLY come from the sheet (cachedSongs),
+  // NEVER falling back to or merging with DEFAULT_USER_SETTINGS.songs or stale parsed.songs.
+  if (customSheetId) {
+    const sheetSongs = (cachedSongs && cachedSongs.length > 0) ? cachedSongs : [];
+    if (!stored) {
+      const fresh = JSON.parse(JSON.stringify(DEFAULT_USER_SETTINGS));
+      fresh.songs = sheetSongs;
+      fresh.appVersion = APP_VERSION;
+      fresh.repertoireVersion = REPERTOIRE_VERSION;
+      saveUserSettings(fresh);
+      return fresh;
+    }
+    try {
+      const parsed = JSON.parse(stored);
+      const result = {
+        targetDate: parsed.targetDate !== undefined ? parsed.targetDate : (DEFAULT_USER_SETTINGS.targetDate || "Current Practice"),
+        timerMinutes: Number(parsed.timerMinutes) || DEFAULT_USER_SETTINGS.timerMinutes || 15,
+        showPastRepertoire: parsed.showPastRepertoire !== undefined ? Boolean(parsed.showPastRepertoire) : false,
+        songs: sheetSongs,
+        appVersion: APP_VERSION,
+        repertoireVersion: REPERTOIRE_VERSION
+      };
+      saveUserSettings(result);
+      return result;
+    } catch (e) {
+      const fallback = JSON.parse(JSON.stringify(DEFAULT_USER_SETTINGS));
+      fallback.songs = sheetSongs;
+      return fallback;
+    }
+  }
+
+  // If no sheet is connected:
   if (!stored) {
     const fresh = JSON.parse(JSON.stringify(DEFAULT_USER_SETTINGS));
     fresh.songs = (cachedSongs && cachedSongs.length > 0) ? cachedSongs : [];
@@ -10628,3 +10696,7 @@ window.renderRepertoireEmptyState = renderRepertoireEmptyState;
 window.isValidResourceUrl = isValidResourceUrl;
 window.isDirectStreamableAudio = isDirectStreamableAudio;
 window.renderRepertoireResources = renderRepertoireResources;
+
+window.syncRepertoire = syncRepertoire;
+window.parseRepertoireCsv = parseRepertoireCsv;
+window.setActiveRepertoire = setActiveRepertoire;

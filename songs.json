@@ -62,20 +62,20 @@
       "resources": {
         "pdf": "kantimes-resources/Christmas Devotional 2026/Away_in_a_Manger.pdf",
         "audio": {
-          "organ": "kantimes-resources/Christmas Devotional 2026/Away_in_a_Manger__Organ_.mp3"
+          "piano": "kantimes-resources/Christmas Devotional 2026/Away_in_a_Manger_Piano_.mp3"
         }
       },
       "audioTracks": [
         {
-          "name": "Organ Accompaniment",
-          "src": "kantimes-resources/Christmas%20Devotional%202026/Away_in_a_Manger__Organ_.mp3"
+          "name": "Piano Accompaniment",
+          "src": "kantimes-resources/Christmas%20Devotional%202026/Away_in_a_Manger_Piano_.mp3"
         }
       ],
       "tags": [
         "Christmas",
         "Hymns"
       ],
-      "note": "Hymn #206. Organ rehearsal accompaniment track available offline."
+      "note": "Hymn #206. Piano rehearsal accompaniment track available offline."
     },
     {
       "id": "christmas-light-of-the-world",
