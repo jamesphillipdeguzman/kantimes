@@ -178,6 +178,72 @@ function sanitizeResourceUrl(url) {
 /**
  * Normalizes audio URLs: converts Google Drive share links into direct audio stream URLs.
  */
+
+/**
+ * Checks if a resource or media URL is valid and non-empty (not # or internal anchor).
+ */
+function isValidResourceUrl(url) {
+  if (!url || typeof url !== "string") return false;
+  const trimmed = sanitizeUrl(url);
+  if (!trimmed) return false;
+  const lower = trimmed.toLowerCase();
+  if (lower === "#" || lower.startsWith("#") || lower.startsWith("javascript:")) {
+    return false;
+  }
+  return true;
+}
+
+/**
+ * Determines if an audio URL can be played directly inside the browser's HTML5 <audio> player
+ * or should directly render an external streaming button to avoid mixed-content / CORS errors.
+ */
+function isDirectStreamableAudio(url) {
+  if (!isValidResourceUrl(url)) return false;
+  const rawLower = String(url).trim().toLowerCase();
+
+  // Known hosts that block or reject in-browser streaming (e.g. sacredsheetmusic.org, soundcloud.com)
+  if (rawLower.includes("sacredsheetmusic.org") || rawLower.includes("soundcloud.com")) {
+    return false;
+  }
+
+  // Mixed content blocking: Insecure HTTP media requested on HTTPS origin
+  const isHttps = typeof window !== "undefined" && window.location && window.location.protocol === "https:";
+  if (isHttps && rawLower.startsWith("http://")) {
+    return false;
+  }
+
+  const trimmed = normalizeAudioUrl(url);
+  const lower = trimmed.toLowerCase();
+
+  // Local workspace or relative audio files
+  if (lower.startsWith("kantimes-resources/") || lower.startsWith("./") || lower.startsWith("/")) {
+    return true;
+  }
+
+  // Google Drive direct export download
+  if (lower.includes("drive.google.com/uc?export=download") || lower.includes("drive.google.com/uc?id=")) {
+    return true;
+  }
+
+  // Official Church of Jesus Christ audio media hosts
+  if (lower.includes("assets.churchofjesuschrist.org") || lower.includes("media.ldscdn.org")) {
+    return true;
+  }
+
+  // Localhost development
+  if (lower.startsWith("http://localhost") || lower.startsWith("http://127.0.0.1")) {
+    return true;
+  }
+
+  // Verified HTTPS direct audio media formats
+  if (lower.startsWith("https://") && /\.(mp3|wav|ogg|m4a|aac|flac)(\?.*)?$/i.test(trimmed)) {
+    return true;
+  }
+
+  // Any other URL (HTML webpage or unverified external host)
+  return false;
+}
+
 function normalizeAudioUrl(url) {
   if (!url || typeof url !== "string") return "";
   let trimmed = url.trim();
@@ -277,106 +343,90 @@ function parseCSV(text) {
  * }
  */
 function groupRowsIntoSongs(rows) {
-  if (!rows || rows.length < 2) return [];
+  if (!Array.isArray(rows) || rows.length === 0) return [];
 
-  const headers = rows[0].map(h => (h || "").trim().toLowerCase());
+  const isMatrix = Array.isArray(rows[0]);
+  let dataRows = rows;
+  let titleIdx = 0, hymnNumIdx = 1, categoryIdx = 2, partIdx = 3, labelIdx = 4, urlIdx = 5, audioUrlIdx = 6, videoUrlIdx = 7;
 
-  const findCol = (exactMatches, substringMatches = []) => {
-    for (let i = 0; i < headers.length; i++) {
-      const clean = headers[i].replace(/[^a-z0-9]/g, "");
-      if (exactMatches.some(e => clean === e.replace(/[^a-z0-9]/g, ""))) {
-        return i;
+  if (isMatrix) {
+    if (rows.length < 2) return [];
+    const headers = rows[0].map(h => (h || "").trim().toLowerCase());
+
+    const findCol = (exactMatches, substringMatches = []) => {
+      for (let i = 0; i < headers.length; i++) {
+        const clean = headers[i].replace(/[^a-z0-9]/g, "");
+        if (exactMatches.some(e => clean === e.replace(/[^a-z0-9]/g, ""))) {
+          return i;
+        }
       }
-    }
-    for (let i = 0; i < headers.length; i++) {
-      const clean = headers[i].replace(/[^a-z0-9]/g, "");
-      if (substringMatches.some(s => clean.includes(s.replace(/[^a-z0-9]/g, "")))) {
-        return i;
+      for (let i = 0; i < headers.length; i++) {
+        const clean = headers[i].replace(/[^a-z0-9]/g, "");
+        if (substringMatches.some(s => clean.includes(s.replace(/[^a-z0-9]/g, "")))) {
+          return i;
+        }
       }
-    }
-    return -1;
-  };
-
-  const titleIdx = findCol(["title", "songtitle", "hymntitle"], ["title", "song", "name"]);
-  const hymnNumIdx = findCol(["hymnnumber", "hymn", "number"], ["hymn", "number", "num"]);
-  const categoryIdx = findCol(["category", "season", "event"], ["category", "season", "event"]);
-  const partIdx = findCol(["voicepart", "voice", "part"], ["voice", "part", "section"]);
-  const labelIdx = findCol(["resourcelabel", "label", "description"], ["label", "desc"]);
-  const urlIdx = findCol(["resourceurl", "url", "link", "sheeturl"], ["resource", "sheet", "url", "link", "href"]);
-  const audioUrlIdx = findCol(["audiourl", "audio", "audiolink", "trackurl", "track"], ["audio", "track", "mp3"]);
-  const videoUrlIdx = findCol(["videourl", "video", "videolink", "youtube", "youtubeurl"], ["video", "youtube", "yt"]);
-
-  const actualTitleIdx = titleIdx !== -1 ? titleIdx : 0;
-  const songsMap = new Map();
-
-  for (let i = 1; i < rows.length; i++) {
-    const row = rows[i];
-    if (!row || row.length === 0) continue;
-
-    const parsedSong = {
-      title: (titleIdx !== -1 && row[titleIdx] !== undefined ? row[titleIdx] : row[0])?.trim() || '',
-      hymnNumber: (hymnNumIdx !== -1 && row[hymnNumIdx] !== undefined ? row[hymnNumIdx] : row[1])?.trim() || '',
-      category: (categoryIdx !== -1 && row[categoryIdx] !== undefined ? row[categoryIdx] : row[2])?.trim() || 'General',
-      voicePart: (partIdx !== -1 && row[partIdx] !== undefined ? row[partIdx] : row[3])?.trim() || 'All',
-      resourceLabel: (labelIdx !== -1 && row[labelIdx] !== undefined ? row[labelIdx] : row[4])?.trim() || 'Sheet Music',
-      resourceUrl: sanitizeUrl(urlIdx !== -1 && row[urlIdx] !== undefined ? row[urlIdx] : row[5]),
-      audioUrl: sanitizeUrl(audioUrlIdx !== -1 && row[audioUrlIdx] !== undefined ? row[audioUrlIdx] : row[6]),
-      videoUrl: sanitizeUrl(videoUrlIdx !== -1 && row[videoUrlIdx] !== undefined ? row[videoUrlIdx] : row[7])
+      return -1;
     };
 
-    if (parsedSong.audioUrl.includes('drive.google.com/file/d/')) {
-      const match = parsedSong.audioUrl.match(/\/file\/d\/([a-zA-Z0-9_-]+)/);
-      if (match && match[1]) {
-        parsedSong.audioUrl = `https://drive.google.com/uc?export=download&id=${match[1]}`;
-      }
-    }
-    if (!parsedSong.audioUrl.includes('export=download') && parsedSong.audioUrl.includes('drive.google.com')) {
-      const openMatch = parsedSong.audioUrl.match(/[?&]id=([a-zA-Z0-9_-]+)/);
-      if (openMatch && openMatch[1]) {
-        parsedSong.audioUrl = `https://drive.google.com/uc?export=download&id=${openMatch[1]}`;
-      }
-    }
+    const foundTitle = findCol(["title", "songtitle", "hymntitle"], ["title", "song", "name"]);
+    const foundHymn = findCol(["hymnnumber", "hymn", "number"], ["hymn", "number", "num"]);
+    const foundCat = findCol(["category", "season", "event"], ["category", "season", "event"]);
+    const foundPart = findCol(["voicepart", "voice", "part"], ["voice", "part", "section"]);
+    const foundLabel = findCol(["resourcelabel", "label", "description"], ["label", "desc"]);
+    const foundUrl = findCol(["resourceurl", "url", "link", "sheeturl"], ["resource", "sheet", "url", "link", "href"]);
+    const foundAudio = findCol(["audiourl", "audio", "audiolink", "trackurl", "track"], ["audio", "track", "mp3"]);
+    const foundVideo = findCol(["videourl", "video", "videolink", "youtube", "youtubeurl"], ["video", "youtube", "yt"]);
 
-    const rawTitle = parsedSong.title;
-    if (!rawTitle) continue;
+    titleIdx = foundTitle !== -1 ? foundTitle : 0;
+    hymnNumIdx = foundHymn !== -1 ? foundHymn : 1;
+    categoryIdx = foundCat !== -1 ? foundCat : 2;
+    partIdx = foundPart !== -1 ? foundPart : 3;
+    labelIdx = foundLabel !== -1 ? foundLabel : 4;
+    urlIdx = foundUrl !== -1 ? foundUrl : 5;
+    audioUrlIdx = foundAudio !== -1 ? foundAudio : 6;
+    videoUrlIdx = foundVideo !== -1 ? foundVideo : 7;
 
-    const titleKey = rawTitle.toLowerCase();
-    const rawHymnNum = parsedSong.hymnNumber;
-    const hymnNumber = rawHymnNum && !isNaN(parseInt(rawHymnNum, 10)) ? parseInt(rawHymnNum, 10) : null;
+    dataRows = rows.slice(1);
+  }
 
-    const category = parsedSong.category || "General";
-    const voicePart = parsedSong.voicePart || "All";
-    const resourceLabel = parsedSong.resourceLabel || "Sheet Music";
-    const rawResourceUrl = parsedSong.resourceUrl;
-    const rawAudioUrl = parsedSong.audioUrl;
-    const rawVideoUrl = parsedSong.videoUrl;
+  const songsMap = new Map();
+
+  for (const row of dataRows) {
+    if (!row) continue;
+    const isRowArray = Array.isArray(row);
+
+    const title = (isRowArray ? (row[titleIdx] || "") : (row.title || "")).trim();
+    if (!title) continue;
+
+    const titleKey = title.toLowerCase();
+    const hymnNumber = (isRowArray ? (row[hymnNumIdx] || "") : (row.hymnNumber || row.hymn_number || "")).trim();
+    const category = (isRowArray ? (row[categoryIdx] || "General") : (row.category || "General")).trim();
+    const voicePart = (isRowArray ? (row[partIdx] || "All") : (row.voicePart || row.part || "All")).trim();
+    const rawResourceLabel = (isRowArray ? (row[labelIdx] || "Sheet Music") : (row.resourceLabel || "Sheet Music")).trim();
+    const rawResourceUrl = sanitizeUrl(isRowArray ? (row[urlIdx] || "") : (row.resourceUrl || row.sheetUrl || ""));
+    const rawAudioUrl = sanitizeUrl(isRowArray ? (row[audioUrlIdx] || "") : (row.audioUrl || ""));
+    const rawVideoUrl = sanitizeUrl(isRowArray ? (row[videoUrlIdx] || "") : (row.videoUrl || ""));
 
     if (!songsMap.has(titleKey)) {
-      const slug = rawTitle.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
-      const isPast = category.toLowerCase().includes("archive") || category.toLowerCase().includes("october 2026") || category.toLowerCase().includes("past");
-
       songsMap.set(titleKey, {
-        id: hymnNumber ? `hymn-${hymnNumber}` : `song-${slug}`,
-        title: rawTitle,
+        id: `song-${Date.now()}-${Math.random().toString(36).substr(2, 6)}`,
+        title: title,
         hymn_number: hymnNumber,
         hymnNumber: hymnNumber,
         number: hymnNumber,
         category: category,
         event: category,
         collection: category,
-        status: isPast ? "archived" : "active",
-        isArchived: isPast,
-        archived: isPast,
         part: voicePart,
         voicePart: voicePart,
-        resourceLabel: resourceLabel,
-        resourceUrl: rawResourceUrl,
-        audioUrl: rawAudioUrl,
-        videoUrl: rawVideoUrl,
+        resourceUrl: isValidResourceUrl(rawResourceUrl) ? rawResourceUrl : "",
+        resourceLabel: rawResourceLabel,
+        sheetUrl: isValidResourceUrl(rawResourceUrl) ? rawResourceUrl : "",
+        audioUrl: isValidResourceUrl(rawAudioUrl) ? rawAudioUrl : "",
+        videoUrl: isValidResourceUrl(rawVideoUrl) ? rawVideoUrl : "",
         resources: [],
-        audioTracks: [],
-        sheetUrl: rawResourceUrl,
-        note: ""
+        audioTracks: []
       });
     }
 
@@ -392,69 +442,77 @@ function groupRowsIntoSongs(rows) {
       song.event = category;
       song.collection = category;
     }
-    if (!song.resourceUrl && rawResourceUrl) {
+    if (!song.resourceUrl && isValidResourceUrl(rawResourceUrl)) {
       song.resourceUrl = rawResourceUrl;
-      song.resourceLabel = resourceLabel;
+      song.resourceLabel = rawResourceLabel;
       song.sheetUrl = song.sheetUrl || rawResourceUrl;
     }
-    if (!song.audioUrl && rawAudioUrl) {
+    if (!song.audioUrl && isValidResourceUrl(rawAudioUrl)) {
       song.audioUrl = rawAudioUrl;
     }
-    if (!song.videoUrl && rawVideoUrl) {
+    if (!song.videoUrl && isValidResourceUrl(rawVideoUrl)) {
       song.videoUrl = rawVideoUrl;
     }
 
-    if (rawAudioUrl) {
+    if (isValidResourceUrl(rawAudioUrl)) {
       const cleanPart = voicePart ? voicePart.trim().toLowerCase() : "all";
       const trackName = voicePart && cleanPart !== "all" 
         ? `${voicePart.charAt(0).toUpperCase() + voicePart.slice(1)} Track` 
-        : (resourceLabel || "Audio Track");
-      song.audioTracks.push({
-        name: trackName,
-        src: rawAudioUrl,
-        part: cleanPart
-      });
-    }
-
-    if (rawResourceUrl) {
-      const sanitizedUrl = sanitizeResourceUrl(rawResourceUrl);
-      const cleanPart = voicePart ? voicePart.trim().toLowerCase() : "all";
-      const defaultLabel = cleanPart && cleanPart !== "all" 
-        ? `${cleanPart.charAt(0).toUpperCase() + cleanPart.slice(1)} Sheet` 
-        : (resourceLabel || "Sheet Music");
-      const finalLabel = resourceLabel || defaultLabel;
-
-      const resObj = {
-        part: cleanPart,
-        label: finalLabel,
-        url: sanitizedUrl
-      };
-
-      song.resources.push(resObj);
-
-      // Auto-populate backward-compatible fields for media player & preview
-      const lowerUrl = sanitizedUrl.toLowerCase();
-      const lowerLabel = finalLabel.toLowerCase();
-
-      // Sheet preview (PDF or Drive)
-      if (!song.sheetUrl && (lowerUrl.includes(".pdf") || lowerUrl.includes("drive.google.com") || lowerLabel.includes("pdf") || lowerLabel.includes("sheet") || lowerLabel.includes("score"))) {
-        song.sheetUrl = sanitizedUrl;
-      }
-
-      // Rehearsal Video / YouTube
-      if (!song.videoUrl && (lowerUrl.includes("youtube.com") || lowerUrl.includes("youtu.be") || lowerUrl.endsWith(".mp4") || lowerLabel.includes("video"))) {
-        song.videoUrl = sanitizedUrl;
-      }
-
-      // Dedicated Audio Track (mp3, wav, m4a, church audio assets)
-      const isAudioFile = lowerUrl.includes(".mp3") || lowerUrl.includes(".wav") || lowerUrl.includes(".m4a") || lowerUrl.includes("assets.churchofjesuschrist.org");
-      const isAudioTrackLabel = lowerLabel.includes("track") || lowerLabel.includes("audio") || lowerLabel.includes("accompaniment") || lowerLabel.includes("piano") || lowerLabel.includes("organ");
-      if (isAudioFile || (isAudioTrackLabel && !lowerUrl.includes("youtube") && !lowerUrl.includes("youtu.be"))) {
+        : (rawResourceLabel || "Audio Track");
+      const normAudio = normalizeAudioUrl(rawAudioUrl);
+      if (!song.audioTracks.some(t => normalizeAudioUrl(t.src) === normAudio)) {
         song.audioTracks.push({
-          name: finalLabel,
-          src: sanitizedUrl,
+          name: trackName,
+          src: rawAudioUrl,
           part: cleanPart
         });
+      }
+    }
+
+    if (isValidResourceUrl(rawResourceUrl)) {
+      const sanitizedUrl = sanitizeResourceUrl(rawResourceUrl);
+      if (isValidResourceUrl(sanitizedUrl)) {
+        const cleanPart = voicePart ? voicePart.trim().toLowerCase() : "all";
+        const defaultLabel = cleanPart && cleanPart !== "all" 
+          ? `${cleanPart.charAt(0).toUpperCase() + cleanPart.slice(1)} Sheet` 
+          : (rawResourceLabel || "Sheet Music");
+        const finalLabel = rawResourceLabel || defaultLabel;
+
+        const lowerUrl = sanitizedUrl.toLowerCase();
+        const lowerLabel = finalLabel.toLowerCase();
+
+        // Sheet preview (PDF or Drive)
+        if (!song.sheetUrl && (lowerUrl.includes(".pdf") || lowerUrl.includes("drive.google.com") || lowerLabel.includes("pdf") || lowerLabel.includes("sheet") || lowerLabel.includes("score"))) {
+          song.sheetUrl = sanitizedUrl;
+        }
+
+        // Rehearsal Video / YouTube
+        if (!song.videoUrl && (lowerUrl.includes("youtube.com") || lowerUrl.includes("youtu.be") || lowerUrl.endsWith(".mp4") || lowerLabel.includes("video"))) {
+          song.videoUrl = sanitizedUrl;
+        }
+
+        // Dedicated Audio Track (mp3, wav, m4a, church audio assets, or accompaniment audio)
+        const isAudioFile = lowerUrl.includes(".mp3") || lowerUrl.includes(".wav") || lowerUrl.includes(".m4a") || lowerUrl.includes("assets.churchofjesuschrist.org");
+        const isAudioTrackLabel = lowerLabel.includes("track") || lowerLabel.includes("audio") || lowerLabel.includes("accompaniment") || lowerLabel.includes("piano") || lowerLabel.includes("organ");
+        if (isAudioFile || (isAudioTrackLabel && !lowerUrl.includes("youtube") && !lowerUrl.includes("youtu.be"))) {
+          const normSrc = normalizeAudioUrl(sanitizedUrl);
+          if (!song.audioTracks.some(t => normalizeAudioUrl(t.src) === normSrc)) {
+            song.audioTracks.push({
+              name: finalLabel,
+              src: sanitizedUrl,
+              part: cleanPart
+            });
+          }
+        } else {
+          // Non-audio external resource
+          if (!song.resources.some(r => r.url === sanitizedUrl)) {
+            song.resources.push({
+              part: cleanPart,
+              label: finalLabel,
+              url: sanitizedUrl
+            });
+          }
+        }
       }
     }
   }
@@ -557,7 +615,7 @@ async function loadSongsFromSheet(sheetIdOrUrl, options = {}) {
  * Handles "Connect & Sync" button click in Stake Sheet Switcher modal.
  */
 async function handleStakeSheetConnect() {
-  const inputEl = document.getElementById("stakeSheetInput");
+  const inputEl = document.getElementById("googleSheetInput") || document.getElementById("stakeSheetInput");
   const errEl = document.getElementById("stakeSheetError");
   const rawInput = inputEl ? inputEl.value.trim() : "";
 
@@ -613,7 +671,7 @@ async function resetToDefaultRepertoire() {
   saveUserSettings(settings);
   initFreshStakeSectionStandings(false);
   updateStakeSheetStatusUI();
-  const inputEl = document.getElementById("stakeSheetInput");
+  const inputEl = document.getElementById("googleSheetInput") || document.getElementById("stakeSheetInput");
   if (inputEl) inputEl.value = "";
   const errEl = document.getElementById("stakeSheetError");
   if (errEl) errEl.style.display = "none";
@@ -630,32 +688,46 @@ async function resetToDefaultRepertoire() {
 function updateStakeSheetStatusUI() {
   const customSource = localStorage.getItem("kantimes_active_sheet_id");
   const isConnected = Boolean(customSource && customSource.trim());
+  const fullSourceUrl = isConnected ? customSource.trim() : "";
 
-  const badge = document.getElementById("stakeSourceStatusBadge");
+  const badge = document.getElementById("activeStakeSheetBadge") || document.getElementById("stakeSourceStatusBadge");
   const details = document.getElementById("stakeSourceDetails");
-  const input = document.getElementById("stakeSheetInput");
+  const input = document.getElementById("googleSheetInput") || document.getElementById("stakeSheetInput");
 
   if (badge) {
     if (isConnected) {
       badge.textContent = "Connected Stake Sheet";
-      badge.className = "stake-source-badge badge-custom";
+      badge.className = "stake-source-badge badge-custom active-sheet-link";
+      badge.setAttribute("title", fullSourceUrl);
     } else {
       badge.textContent = "Not Connected";
-      badge.className = "stake-source-badge badge-default";
+      badge.className = "stake-source-badge badge-default active-sheet-link";
+      badge.setAttribute("title", "No Google Sheet connected. Paste a published CSV link or ID.");
     }
   }
 
   if (details) {
     if (isConnected) {
-      const displayId = customSource.length > 32 ? `${customSource.slice(0, 29)}...` : customSource;
-      details.innerHTML = `Connected to custom stake sheet: <strong class="code-font">${escapeHtml(displayId)}</strong>`;
+      const displayId = fullSourceUrl.length > 32 ? `${fullSourceUrl.slice(0, 29)}...` : fullSourceUrl;
+      details.innerHTML = `Connected to custom stake sheet: <strong class="code-font active-sheet-link" id="activeStakeSheetBadge" title="${escapeHtml(fullSourceUrl)}">${escapeHtml(displayId)}</strong>`;
     } else {
       details.innerHTML = `No sheet connected. Connect your published CSV link or <a href="${REPERTOIRE_CONFIG.TEMPLATE_COPY_URL}" target="_blank" rel="noopener noreferrer">copy the template ↗</a>.`;
     }
   }
 
-  if (input && !input.value) {
-    input.value = isConnected ? customSource : "";
+  if (input) {
+    if (!input.value && isConnected) {
+      input.value = fullSourceUrl;
+    }
+    const val = input.value.trim();
+    input.setAttribute("title", val ? `Current: ${val}` : "Enter your Google Sheet URL or ID");
+    if (!input.dataset.tooltipBound) {
+      input.dataset.tooltipBound = "true";
+      input.addEventListener("input", () => {
+        const currentVal = input.value.trim();
+        input.setAttribute("title", currentVal ? `Current: ${currentVal}` : "Enter your Google Sheet URL or ID");
+      });
+    }
   }
 
   const shareBox = document.getElementById("stakeShareLinkBox");
@@ -703,7 +775,7 @@ function openStakeSheetModal() {
     errEl.style.display = "none";
     errEl.textContent = "";
   }
-  const input = document.getElementById("stakeSheetInput");
+  const input = document.getElementById("googleSheetInput") || document.getElementById("stakeSheetInput");
   const customSource = localStorage.getItem("kantimes_active_sheet_id");
   if (input) {
     input.value = customSource ? customSource.trim() : "";
@@ -3315,6 +3387,180 @@ function renderRepertoireEmptyState() {
   }
 }
 
+/**
+ * Renders deduplicated and sanitized resource pills for a song.
+ * Avoids duplicate audio pills if already handled by primary player.
+ * Validates link targets to prevent rendering empty or unplayable "#" buttons.
+ */
+function renderRepertoireResources(song) {
+  if (!song) return "";
+
+  const isOffline = typeof navigator !== "undefined" && navigator.onLine === false;
+  let resPillsHtml = "";
+
+  const rawResourceUrl = isValidResourceUrl(song.resourceUrl) ? song.resourceUrl.trim() : "";
+  const rawResourceLabel = (song.resourceLabel || "Sheet Music").trim();
+  let rawAudioUrl = normalizeAudioUrl(song.audioUrl || (song.audioTracks && song.audioTracks.length > 0 ? song.audioTracks[0].src : "") || "");
+  if (!isValidResourceUrl(rawAudioUrl)) rawAudioUrl = "";
+  const rawVideoUrl = isValidResourceUrl(song.videoUrl) ? song.videoUrl.trim() : "";
+  const localPdf = (isValidResourceUrl(song.localSheetUrl) && song.localSheetUrl) || (song.resources && !Array.isArray(song.resources) && isValidResourceUrl(song.resources.pdf) && song.resources.pdf) || "";
+  const localVideo = (isValidResourceUrl(song.localVideoUrl) && song.localVideoUrl) || (song.resources && !Array.isArray(song.resources) && isValidResourceUrl(song.resources.video) && song.resources.video.endsWith('.mp4') && song.resources.video) || "";
+
+  // Filter and deduplicate audio tracks
+  const validTracks = [];
+  const seenTrackUrls = new Set();
+  if (Array.isArray(song.audioTracks)) {
+    song.audioTracks.forEach(t => {
+      if (t && isValidResourceUrl(t.src)) {
+        const norm = normalizeAudioUrl(t.src);
+        if (!seenTrackUrls.has(norm)) {
+          seenTrackUrls.add(norm);
+          validTracks.push({
+            name: t.name || song.title,
+            src: norm,
+            part: t.part || ""
+          });
+        }
+      }
+    });
+  }
+
+  // 1. External Sheet Music / Resource (Only rendered if URL is valid and non-empty)
+  if (rawResourceUrl && isValidResourceUrl(rawResourceUrl)) {
+    resPillsHtml += `
+      <a class="btn-resource song-resource-pill" href="${escapeHtml(rawResourceUrl)}" target="_blank" rel="noopener noreferrer">
+        <span class="res-label">📄 ${escapeHtml(rawResourceLabel || 'Sheet Music')} ↗</span>
+      </a>
+    `;
+  }
+
+  // 2. Offline / Local PDF
+  if (localPdf && isValidResourceUrl(localPdf)) {
+    resPillsHtml += `
+      <button class="btn-resource song-resource-pill" type="button" onclick="openResourceModal('${escapeHtml(song.title)} (Local Sheet)', '${escapeHtml(localPdf)}', 'doc')">
+        <span class="res-label">🎼 Offline Sheet (PDF)</span> <span class="badge-cached-offline">Offline Ready</span>
+      </button>
+    `;
+  }
+
+  // 3. Multi-Track Voice Selector Pills: ONLY rendered when > 1 distinct tracks exist
+  // When <= 1 track, the single track is already handled by the primary audio player
+  if (validTracks.length > 1) {
+    validTracks.forEach((track) => {
+      let trackSrc = track.src;
+      const part = (track.part || "").toLowerCase();
+      const isActive = (trackSrc === rawAudioUrl) ? "active" : "";
+      resPillsHtml += `
+        <button type="button" class="btn-resource song-resource-pill ${isActive}" onclick="selectAudioTrack('${escapeHtml(trackSrc)}', this, '${escapeHtml(track.name)}')">
+          ${part && part !== "all" ? `<span class="res-part-badge" data-voice="${escapeHtml(part)}">${escapeHtml(part)}</span>` : ""}
+          <span class="res-label">🎧 ${escapeHtml(track.name)}</span>
+        </button>
+      `;
+    });
+  }
+
+  // 4. Video / YouTube
+  if (rawVideoUrl && isValidResourceUrl(rawVideoUrl)) {
+    resPillsHtml += `
+      <a href="${escapeHtml(rawVideoUrl)}" target="_blank" rel="noopener noreferrer" class="btn-resource song-resource-pill">
+        <span class="res-label">📺 Watch on YouTube ↗</span>
+      </a>
+    `;
+  }
+
+  // 5. Local Rehearsal Video
+  if (localVideo && isValidResourceUrl(localVideo)) {
+    resPillsHtml += `
+      <button class="btn-resource song-resource-pill" type="button" onclick="openResourceModal('${escapeHtml(song.title)} (Video)', '${escapeHtml(localVideo)}', 'video')">
+        <span class="res-label">▶️ Rehearsal Video</span> <span class="badge-cached-offline">Offline Ready</span>
+      </button>
+    `;
+  }
+
+  // 6. Custom extra resources from song.resources (avoiding redundant audio pills & unplayable anchors)
+  const knownUrls = new Set([rawResourceUrl, rawAudioUrl, rawVideoUrl, localPdf, localVideo].filter(isValidResourceUrl));
+  validTracks.forEach(t => { if (isValidResourceUrl(t.src)) knownUrls.add(t.src); });
+
+  if (Array.isArray(song.resources) && song.resources.length > 0) {
+    song.resources.forEach(res => {
+      if (!res || !isValidResourceUrl(res.url)) return;
+      const cleanUrl = res.url.trim();
+      const normAudio = normalizeAudioUrl(cleanUrl);
+      if (knownUrls.has(cleanUrl) || knownUrls.has(normAudio)) return;
+      knownUrls.add(cleanUrl);
+      knownUrls.add(normAudio);
+
+      const part = (res.part || "all").toLowerCase();
+      const label = res.label || (part ? part.toUpperCase() : "Resource");
+      const lowerUrl = cleanUrl.toLowerCase();
+      const lowerLabel = label.toLowerCase();
+      const isDrive = cleanUrl.includes("drive.google.com");
+      const isYt = cleanUrl.includes("youtube.com") || cleanUrl.includes("youtu.be");
+      const isAudio = lowerUrl.includes(".mp3") || lowerUrl.includes(".wav") || lowerUrl.includes(".m4a") || lowerUrl.includes("assets.churchofjesuschrist.org") || lowerLabel.includes("audio") || lowerLabel.includes("track") || lowerLabel.includes("accompaniment");
+      const isPdf = lowerUrl.includes(".pdf");
+      const offlineBadge = isOffline && !cleanUrl.includes("kantimes-resources") ? ` <span class="badge-offline-req">⚠️ Online</span>` : "";
+
+      // If it is an audio track and already handled by player, avoid duplicate pill
+      if (isAudio && (normAudio === rawAudioUrl || validTracks.some(t => t.src === normAudio))) {
+        return;
+      }
+
+      let icon = "🔗";
+      let clickAction = "";
+
+      if (isPdf || isDrive) {
+        icon = "🎼";
+        const previewUrl = isDrive ? sanitizeDriveUrl(cleanUrl) : cleanUrl;
+        clickAction = `onclick="openResourceModal('${escapeHtml(song.title)} - ${escapeHtml(label)}', '${escapeHtml(previewUrl)}', 'doc')"`;
+      } else if (isYt) {
+        icon = "▶️";
+        const embedUrl = formatYouTubeEmbedUrl(cleanUrl);
+        clickAction = `onclick="openResourceModal('${escapeHtml(song.title)} - ${escapeHtml(label)}', '${escapeHtml(embedUrl)}', 'video')"`;
+      } else if (isAudio) {
+        icon = "🎧";
+        let audioSrc = normalizeAudioUrl(cleanUrl);
+        clickAction = `onclick="selectAudioTrack('${escapeHtml(audioSrc)}', this, '${escapeHtml(label)}')"`;
+      }
+
+      if (clickAction) {
+        resPillsHtml += `
+          <button type="button" class="btn-resource song-resource-pill ${isOffline && !cleanUrl.includes('kantimes-resources') ? 'link-disabled-offline' : ''}"
+            ${isOffline && !cleanUrl.includes('kantimes-resources') ? `onclick="showToast('Online resource requires an active internet connection.')"` : clickAction}
+            title="${escapeHtml(label)} (${escapeHtml(part)})">
+            ${part && part !== "all" ? `<span class="res-part-badge" data-voice="${escapeHtml(part)}">${escapeHtml(part)}</span>` : ""}
+            <span class="res-label">${icon} ${escapeHtml(label)}</span>
+            ${offlineBadge}
+          </button>
+        `;
+      } else {
+        resPillsHtml += `
+          <a class="btn-resource song-resource-pill ${isOffline ? 'link-disabled-offline' : ''}"
+            href="${isOffline ? 'javascript:void(0);' : escapeHtml(cleanUrl)}"
+            ${isOffline ? `onclick="showToast('Online resource requires an active internet connection.')"` : 'target="_blank" rel="noopener noreferrer"'}
+            title="${escapeHtml(label)}">
+            ${part && part !== "all" ? `<span class="res-part-badge" data-voice="${escapeHtml(part)}">${escapeHtml(part)}</span>` : ""}
+            <span class="res-label">${icon} ${escapeHtml(label)} ↗</span>
+            ${offlineBadge}
+          </a>
+        `;
+      }
+    });
+  }
+
+  if (!resPillsHtml.trim()) return "";
+
+  return `
+    <div class="song-resources-wrap">
+      <div class="song-resources-header">
+        <span>📑 Repertoire Resources &amp; Voice Tracks</span>
+      </div>
+      <div class="song-resources-pills">
+        ${resPillsHtml}
+      </div>
+    </div>
+  `;
+}
+
 function renderSelectedSongResource(songKey) {
   const container = document.getElementById("dynamicResourceContainer");
   if (!container) return;
@@ -3335,163 +3581,48 @@ function renderSelectedSongResource(songKey) {
   const sessionActive = isPracticeSessionActive();
   const isOffline = typeof navigator !== "undefined" && navigator.onLine === false;
 
-  // 1. Decouple Sheet Music / PDF & Audio/Video Links into single unified resources container
-  let resPillsHtml = "";
-  const rawResourceUrl = (song.resourceUrl || "").trim();
-  const rawResourceLabel = (song.resourceLabel || "Sheet Music").trim();
   let rawAudioUrl = normalizeAudioUrl(song.audioUrl || (song.audioTracks && song.audioTracks.length > 0 ? song.audioTracks[0].src : "") || "");
-  const rawVideoUrl = (song.videoUrl || "").trim();
-  const localPdf = song.localSheetUrl || (song.resources && !Array.isArray(song.resources) && song.resources.pdf) || "";
-  const localVideo = song.localVideoUrl || (song.resources && !Array.isArray(song.resources) && song.resources.video && song.resources.video.endsWith('.mp4') ? song.resources.video : "");
+  if (!isValidResourceUrl(rawAudioUrl)) rawAudioUrl = "";
 
-  const tracks = (song.audioTracks && song.audioTracks.length > 0) ? song.audioTracks : [];
+  const validTracks = [];
+  const seenTrackUrls = new Set();
+  if (Array.isArray(song.audioTracks)) {
+    song.audioTracks.forEach(t => {
+      if (t && isValidResourceUrl(t.src)) {
+        const norm = normalizeAudioUrl(t.src);
+        if (!seenTrackUrls.has(norm)) {
+          seenTrackUrls.add(norm);
+          validTracks.push({
+            name: t.name || song.title,
+            src: norm,
+            part: t.part || ""
+          });
+        }
+      }
+    });
+  }
+
   let activeTrackTitle = "";
-  if (tracks.length > 0) {
-    const matched = tracks.find(t => t.src === rawAudioUrl) || tracks[0];
+  if (validTracks.length > 0) {
+    const matched = validTracks.find(t => t.src === rawAudioUrl) || validTracks[0];
     activeTrackTitle = matched.name || song.title;
+    if (!rawAudioUrl) {
+      rawAudioUrl = matched.src;
+    }
   } else if (song.voicePart && song.voicePart !== "All") {
     activeTrackTitle = `${song.title} (${song.voicePart})`;
   } else {
     activeTrackTitle = song.title || "Repertoire Track";
   }
 
-  // Unified pills under "Repertoire Resources & Voice Tracks"
-  if (rawResourceUrl) {
-    resPillsHtml += `
-      <a class="btn-resource song-resource-pill" href="${escapeHtml(rawResourceUrl)}" target="_blank" rel="noopener noreferrer">
-        <span class="res-label">📄 ${escapeHtml(rawResourceLabel || 'Sheet Music')} ↗</span>
-      </a>
-    `;
-  }
+  // 1. Unified Resources & Voice Tracks Container (Sanitized & Deduplicated)
+  const extraResourcesHtml = renderRepertoireResources(song);
 
-  if (localPdf) {
-    resPillsHtml += `
-      <button class="btn-resource song-resource-pill" type="button" onclick="openResourceModal('${escapeHtml(song.title)} (Local Sheet)', '${escapeHtml(localPdf)}', 'doc')">
-        <span class="res-label">🎼 Offline Sheet (PDF)</span> <span class="badge-cached-offline">Offline Ready</span>
-      </button>
-    `;
-  }
-
-  if (tracks.length > 1) {
-    tracks.forEach((track) => {
-      let trackSrc = normalizeAudioUrl(track.src || "");
-      const part = (track.part || "").toLowerCase();
-      const isActive = (trackSrc === rawAudioUrl) ? "active" : "";
-      resPillsHtml += `
-        <button type="button" class="btn-resource song-resource-pill ${isActive}" onclick="selectAudioTrack('${escapeHtml(trackSrc)}', this, '${escapeHtml(track.name)}')">
-          ${part ? `<span class="res-part-badge" data-voice="${escapeHtml(part)}">${escapeHtml(part)}</span>` : ""}
-          <span class="res-label">🎧 ${escapeHtml(track.name)}</span>
-        </button>
-      `;
-    });
-  } else if (rawAudioUrl) {
-    resPillsHtml += `
-      <button type="button" class="btn-resource song-resource-pill active" onclick="selectAudioTrack('${escapeHtml(rawAudioUrl)}', this, 'Audio Track')">
-        <span class="res-label">🎧 Audio Track</span>
-      </button>
-    `;
-  }
-
-  if (rawVideoUrl) {
-    resPillsHtml += `
-      <a href="${escapeHtml(rawVideoUrl)}" target="_blank" rel="noopener noreferrer" class="btn-resource song-resource-pill">
-        <span class="res-label">📺 Watch on YouTube ↗</span>
-      </a>
-    `;
-  }
-
-  if (localVideo) {
-    resPillsHtml += `
-      <button class="btn-resource song-resource-pill" type="button" onclick="openResourceModal('${escapeHtml(song.title)} (Video)', '${escapeHtml(localVideo)}', 'video')">
-        <span class="res-label">▶️ Rehearsal Video</span> <span class="badge-cached-offline">Offline Ready</span>
-      </button>
-    `;
-  }
-
-  // Add extra custom resources from song.resources, avoiding duplicates
-  const knownUrls = new Set([rawResourceUrl, rawAudioUrl, rawVideoUrl, localPdf, localVideo].filter(Boolean));
-  tracks.forEach(t => { if (t.src) knownUrls.add(t.src.trim()); });
-
-  if (Array.isArray(song.resources) && song.resources.length > 0) {
-    song.resources.forEach(res => {
-      if (!res || !res.url) return;
-      const cleanUrl = res.url.trim();
-      if (knownUrls.has(cleanUrl)) return;
-      knownUrls.add(cleanUrl);
-
-      const part = (res.part || "all").toLowerCase();
-      const label = res.label || (part ? part.toUpperCase() : "Resource");
-      const isDrive = cleanUrl.includes("drive.google.com");
-      const isYt = cleanUrl.includes("youtube.com") || cleanUrl.includes("youtu.be");
-      const isAudio = cleanUrl.includes(".mp3") || cleanUrl.includes(".wav") || cleanUrl.includes(".m4a") || cleanUrl.includes("assets.churchofjesuschrist.org");
-      const isPdf = cleanUrl.toLowerCase().includes(".pdf");
-      const offlineBadge = isOffline && !cleanUrl.includes("kantimes-resources") ? ` <span class="badge-offline-req">⚠️ Online</span>` : "";
-
-      let icon = "🔗";
-      let clickAction = "";
-
-      if (isPdf || isDrive) {
-        icon = "🎼";
-        const previewUrl = isDrive ? sanitizeDriveUrl(cleanUrl) : cleanUrl;
-        clickAction = `onclick="openResourceModal('${escapeHtml(song.title)} - ${escapeHtml(label)}', '${escapeHtml(previewUrl)}', 'doc')"`;
-      } else if (isYt) {
-        icon = "▶️";
-        const embedUrl = formatYouTubeEmbedUrl(cleanUrl);
-        clickAction = `onclick="openResourceModal('${escapeHtml(song.title)} - ${escapeHtml(label)}', '${escapeHtml(embedUrl)}', 'video')"`;
-      } else if (isAudio) {
-        icon = "🎧";
-        let audioSrc = normalizeAudioUrl(cleanUrl);
-        clickAction = `onclick="selectAudioTrack('${escapeHtml(audioSrc)}', this, '${escapeHtml(label)}')"` ;
-      }
-
-      if (clickAction) {
-        resPillsHtml += `
-          <button type="button" class="btn-resource song-resource-pill ${isOffline && !cleanUrl.includes('kantimes-resources') ? 'link-disabled-offline' : ''}"
-            ${isOffline && !cleanUrl.includes('kantimes-resources') ? `onclick="showToast('Online resource requires an active internet connection.')"` : clickAction}
-            title="${escapeHtml(label)} (${escapeHtml(part)})">
-            <span class="res-part-badge" data-voice="${escapeHtml(part)}">${escapeHtml(part)}</span>
-            <span class="res-label">${icon} ${escapeHtml(label)}</span>
-            ${offlineBadge}
-          </button>
-        `;
-      } else {
-        resPillsHtml += `
-          <a class="btn-resource song-resource-pill ${isOffline ? 'link-disabled-offline' : ''}"
-            href="${isOffline ? 'javascript:void(0);' : escapeHtml(cleanUrl)}"
-            ${isOffline ? `onclick="showToast('Online resource requires an active internet connection.')"` : 'target="_blank" rel="noopener noreferrer"'}
-            title="${escapeHtml(label)}">
-            <span class="res-part-badge" data-voice="${escapeHtml(part)}">${escapeHtml(part)}</span>
-            <span class="res-label">${icon} ${escapeHtml(label)}</span>
-            ${offlineBadge}
-          </a>
-        `;
-      }
-    });
-  }
-
-  let extraResourcesHtml = "";
-  if (resPillsHtml) {
-    extraResourcesHtml = `
-      <div class="song-resources-wrap">
-        <div class="song-resources-header">
-          <span>📑 Repertoire Resources &amp; Voice Tracks</span>
-        </div>
-        <div class="song-resources-pills">
-          ${resPillsHtml}
-        </div>
-      </div>
-    `;
-  }
-
-  // 2. Decouple Audio Player (<audio>):
-  // - Single active track badge above player controls
-  // - Fallback to external link if audio URL is a non-streamable webpage (e.g., soundcloud.com) or fails to play
+  // 2. Audio Player Section (Clean External Button or Direct Audio Player)
   let localAudioHtml = "";
-  const isSoundCloud = rawAudioUrl.includes("soundcloud.com");
-  const isExternalWebAudio = isSoundCloud;
-
-  if (rawAudioUrl) {
-    if (isExternalWebAudio) {
+  if (rawAudioUrl && isValidResourceUrl(rawAudioUrl)) {
+    const isDirect = isDirectStreamableAudio(rawAudioUrl);
+    if (!isDirect) {
       localAudioHtml = `
         <div class="local-audio-card" id="rehearsalAudioContainer">
           <div class="local-audio-header">
@@ -3504,9 +3635,8 @@ function renderSelectedSongResource(songKey) {
             <span id="activeTrackTitleBadge" class="badge-active-track">🎵 ${escapeHtml(activeTrackTitle)}</span>
           </div>
           <div class="external-audio-card" style="text-align: center; padding: 12px 8px; margin-top: 4px;">
-            <p style="margin: 0 0 8px; font-size: 0.82rem; color: var(--text-muted);">Hosted on external streaming platform:</p>
-            <a href="${escapeHtml(rawAudioUrl)}" target="_blank" rel="noopener noreferrer" class="btn-audio-external">
-              ▶ Listen on External Host ↗
+            <a href="${escapeHtml(rawAudioUrl)}" target="_blank" rel="noopener noreferrer" class="btn-audio-external-primary">
+              ▶ Stream / Download Audio (External) ↗
             </a>
           </div>
         </div>
@@ -3548,11 +3678,13 @@ function renderSelectedSongResource(songKey) {
           </div>
           <audio id="activeLocalAudio" class="local-audio-element" style="display: none;" preload="none"></audio>
         </div>
-      `;
+    `;
   }
 
   let embedHtml = "";
   const ytVideoId = getYouTubeId(song.videoUrl);
+  const localVideo = (isValidResourceUrl(song.localVideoUrl) && song.localVideoUrl) || (song.resources && !Array.isArray(song.resources) && isValidResourceUrl(song.resources.video) && song.resources.video.endsWith('.mp4') && song.resources.video) || "";
+
   if (ytVideoId) {
     if (isOffline) {
       embedHtml = `
@@ -3577,6 +3709,7 @@ function renderSelectedSongResource(songKey) {
   }
 
   const mins = getUserSettings().timerMinutes || 15;
+  const rawResourceUrl = isValidResourceUrl(song.resourceUrl) ? song.resourceUrl.trim() : "";
   const defaultNote = (rawResourceUrl || song.sheetUrl) ? `ℹ️ Opens in external tab. Your ${mins}-minute timer will keep running while you practice!` : "";
   const noteText = song.note !== undefined && song.note !== "" ? song.note : defaultNote;
   const noteHtml = noteText ? `<div class="external-note">${escapeHtml(noteText)}</div>` : "";
@@ -3599,6 +3732,7 @@ function renderSelectedSongResource(songKey) {
       </div>
     `;
 }
+
 
 function handleSongSelectionChange() {
   const targetSelect = document.getElementById("songSelect") || document.querySelector(".rehearsal-song-select") || document.getElementById("targetSong");
@@ -7369,25 +7503,32 @@ function handleAudioPlaybackError(audioEl, audioUrl) {
   if (!audioEl) return;
   const container = audioEl.closest(".local-audio-card") || audioEl.parentElement;
   if (!container) return;
-  if (container.querySelector(".audio-stream-fallback")) return;
+
+  // Immediately hide failing audio element
+  try { audioEl.pause(); } catch (e) {}
+  audioEl.style.display = "none";
+
+  if (container.querySelector(".external-audio-card") || container.querySelector(".btn-audio-external-primary")) {
+    const existing = container.querySelector(".external-audio-card");
+    if (existing) existing.style.display = "block";
+    return;
+  }
 
   let streamUrl = audioUrl || audioEl.src;
   if (streamUrl && !streamUrl.includes("sacredsheetmusic.org") && streamUrl.startsWith("http://") && (typeof window !== "undefined" && window.location && window.location.protocol === "https:")) {
     streamUrl = streamUrl.replace(/^http:\/\//i, "https://");
   }
 
-  const fallbackDiv = document.createElement("div");
-  fallbackDiv.className = "audio-stream-fallback";
-  fallbackDiv.style.cssText = "margin-top: 10px; text-align: center; padding: 10px; background: var(--bg-alt, rgba(0,0,0,0.03)); border: 1px dashed var(--border); border-radius: 8px;";
-  fallbackDiv.innerHTML = `
-    <p style="margin: 0 0 8px; font-size: 0.8rem; color: var(--text-muted);">
-      ⚠️ Direct audio playback failed or was blocked by host/browser restrictions.
-    </p>
-    <a href="${escapeHtml(streamUrl)}" target="_blank" rel="noopener noreferrer" class="btn-audio-external">
+  // Render clean prominent button directly without intermediate error text clutter
+  const extCard = document.createElement("div");
+  extCard.className = "external-audio-card";
+  extCard.style.cssText = "text-align: center; padding: 12px 8px; margin-top: 4px;";
+  extCard.innerHTML = `
+    <a href="${escapeHtml(streamUrl)}" target="_blank" rel="noopener noreferrer" class="btn-audio-external-primary">
       ▶ Stream / Download Audio (External) ↗
     </a>
   `;
-  container.appendChild(fallbackDiv);
+  container.appendChild(extCard);
 }
 
 function saveOfflinePracticeSession(sessionObj) {
@@ -10393,6 +10534,7 @@ window.loadSongsFromSheet = loadSongsFromSheet;
 window.openStakeSheetModal = openStakeSheetModal;
 window.closeStakeSheetModal = closeStakeSheetModal;
 window.closeStakeSheetOnBackdrop = closeStakeSheetOnBackdrop;
+window.updateStakeSheetStatusUI = updateStakeSheetStatusUI;
 window.handleStakeSheetConnect = handleStakeSheetConnect;
 window.resetToDefaultRepertoire = resetToDefaultRepertoire;
 window.copyChoirShareLink = copyChoirShareLink;
@@ -10451,3 +10593,7 @@ window.sanitizeUrl = sanitizeUrl;
 window.REPERTOIRE_CONFIG = REPERTOIRE_CONFIG;
 window.wireCopyTemplateButton = wireCopyTemplateButton;
 window.renderRepertoireEmptyState = renderRepertoireEmptyState;
+
+window.isValidResourceUrl = isValidResourceUrl;
+window.isDirectStreamableAudio = isDirectStreamableAudio;
+window.renderRepertoireResources = renderRepertoireResources;

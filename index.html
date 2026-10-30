@@ -722,7 +722,7 @@
           <div class="stake-source-status-card">
             <div class="stake-source-status-top">
               <span class="stake-source-label">Active Source:</span>
-              <span class="stake-source-badge badge-default" id="stakeSourceStatusBadge">Default Master</span>
+              <span class="stake-source-badge badge-default active-sheet-link" id="stakeSourceStatusBadge">Default Master</span>
             </div>
             <div class="stake-source-details" id="stakeSourceDetails">
               Using official master repertoire sheet.
@@ -741,8 +741,8 @@
           </div>
 
           <div class="settings-section" style="margin-top: 14px;">
-            <label for="stakeSheetInput">Google Sheet URL or ID</label>
-            <input type="text" id="stakeSheetInput" placeholder="Paste Google Sheet URL or pure Sheet ID..."
+            <label for="googleSheetInput">Google Sheet URL or ID</label>
+            <input type="text" id="googleSheetInput" data-alt-id="stakeSheetInput" class="stake-sheet-input" placeholder="Paste Google Sheet URL or pure Sheet ID..."
               onkeydown="if(event.key==='Enter')handleStakeSheetConnect()">
             <p class="settings-hint">
               Ensure your Google Sheet is set to <strong>&ldquo;Anyone with the link can view&rdquo;</strong> (Share

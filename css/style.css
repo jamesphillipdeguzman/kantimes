@@ -9694,3 +9694,51 @@ body.piano-fullscreen-active {
 [data-theme="dark"] #profileCard {
   background: var(--card-bg, #131b2e);
 }
+
+/* Active Sheet Source Link & Tooltip Styles */
+#activeStakeSheetBadge,
+.active-sheet-link {
+  cursor: help;
+  text-decoration: underline dotted rgba(255, 255, 255, 0.4);
+}
+
+[data-theme="light"] #activeStakeSheetBadge,
+[data-theme="light"] .active-sheet-link {
+  text-decoration: underline dotted rgba(0, 0, 0, 0.35);
+}
+
+/* Primary Prominent External Audio Button */
+.btn-audio-external-primary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 10px 20px;
+  font-size: 0.92rem;
+  font-weight: 750;
+  color: #ffffff !important;
+  background: linear-gradient(135deg, #0284c7 0%, #0369a1 100%);
+  border: 1px solid #0284c7;
+  border-radius: var(--radius-sm, 8px);
+  text-decoration: none;
+  cursor: pointer;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: 0 4px 12px rgba(2, 132, 199, 0.28);
+}
+
+.btn-audio-external-primary:hover {
+  background: linear-gradient(135deg, #38bdf8 0%, #0284c7 100%);
+  transform: translateY(-1px);
+  box-shadow: 0 6px 16px rgba(2, 132, 199, 0.38);
+  color: #ffffff !important;
+}
+
+.btn-audio-external-primary:active {
+  transform: scale(0.98);
+}
+
+[data-theme="dark"] .btn-audio-external-primary {
+  background: linear-gradient(135deg, #0369a1 0%, #075985 100%);
+  border-color: #0284c7;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+}
