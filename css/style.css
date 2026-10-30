@@ -747,7 +747,8 @@ header {
   display: flex;
   align-items: center;
   gap: 0.5rem;
-  min-width: 0; /* Allows text truncation if needed */
+  min-width: 0;
+  /* Allows text truncation if needed */
   flex: 1 1 auto;
   margin: 0;
   justify-content: flex-start;
@@ -916,10 +917,11 @@ header h1 {
 
 /* Mobile Specific Adjustments (< 480px) */
 @media (max-width: 480px) {
+
   /* Hide the long subtitle in the top bar on mobile or shorten it */
   .brand-subtitle,
   #headerSubtitle {
-    display: none; 
+    display: none;
   }
 
   /* Make the choir profile pill compact on small screens */
@@ -955,6 +957,7 @@ header h1 {
 
 /* Tighten gap on very small screens (< 360px) */
 @media (max-width: 360px) {
+
   .nav-actions,
   .header-actions {
     gap: 0.2rem;
@@ -2298,7 +2301,8 @@ input[type="text"].input-invalid {
   border-radius: var(--radius-lg);
   width: 100%;
   max-width: 560px;
-  max-height: 85vh; /* Prevent modal from exceeding viewport height */
+  max-height: 85vh;
+  /* Prevent modal from exceeding viewport height */
   display: flex;
   flex-direction: column;
   overflow: hidden;
@@ -2359,7 +2363,8 @@ input[type="text"].input-invalid {
   background: var(--bg-modal, var(--card-bg, #ffffff));
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
-  padding-right: 0.5rem; /* prevent content shifting against scrollbar */
+  padding-right: 0.5rem;
+  /* prevent content shifting against scrollbar */
 }
 
 #videoModal .modal-body {
@@ -7959,7 +7964,8 @@ body.piano-fullscreen-active {
 .stake-sheet-modal-box {
   max-width: 480px;
   width: 92%;
-  max-height: 85vh; /* Prevent modal from exceeding viewport height */
+  max-height: 85vh;
+  /* Prevent modal from exceeding viewport height */
   display: flex;
   flex-direction: column;
   border-radius: var(--radius-lg, 16px);
@@ -7987,7 +7993,8 @@ body.piano-fullscreen-active {
   min-height: 0;
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
-  padding-right: 0.5rem; /* prevent content shifting against scrollbar */
+  padding-right: 0.5rem;
+  /* prevent content shifting against scrollbar */
 }
 
 /* Active Source Status Card */
@@ -8293,7 +8300,8 @@ body.piano-fullscreen-active {
 .modal-footer button,
 .stake-sheet-modal-footer button,
 .stake-sheet-modal-footer .btn {
-  flex: 1 1 0; /* equal width split */
+  flex: 1 1 0;
+  /* equal width split */
   min-width: 0;
   white-space: nowrap;
   padding: 0.65rem 0.75rem;
@@ -8310,12 +8318,15 @@ body.piano-fullscreen-active {
 }
 
 @media (max-width: 480px) {
+
   .modal-footer,
   .repertoire-modal-actions,
   .stake-sheet-modal-footer {
-    flex-direction: column-reverse; /* stack vertically on small phones */
+    flex-direction: column-reverse;
+    /* stack vertically on small phones */
     gap: 0.5rem;
   }
+
   .repertoire-modal-actions button,
   .modal-footer button,
   .stake-sheet-modal-footer button,
@@ -8583,7 +8594,8 @@ body.piano-fullscreen-active {
 .profile-modal-box {
   max-width: 480px;
   width: 94%;
-  max-height: 85vh; /* Prevent modal from exceeding viewport height */
+  max-height: 85vh;
+  /* Prevent modal from exceeding viewport height */
   display: flex;
   flex-direction: column;
   overflow: hidden;
@@ -8952,7 +8964,8 @@ body.piano-fullscreen-active {
   align-items: flex-start;
   gap: 1rem;
   margin-bottom: 1.25rem;
-  flex-wrap: wrap; /* allow graceful stack on narrow mobile */
+  flex-wrap: wrap;
+  /* allow graceful stack on narrow mobile */
 }
 
 .milestones-title-group,
@@ -9610,7 +9623,8 @@ body.piano-fullscreen-active {
 .settings-modal-dialog,
 .settings-modal-box,
 .vocal-tips-modal-box {
-  max-height: 85vh; /* Prevent modal from exceeding viewport height */
+  max-height: 85vh;
+  /* Prevent modal from exceeding viewport height */
   display: flex;
   flex-direction: column;
 }
@@ -9623,7 +9637,8 @@ body.piano-fullscreen-active {
 .vocal-tips-modal-body {
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
-  padding-right: 0.5rem; /* prevent content shifting against scrollbar */
+  padding-right: 0.5rem;
+  /* prevent content shifting against scrollbar */
   flex: 1 1 auto;
   min-height: 0;
 }
@@ -9655,7 +9670,8 @@ body.piano-fullscreen-active {
 .repertoire-modal-actions button,
 .modal-footer button,
 .profile-actions-row button {
-  flex: 1 1 0; /* equal width split */
+  flex: 1 1 0;
+  /* equal width split */
   min-width: 0;
   white-space: nowrap;
   padding: 0.65rem 0.75rem;
@@ -9663,18 +9679,22 @@ body.piano-fullscreen-active {
 }
 
 @media (max-width: 480px) {
+
   .modal-footer,
   .profile-actions-row,
   .repertoire-modal-actions {
-    flex-direction: column-reverse; /* stack vertically on small phones */
+    flex-direction: column-reverse;
+    /* stack vertically on small phones */
     gap: 0.5rem;
   }
+
   .repertoire-modal-actions button,
   .modal-footer button,
   .profile-actions-row button {
     width: 100%;
   }
 }
+
 /* Vocal Tips Modal Active / Open Display Assurance */
 #vocalTipsModal.active,
 #vocalTipsModal.open {
@@ -9691,6 +9711,7 @@ body.piano-fullscreen-active {
   z-index: 2;
   background: var(--card-bg, #ffffff);
 }
+
 [data-theme="dark"] #profileCard {
   background: var(--card-bg, #131b2e);
 }
@@ -9790,6 +9811,11 @@ body.piano-fullscreen-active {
   transition: transform 0.15s ease, background-color 0.15s ease;
 }
 
+.header-action-btn:hover {
+  transform: translateY(-1px);
+  background: #f8fafc;
+}
+
 .header-action-btn i {
   line-height: 1;
   font-size: 1.15rem;
@@ -9798,9 +9824,12 @@ body.piano-fullscreen-active {
   justify-content: center;
 }
 
-.header-action-btn:hover {
-  transform: translateY(-1px);
-  background: #f8fafc;
+.header-action-btn .nav-piano-icon,
+.header-action-btn svg {
+  display: block;
+  width: 18px;
+  height: 18px;
+  pointer-events: none;
 }
 
 [data-theme="dark"] .header-action-btn {
