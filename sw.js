@@ -157,6 +157,15 @@ self.addEventListener("fetch", (event) => {
   const request = event.request;
   if (request.method !== "GET") return;
 
+  // Bypass service worker caching for audio/video media and external music hosts
+  if (
+    request.destination === "audio" ||
+    request.destination === "video" ||
+    request.url.includes("sacredsheetmusic.org")
+  ) {
+    return; // Let browser handle external media directly without Service Worker caching
+  }
+
   const url = new URL(request.url);
 
   // Bypass service worker caching for Google Sheets, Drive media, and YouTube APIs
@@ -264,7 +273,8 @@ self.addEventListener("fetch", (event) => {
           return networkResponse;
         })
         .catch(() => {
-          // Silent failure for non-critical offline assets
+          // Fallback to cache match or empty response to prevent TypeError: Failed to convert value to 'Response'
+          return caches.match(request).then((cached) => cached || new Response("", { status: 408, statusText: "Request Timed Out" }));
         });
     })
   );
