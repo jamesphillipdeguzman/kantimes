@@ -588,21 +588,19 @@ async function loadSongsFromSheet(sheetIdOrUrl, options = {}) {
     return [];
   }
 
+  // Build a clean URL with cache-busting query parameter
   const separator = csvUrl.includes("?") ? "&" : "?";
-  const fetchUrl = `${csvUrl}${separator}_nocache=${Date.now()}&_t=${Date.now()}`;
+  const cacheBustedUrl = `${csvUrl}${separator}_t=${Date.now()}`;
 
   try {
-    const res = await fetch(fetchUrl, {
-      cache: "no-store",
-      headers: {
-        "Cache-Control": "no-cache, no-store, must-revalidate",
-        "Pragma": "no-cache",
-        "Expires": "0"
-      }
+    // Perform simple GET without custom headers (avoids CORS preflight failure on Google Sheets)
+    const res = await fetch(cacheBustedUrl, {
+      method: "GET",
+      cache: "no-cache"
     });
 
     if (!res.ok) {
-      throw new Error(`HTTP ${res.status}`);
+      throw new Error(`Failed to fetch sheet CSV: ${res.status} ${res.statusText}`);
     }
 
     const text = await res.text();
