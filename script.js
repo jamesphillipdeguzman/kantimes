@@ -262,6 +262,7 @@ function groupRowsIntoSongs(rows) {
   const labelIdx = findCol(["resourcelabel", "label", "description"], ["label", "desc"]);
   const urlIdx = findCol(["resourceurl", "url", "link", "sheeturl"], ["resource", "sheet", "url", "link", "href"]);
   const audioUrlIdx = findCol(["audiourl", "audio", "audiolink", "trackurl", "track"], ["audio", "track", "mp3"]);
+  const videoUrlIdx = findCol(["videourl", "video", "videolink", "youtube", "youtubeurl"], ["video", "youtube", "yt"]);
 
   const actualTitleIdx = titleIdx !== -1 ? titleIdx : 0;
   const songsMap = new Map();
@@ -277,7 +278,8 @@ function groupRowsIntoSongs(rows) {
       voicePart: (partIdx !== -1 && row[partIdx] !== undefined ? row[partIdx] : row[3])?.trim() || 'All',
       resourceLabel: (labelIdx !== -1 && row[labelIdx] !== undefined ? row[labelIdx] : row[4])?.trim() || 'Sheet Music',
       resourceUrl: (urlIdx !== -1 && row[urlIdx] !== undefined ? row[urlIdx] : row[5])?.trim() || '',
-      audioUrl: (audioUrlIdx !== -1 && row[audioUrlIdx] !== undefined ? row[audioUrlIdx] : row[6])?.trim() || '' // Column G: Direct audio link or local path
+      audioUrl: (audioUrlIdx !== -1 && row[audioUrlIdx] !== undefined ? row[audioUrlIdx] : row[6])?.trim() || '',
+      videoUrl: (videoUrlIdx !== -1 && row[videoUrlIdx] !== undefined ? row[videoUrlIdx] : row[7])?.trim() || '' // Column H: YouTube / Video URL
     };
 
     if (parsedSong.audioUrl.includes('drive.google.com/file/d/')) {
@@ -305,6 +307,7 @@ function groupRowsIntoSongs(rows) {
     const resourceLabel = parsedSong.resourceLabel || "Sheet Music";
     const rawResourceUrl = parsedSong.resourceUrl;
     const rawAudioUrl = parsedSong.audioUrl;
+    const rawVideoUrl = parsedSong.videoUrl;
 
     if (!songsMap.has(titleKey)) {
       const slug = rawTitle.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
@@ -327,10 +330,10 @@ function groupRowsIntoSongs(rows) {
         resourceLabel: resourceLabel,
         resourceUrl: rawResourceUrl,
         audioUrl: rawAudioUrl,
+        videoUrl: rawVideoUrl,
         resources: [],
         audioTracks: [],
         sheetUrl: rawResourceUrl,
-        videoUrl: "",
         note: ""
       });
     }
@@ -354,6 +357,9 @@ function groupRowsIntoSongs(rows) {
     }
     if (!song.audioUrl && rawAudioUrl) {
       song.audioUrl = rawAudioUrl;
+    }
+    if (!song.videoUrl && rawVideoUrl) {
+      song.videoUrl = rawVideoUrl;
     }
 
     if (rawAudioUrl) {
@@ -2404,6 +2410,13 @@ function escapeHtml(str) {
     .replace(/"/g, "&quot;");
 }
 
+function getYouTubeId(url) {
+  if (!url) return null;
+  const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|\&v=)([^#\&\?]*).*/;
+  const match = url.match(regExp);
+  return (match && match[2].length === 11) ? match[2] : null;
+}
+
 function formatYouTubeEmbedUrl(url) {
   if (!url || !url.trim()) return "";
   const trimmed = url.trim();
@@ -3339,17 +3352,25 @@ function renderSelectedSongResource(songKey) {
   const isPrimary = (song.part || "").toLowerCase() === "primary" ? "primary-piece" : "";
   const tagStyle = isPrimary ? "style='color:var(--accent);'" : "";
   const sessionActive = isPracticeSessionActive();
-  const isOffline = !navigator.onLine;
+  const isOffline = typeof navigator !== "undefined" && navigator.onLine === false;
 
   // 1. Decouple Sheet Music / PDF Link:
   // If song.resourceUrl exists, display: <a href="${song.resourceUrl}" target="_blank" rel="noopener noreferrer" class="btn-resource">📄 ${song.resourceLabel || 'Open Sheet'} ↗</a>
   // If song.resourceUrl is empty, hide the resource button.
   let actionsHtml = "";
   const rawResourceUrl = (song.resourceUrl || "").trim();
-  const rawResourceLabel = (song.resourceLabel || "Open Sheet").trim();
+  const rawResourceLabel = (song.resourceLabel || "Sheet Music").trim();
+  const rawAudioUrl = (song.audioUrl || (song.audioTracks && song.audioTracks.length > 0 ? song.audioTracks[0].src : "") || "").trim();
+  const rawVideoUrl = (song.videoUrl || "").trim();
 
   if (rawResourceUrl) {
-    actionsHtml += `<a href="${escapeHtml(rawResourceUrl)}" target="_blank" rel="noopener noreferrer" class="btn-resource">📄 ${escapeHtml(rawResourceLabel || 'Open Sheet')} ↗</a> `;
+    actionsHtml += `<a href="${escapeHtml(rawResourceUrl)}" target="_blank" rel="noopener noreferrer" class="btn-resource">📄 ${escapeHtml(rawResourceLabel || 'Sheet Music')} ↗</a> `;
+  }
+  if (rawAudioUrl) {
+    actionsHtml += `<button type="button" class="btn-resource" onclick="selectAudioTrack('${escapeHtml(rawAudioUrl)}', this)">🎧 Audio Track</button> `;
+  }
+  if (rawVideoUrl) {
+    actionsHtml += `<a href="${escapeHtml(rawVideoUrl)}" target="_blank" rel="noopener noreferrer" class="btn-resource">📺 Watch on YouTube ↗</a> `;
   }
 
   const localPdf = song.localSheetUrl || (song.resources && !Array.isArray(song.resources) && song.resources.pdf) || "";
@@ -3360,18 +3381,39 @@ function renderSelectedSongResource(songKey) {
   const localVideo = song.localVideoUrl || (song.resources && !Array.isArray(song.resources) && song.resources.video && song.resources.video.endsWith('.mp4') ? song.resources.video : "");
   if (localVideo) {
     actionsHtml += `<button class="btn-link" type="button" onclick="openResourceModal('${escapeHtml(song.title)} (Video)', '${escapeHtml(localVideo)}', 'video')">▶️ Rehearsal Video <span class="badge-cached-offline">Offline Ready</span></button> `;
-  } else if (song.videoUrl) {
-    const offlineBadge = isOffline ? ` <span class="badge-offline-req">⚠️ Requires Internet</span>` : "";
-    const embedUrl = formatYouTubeEmbedUrl(song.videoUrl);
-    actionsHtml += `<button class="btn-link ${isOffline ? 'link-disabled-offline' : ''}" type="button" onclick="${isOffline ? "showToast('YouTube streaming requires an active internet connection.')" : `openResourceModal('${escapeHtml(song.title)} (Video)', '${escapeHtml(embedUrl)}', 'video')`}">▶️ Watch Video${offlineBadge}</button> `;
   }
 
   let extraResourcesHtml = "";
+  let resPillsHtml = "";
+
+  // Dedicated pills under "Repertoire Resources & Voice Tracks"
+  if (rawResourceUrl) {
+    resPillsHtml += `
+      <a class="btn-resource song-resource-pill" href="${escapeHtml(rawResourceUrl)}" target="_blank" rel="noopener noreferrer">
+        <span class="res-label">📄 ${escapeHtml(rawResourceLabel || 'Sheet Music')} ↗</span>
+      </a>
+    `;
+  }
+
+  if (rawAudioUrl) {
+    resPillsHtml += `
+      <button type="button" class="btn-resource song-resource-pill" onclick="selectAudioTrack('${escapeHtml(rawAudioUrl)}', this)">
+        <span class="res-label">🎧 Audio Track</span>
+      </button>
+    `;
+  }
+
+  if (rawVideoUrl) {
+    resPillsHtml += `
+      <a href="${escapeHtml(rawVideoUrl)}" target="_blank" rel="noopener noreferrer" class="btn-resource">📺 Watch on YouTube ↗</a>
+    `;
+  }
+
   if (Array.isArray(song.resources) && song.resources.length > 0) {
-    let resPillsHtml = "";
     song.resources.forEach(res => {
       if (!res || !res.url) return;
       const cleanUrl = res.url.trim();
+      if (cleanUrl === rawResourceUrl || cleanUrl === rawAudioUrl || cleanUrl === rawVideoUrl) return;
       const part = (res.part || "all").toLowerCase();
       const label = res.label || (part ? part.toUpperCase() : "Resource");
       const isDrive = cleanUrl.includes("drive.google.com");
@@ -3419,26 +3461,25 @@ function renderSelectedSongResource(songKey) {
         `;
       }
     });
+  }
 
-    if (resPillsHtml) {
-      extraResourcesHtml = `
-        <div class="song-resources-wrap">
-          <div class="song-resources-header">
-            <span>📑 Repertoire Resources &amp; Voice Tracks (${song.resources.length})</span>
-          </div>
-          <div class="song-resources-pills">
-            ${resPillsHtml}
-          </div>
+  if (resPillsHtml) {
+    extraResourcesHtml = `
+      <div class="song-resources-wrap">
+        <div class="song-resources-header">
+          <span>📑 Repertoire Resources &amp; Voice Tracks</span>
         </div>
-      `;
-    }
+        <div class="song-resources-pills">
+          ${resPillsHtml}
+        </div>
+      </div>
+    `;
   }
 
   // 2. Decouple Audio Player (<audio>):
   // If song.audioUrl is non-empty, set <audio> src to song.audioUrl, show player controls, and ensure placeholder warning is hidden.
   // If song.audioUrl is empty, pause player, clear src, and display notice: "No rehearsal audio track linked for this piece".
   let localAudioHtml = "";
-  const rawAudioUrl = (song.audioUrl || (song.audioTracks && song.audioTracks.length > 0 ? song.audioTracks[0].src : "") || "").trim();
 
   if (rawAudioUrl) {
     let tracks = (song.audioTracks && song.audioTracks.length > 0) ? song.audioTracks : [];
@@ -3487,28 +3528,28 @@ function renderSelectedSongResource(songKey) {
   }
 
   let embedHtml = "";
-  if (localVideo) {
+  const ytVideoId = getYouTubeId(song.videoUrl);
+  if (ytVideoId) {
+    if (isOffline) {
+      embedHtml = `
+          <div style="margin-top: 12px; padding: 14px; background: #fffbeb; border: 1px dashed #fde68a; border-radius: 8px; text-align: center; color: #92400e; font-size: 0.82rem;">
+            ▶️ <strong>YouTube Video:</strong> <span class="badge-offline-req">Requires Internet</span>
+            <p style="margin: 4px 0 0; font-size: 0.76rem; color: #b45309;">Streaming video is disabled in Offline Mode. Use the rehearsal audio player above to practice.</p>
+          </div>
+        `;
+    } else {
+      embedHtml = `
+          <div style="margin-top: 12px; border-radius: 8px; overflow: hidden; background: #000; position: relative; padding-bottom: 56.25%; height: 0;">
+            <iframe src="https://www.youtube.com/embed/${ytVideoId}?enablejsapi=1&playsinline=1" style="position: absolute; top:0; left:0; width:100%; height:100%; border:0;" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
+          </div>
+        `;
+    }
+  } else if (localVideo) {
     embedHtml = `
         <div style="margin-top: 12px; border-radius: 8px; overflow: hidden; background: #000;">
           <video controls playsinline preload="metadata" src="${escapeHtml(localVideo)}" style="width: 100%; display: block; max-height: 420px; border-radius: 8px;"></video>
         </div>
       `;
-  } else if (song.videoUrl) {
-    if (isOffline) {
-      embedHtml = `
-          <div style="margin-top: 12px; padding: 14px; background: #fffbeb; border: 1px dashed #fde68a; border-radius: 8px; text-align: center; color: #92400e; font-size: 0.82rem;">
-            ▶️ <strong>YouTube Video:</strong> <span class="badge-offline-req">Requires Internet</span>
-            <p style="margin: 4px 0 0; font-size: 0.76rem; color: #b45309;">Streaming video is disabled in Offline Mode. Use the cached rehearsal audio player above to practice.</p>
-          </div>
-        `;
-    } else {
-      const embedUrl = formatYouTubeEmbedUrl(song.videoUrl);
-      embedHtml = `
-          <div style="margin-top: 12px; border-radius: 8px; overflow: hidden; background: #000; position: relative; padding-bottom: 56.25%; height: 0;">
-            <iframe src="${escapeHtml(embedUrl)}" style="position: absolute; top:0; left:0; width:100%; height:100%; border:0;" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
-          </div>
-        `;
-    }
   }
 
   const mins = getUserSettings().timerMinutes || 15;
@@ -7305,7 +7346,7 @@ function syncOfflinePracticeQueue() {
 
 function updateOnlineStatus() {
   const banner = document.getElementById("offlineStatusBanner");
-  const isOffline = !navigator.onLine;
+  const isOffline = typeof navigator !== "undefined" && navigator.onLine === false;
 
   if (banner) {
     banner.style.display = isOffline ? "flex" : "none";
@@ -10310,3 +10351,4 @@ window.populateSongSelectDropdown = populateSongSelectDropdown;
 window.normalizeAudioUrl = normalizeAudioUrl;
 window.groupRowsIntoSongs = groupRowsIntoSongs;
 window.renderSelectedSongResource = renderSelectedSongResource;
+window.getYouTubeId = getYouTubeId;
