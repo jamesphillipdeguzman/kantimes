@@ -9842,3 +9842,67 @@ body.piano-fullscreen-active {
   background: rgba(255, 255, 255, 0.28);
   color: #ffffff;
 }
+
+/* Footer link styling */
+.footer-author-link {
+  color: inherit;
+  font-weight: 600;
+  text-decoration: none;
+  transition: color 0.15s ease, text-decoration 0.15s ease;
+}
+
+.footer-author-link:hover {
+  color: #2563eb;
+  text-decoration: underline;
+}
+
+[data-theme="dark"] .footer-author-link:hover {
+  color: #60a5fa;
+}
+
+/* Live rehearsal pill directly beneath */
+.footer-live-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  margin-top: 6px;
+  padding: 2px 10px;
+  border-radius: 9999px;
+  font-size: 0.75rem;
+  background: rgba(16, 185, 129, 0.08);
+  border: 1px solid rgba(16, 185, 129, 0.22);
+  color: #065f46;
+  width: fit-content;
+}
+
+.live-pulse-dot {
+  width: 6px;
+  height: 6px;
+  background: #10b981;
+  border-radius: 50%;
+  box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.7);
+  animation: footerPulse 2s infinite;
+}
+
+@keyframes footerPulse {
+  0% {
+    transform: scale(0.95);
+    box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.6);
+  }
+  70% {
+    transform: scale(1);
+    box-shadow: 0 0 0 5px rgba(16, 185, 129, 0);
+  }
+  100% {
+    transform: scale(0.95);
+    box-shadow: 0 0 0 0 rgba(16, 185, 129, 0);
+  }
+}
+
+[data-theme="dark"] .footer-live-badge {
+  background: rgba(16, 185, 129, 0.14);
+  border-color: rgba(16, 185, 129, 0.35);
+  color: #34d399;
+}
+
