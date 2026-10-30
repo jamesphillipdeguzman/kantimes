@@ -527,12 +527,176 @@ function groupRowsIntoSongs(rows) {
  * and smoothly updates song lists.
  */
 /**
- * Strict CSV Repertoire Parser:
- * Parses raw CSV text and groups rows into clean song objects without merging defaults.
+ * Strict CSV Repertoire Parser (9-Column Public Google Sheet Schema):
+ * Index 0 (Col A): Title
+ * Index 1 (Col B): Hymn Number
+ * Index 2 (Col C): Event / Category
+ * Index 3 (Col D): Voice Part
+ * Index 4 (Col E): Accompaniment
+ * Index 5 (Col F): Composer / Arranger
+ * Index 6 (Col G): PDF URL
+ * Index 7 (Col H): Audio URL
+ * Index 8 (Col I): Video URL
  */
 function parseRepertoireCsv(csvText) {
-  const rows = parseCSV(csvText);
-  return groupRowsIntoSongs(rows);
+  if (!csvText || typeof csvText !== 'string') return [];
+
+  // Robust line splitter handling CRLF and LF
+  const lines = csvText.split(/\r\n|\n/).filter(line => line.trim().length > 0);
+  if (lines.length < 2) return [];
+
+  // Helper to split CSV row respecting double quotes
+  function parseCsvRow(rowStr) {
+    const cells = [];
+    let current = '';
+    let insideQuotes = false;
+    for (let i = 0; i < rowStr.length; i++) {
+      const char = rowStr[i];
+      if (char === '"') {
+        if (insideQuotes && rowStr[i + 1] === '"') {
+          current += '"';
+          i++;
+        } else {
+          insideQuotes = !insideQuotes;
+        }
+      } else if (char === ',' && !insideQuotes) {
+        cells.push(current.trim());
+        current = '';
+      } else {
+        current += char;
+      }
+    }
+    cells.push(current.trim());
+    return cells;
+  }
+
+  // Convert Google Drive sharing links to direct audio streaming links
+  function formatDriveAudioUrl(url) {
+    if (!url) return '';
+    const match = url.match(/\/file\/d\/([a-zA-Z0-9_-]+)/) || url.match(/[?&]id=([a-zA-Z0-9_-]+)/);
+    if (match && match[1]) {
+      return `https://drive.google.com/uc?export=download&id=${match[1]}`;
+    }
+    return url;
+  }
+
+  // Normalize Drive PDF URLs to /view
+  function formatDrivePdfUrl(url) {
+    if (!url) return '';
+    const match = url.match(/\/file\/d\/([a-zA-Z0-9_-]+)/) || url.match(/[?&]id=([a-zA-Z0-9_-]+)/);
+    if (match && match[1]) {
+      return `https://drive.google.com/file/d/${match[1]}/view`;
+    }
+    return url;
+  }
+
+  const rawHeaders = parseCsvRow(lines[0]);
+  const headers = rawHeaders.map(h => h.toLowerCase().replace(/[^a-z0-9]/g, ''));
+
+  // Flexible header index detection with 9-column schema index fallbacks
+  const getIdx = (keys, fallbackIdx) => {
+    const found = headers.findIndex(h => keys.some(k => h.includes(k)));
+    return found !== -1 ? found : fallbackIdx;
+  };
+
+  const titleIdx = getIdx(['title'], 0);
+  const hymnNumIdx = getIdx(['hymn', 'number'], 1);
+  const eventIdx = getIdx(['event', 'category', 'season'], 2);
+  const voicePartIdx = getIdx(['voice', 'part', 'section'], 3);
+  const accomIdx = getIdx(['accompaniment', 'accom'], 4);
+  const composerIdx = getIdx(['composer', 'arranger', 'arr'], 5);
+  const pdfIdx = getIdx(['pdf', 'sheet', 'score'], 6);
+  const audioIdx = getIdx(['audio', 'track', 'mp3'], 7);
+  const videoIdx = getIdx(['video', 'youtube'], 8);
+
+  const songs = [];
+
+  for (let i = 1; i < lines.length; i++) {
+    const row = parseCsvRow(lines[i]);
+    const title = row[titleIdx] ? row[titleIdx].replace(/^["']|["']$/g, '').trim() : '';
+
+    // Ignore empty title rows or meta-rows like "IMPORTANT NOTE"
+    if (!title || title.toUpperCase().includes('IMPORTANT NOTE')) continue;
+
+    const hymnNumber = (row[hymnNumIdx] || '').trim();
+    const category = (row[eventIdx] || 'Christmas Devotional 2026').trim();
+    const voicePart = (row[voicePartIdx] || 'all').trim();
+    const accompanimentRaw = (row[accomIdx] || '').trim();
+    const composer = (row[composerIdx] || '').trim();
+    const rawPdf = sanitizeUrl(row[pdfIdx] || '');
+    const rawAudio = sanitizeUrl(row[audioIdx] || '');
+    const rawVideo = sanitizeUrl(row[videoIdx] || '');
+
+    // Format accompaniment label (e.g. 'piano' -> 'Piano Accompaniment')
+    let accompanimentLabel = 'Accompaniment Track';
+    if (accompanimentRaw) {
+      const cleanAcc = accompanimentRaw.toLowerCase().trim();
+      accompanimentLabel = cleanAcc === 'piano' ? 'Piano Accompaniment' :
+                           cleanAcc === 'organ' ? 'Organ Accompaniment' :
+                           cleanAcc.charAt(0).toUpperCase() + cleanAcc.slice(1) + ' Accompaniment';
+    }
+
+    const audioUrl = formatDriveAudioUrl(rawAudio);
+    const pdfUrl = formatDrivePdfUrl(rawPdf);
+
+    const song = {
+      id: title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, ''),
+      title: title,
+      hymnNumber: hymnNumber,
+      hymn_number: hymnNumber,
+      number: hymnNumber,
+      category: category,
+      event: category,
+      voicePart: voicePart,
+      part: voicePart,
+      accompaniment: accompanimentRaw,
+      composer: composer,
+      pdfUrl: pdfUrl,
+      sheetUrl: pdfUrl,
+      resourceUrl: pdfUrl,
+      resourceLabel: composer ? `Full Score (${composer})` : 'Full Score (PDF)',
+      audioUrl: audioUrl,
+      videoUrl: rawVideo,
+      resources: [],
+      audioTracks: []
+    };
+
+    // 1. PDF Resource Pill
+    if (pdfUrl) {
+      song.resources.push({
+        type: 'pdf',
+        label: composer ? `Full Score (${composer})` : 'Full Score (PDF)',
+        url: pdfUrl
+      });
+    }
+
+    // 2. Audio Repertoire Pill & Player Track
+    if (audioUrl) {
+      song.audioTracks.push({
+        name: accompanimentLabel,
+        src: audioUrl,
+        part: voicePart
+      });
+      song.resources.push({
+        type: 'audio',
+        label: accompanimentLabel,
+        url: audioUrl
+      });
+    }
+
+    // 3. Video Reference Pill
+    if (rawVideo) {
+      song.resources.push({
+        type: 'video',
+        label: 'Rehearsal Video (YouTube)',
+        url: rawVideo
+      });
+    }
+
+    songs.push(song);
+  }
+
+  return songs;
 }
 window.parseRepertoireCsv = parseRepertoireCsv;
 
@@ -3800,10 +3964,28 @@ function renderSelectedSongResource(songKey) {
   }
 
   const mins = getUserSettings().timerMinutes || 15;
-  const rawResourceUrl = isValidResourceUrl(song.resourceUrl) ? song.resourceUrl.trim() : "";
+  const rawResourceUrl = isValidResourceUrl(song.resourceUrl || song.pdfUrl) ? (song.resourceUrl || song.pdfUrl).trim() : "";
   const defaultNote = (rawResourceUrl || song.sheetUrl) ? `ℹ️ Opens in external tab. Your ${mins}-minute timer will keep running while you practice!` : "";
   const noteText = song.note !== undefined && song.note !== "" ? song.note : defaultNote;
   const noteHtml = noteText ? `<div class="external-note">${escapeHtml(noteText)}</div>` : "";
+
+  // Format Repertoire Subtitle / Metadata Display
+  // If both hymnNumber and composer exist: Hymn #${song.hymnNumber} • Arr. ${song.composer}
+  // If only hymnNumber: Hymn #${song.hymnNumber}
+  // If only composer: Arr. ${song.composer}
+  // Otherwise display song.category
+  let subtitleText = "";
+  const hymnNum = (song.hymnNumber || song.number || song.hymn_number || "").toString().trim();
+  const comp = (song.composer || "").trim();
+  if (hymnNum && comp) {
+    subtitleText = `Hymn #${hymnNum} • Arr. ${comp}`;
+  } else if (hymnNum) {
+    subtitleText = `Hymn #${hymnNum}`;
+  } else if (comp) {
+    subtitleText = `Arr. ${comp}`;
+  } else if (song.category || song.event) {
+    subtitleText = (song.category || song.event).trim();
+  }
 
   container.innerHTML = `
       <div class="song-item ${isPrimary} fade-in">
@@ -3812,6 +3994,7 @@ function renderSelectedSongResource(songKey) {
           <span class="resource-status-badge">${sessionActive ? '🔓 Session Active &bull; Unlocked' : '🎵 Rehearsal Ready'}</span>
         </div>
         <div class="song-title">${escapeHtml(song.title)}</div>
+        ${subtitleText ? `<div class="song-subtitle" style="font-size: 0.85rem; color: var(--text-muted); margin-top: 2px; margin-bottom: 8px;">${escapeHtml(subtitleText)}</div>` : ''}
         
         <div class="resource-unlocked-container">
           ${localAudioHtml}
