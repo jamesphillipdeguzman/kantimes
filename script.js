@@ -145,6 +145,27 @@ function sanitizeResourceUrl(url) {
 }
 
 /**
+ * Normalizes audio URLs: converts Google Drive share links into direct audio stream URLs.
+ */
+function normalizeAudioUrl(url) {
+  if (!url || typeof url !== "string") return "";
+  let trimmed = url.trim();
+  if (trimmed.includes("drive.google.com/file/d/")) {
+    const match = trimmed.match(/\/file\/d\/([a-zA-Z0-9_-]+)/);
+    if (match && match[1]) {
+      return `https://drive.google.com/uc?export=download&id=${match[1]}`;
+    }
+  }
+  if (!trimmed.includes("export=download") && trimmed.includes("drive.google.com")) {
+    const openMatch = trimmed.match(/[?&]id=([a-zA-Z0-9_-]+)/);
+    if (openMatch && openMatch[1]) {
+      return `https://drive.google.com/uc?export=download&id=${openMatch[1]}`;
+    }
+  }
+  return trimmed;
+}
+
+/**
  * Robust RFC 4180 CSV parser that handles:
  *   - Quoted strings containing commas, quotes ("" -> "), and newlines
  *   - Empty trailing cells & blank rows
@@ -239,7 +260,8 @@ function groupRowsIntoSongs(rows) {
   const categoryIdx = findCol(["category", "season", "event"], ["category", "season", "event"]);
   const partIdx = findCol(["voicepart", "voice", "part"], ["voice", "part", "section"]);
   const labelIdx = findCol(["resourcelabel", "label", "description"], ["label", "desc"]);
-  const urlIdx = findCol(["resourceurl", "url", "link"], ["url", "link", "href"]);
+  const urlIdx = findCol(["resourceurl", "url", "link", "sheeturl"], ["resource", "sheet", "url", "link", "href"]);
+  const audioUrlIdx = findCol(["audiourl", "audio", "audiolink", "trackurl", "track"], ["audio", "track", "mp3"]);
 
   const actualTitleIdx = titleIdx !== -1 ? titleIdx : 0;
   const songsMap = new Map();
@@ -248,17 +270,41 @@ function groupRowsIntoSongs(rows) {
     const row = rows[i];
     if (!row || row.length === 0) continue;
 
-    const rawTitle = (row[actualTitleIdx] || "").trim();
+    const parsedSong = {
+      title: (titleIdx !== -1 && row[titleIdx] !== undefined ? row[titleIdx] : row[0])?.trim() || '',
+      hymnNumber: (hymnNumIdx !== -1 && row[hymnNumIdx] !== undefined ? row[hymnNumIdx] : row[1])?.trim() || '',
+      category: (categoryIdx !== -1 && row[categoryIdx] !== undefined ? row[categoryIdx] : row[2])?.trim() || 'General',
+      voicePart: (partIdx !== -1 && row[partIdx] !== undefined ? row[partIdx] : row[3])?.trim() || 'All',
+      resourceLabel: (labelIdx !== -1 && row[labelIdx] !== undefined ? row[labelIdx] : row[4])?.trim() || 'Sheet Music',
+      resourceUrl: (urlIdx !== -1 && row[urlIdx] !== undefined ? row[urlIdx] : row[5])?.trim() || '',
+      audioUrl: (audioUrlIdx !== -1 && row[audioUrlIdx] !== undefined ? row[audioUrlIdx] : row[6])?.trim() || '' // Column G: Direct audio link or local path
+    };
+
+    if (parsedSong.audioUrl.includes('drive.google.com/file/d/')) {
+      const match = parsedSong.audioUrl.match(/\/file\/d\/([a-zA-Z0-9_-]+)/);
+      if (match && match[1]) {
+        parsedSong.audioUrl = `https://drive.google.com/uc?export=download&id=${match[1]}`;
+      }
+    }
+    if (!parsedSong.audioUrl.includes('export=download') && parsedSong.audioUrl.includes('drive.google.com')) {
+      const openMatch = parsedSong.audioUrl.match(/[?&]id=([a-zA-Z0-9_-]+)/);
+      if (openMatch && openMatch[1]) {
+        parsedSong.audioUrl = `https://drive.google.com/uc?export=download&id=${openMatch[1]}`;
+      }
+    }
+
+    const rawTitle = parsedSong.title;
     if (!rawTitle) continue;
 
     const titleKey = rawTitle.toLowerCase();
-    const rawHymnNum = hymnNumIdx !== -1 ? (row[hymnNumIdx] || "").trim() : "";
+    const rawHymnNum = parsedSong.hymnNumber;
     const hymnNumber = rawHymnNum && !isNaN(parseInt(rawHymnNum, 10)) ? parseInt(rawHymnNum, 10) : null;
 
-    const category = categoryIdx !== -1 ? (row[categoryIdx] || "").trim() : "Active Repertoire";
-    const voicePart = partIdx !== -1 ? (row[partIdx] || "").trim() : "all";
-    const resourceLabel = labelIdx !== -1 ? (row[labelIdx] || "").trim() : "";
-    const rawUrl = urlIdx !== -1 ? (row[urlIdx] || "").trim() : "";
+    const category = parsedSong.category || "General";
+    const voicePart = parsedSong.voicePart || "All";
+    const resourceLabel = parsedSong.resourceLabel || "Sheet Music";
+    const rawResourceUrl = parsedSong.resourceUrl;
+    const rawAudioUrl = parsedSong.audioUrl;
 
     if (!songsMap.has(titleKey)) {
       const slug = rawTitle.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
@@ -268,17 +314,22 @@ function groupRowsIntoSongs(rows) {
         id: hymnNumber ? `hymn-${hymnNumber}` : `song-${slug}`,
         title: rawTitle,
         hymn_number: hymnNumber,
+        hymnNumber: hymnNumber,
         number: hymnNumber,
-        category: category || "Active Repertoire",
-        event: category || "Active Repertoire",
-        collection: category || "Active Repertoire",
+        category: category,
+        event: category,
+        collection: category,
         status: isPast ? "archived" : "active",
         isArchived: isPast,
         archived: isPast,
-        part: "All Voices",
+        part: voicePart,
+        voicePart: voicePart,
+        resourceLabel: resourceLabel,
+        resourceUrl: rawResourceUrl,
+        audioUrl: rawAudioUrl,
         resources: [],
         audioTracks: [],
-        sheetUrl: "",
+        sheetUrl: rawResourceUrl,
         videoUrl: "",
         note: ""
       });
@@ -288,20 +339,41 @@ function groupRowsIntoSongs(rows) {
 
     if (!song.hymn_number && hymnNumber) {
       song.hymn_number = hymnNumber;
+      song.hymnNumber = hymnNumber;
       song.number = hymnNumber;
     }
-    if ((!song.category || song.category === "Active Repertoire") && category) {
+    if ((!song.category || song.category === "General" || song.category === "Active Repertoire") && category && category !== "General") {
       song.category = category;
       song.event = category;
       song.collection = category;
     }
+    if (!song.resourceUrl && rawResourceUrl) {
+      song.resourceUrl = rawResourceUrl;
+      song.resourceLabel = resourceLabel;
+      song.sheetUrl = song.sheetUrl || rawResourceUrl;
+    }
+    if (!song.audioUrl && rawAudioUrl) {
+      song.audioUrl = rawAudioUrl;
+    }
 
-    if (rawUrl) {
-      const sanitizedUrl = sanitizeResourceUrl(rawUrl);
+    if (rawAudioUrl) {
+      const cleanPart = voicePart ? voicePart.trim().toLowerCase() : "all";
+      const trackName = voicePart && cleanPart !== "all" 
+        ? `${voicePart.charAt(0).toUpperCase() + voicePart.slice(1)} Track` 
+        : (resourceLabel || "Audio Track");
+      song.audioTracks.push({
+        name: trackName,
+        src: rawAudioUrl,
+        part: cleanPart
+      });
+    }
+
+    if (rawResourceUrl) {
+      const sanitizedUrl = sanitizeResourceUrl(rawResourceUrl);
       const cleanPart = voicePart ? voicePart.trim().toLowerCase() : "all";
       const defaultLabel = cleanPart && cleanPart !== "all" 
-        ? `${cleanPart.charAt(0).toUpperCase() + cleanPart.slice(1)} Track` 
-        : "Rehearsal Resource";
+        ? `${cleanPart.charAt(0).toUpperCase() + cleanPart.slice(1)} Sheet` 
+        : (resourceLabel || "Sheet Music");
       const finalLabel = resourceLabel || defaultLabel;
 
       const resObj = {
@@ -1972,6 +2044,9 @@ const DEFAULT_USER_SETTINGS = {
       tempo: "Moderato / Spiritual",
       sourceUrl: "https://www.churchofjesuschrist.org/media/music/songs/go-tell-it-on-the-mountain?crumbs=hymns-for-home-and-church&order=number&lang=eng",
       sheetUrl: "https://www.churchofjesuschrist.org/media/music/songs/go-tell-it-on-the-mountain?crumbs=hymns-for-home-and-church&order=number&lang=eng",
+      resourceUrl: "https://www.churchofjesuschrist.org/media/music/songs/go-tell-it-on-the-mountain?crumbs=hymns-for-home-and-church&order=number&lang=eng",
+      resourceLabel: "Interactive Sheet",
+      audioUrl: "https://assets.churchofjesuschrist.org/ge/5t/ge5tz9qino95h64syvfbxalhf7hao0lcs5n74tyb/go_tell_it_on_the_mountain.mp3",
       localSheetUrl: "kantimes-resources/Christmas%20Devotional%202026/go_tell_it_on_the_mountain.pdf",
       videoUrl: "https://www.youtube.com/watch?v=72LE487YZ-U",
       resources: {
@@ -2007,6 +2082,9 @@ const DEFAULT_USER_SETTINGS = {
       category: "Christmas Devotional 2026",
       event: "Christmas Devotional 2026",
       sheetUrl: "http://sacredsheetmusic.org/music/inline_download_file?download_id=181717&name=Away_in_a_Manger.pdf",
+      resourceUrl: "http://sacredsheetmusic.org/music/inline_download_file?download_id=181717&name=Away_in_a_Manger.pdf",
+      resourceLabel: "Sheet Music (PDF)",
+      audioUrl: "kantimes-resources/Christmas%20Devotional%202026/Away_in_a_Manger__Organ_.mp3",
       localSheetUrl: "kantimes-resources/Christmas%20Devotional%202026/Away_in_a_Manger.pdf",
       resources: {
         pdf: "kantimes-resources/Christmas Devotional 2026/Away_in_a_Manger.pdf",
@@ -2678,6 +2756,21 @@ function getSongResource(songKeyOrTitle) {
     const visibleSongs = settings.showPastRepertoire ? songs : songs.filter(s => !s.isArchived);
     found = visibleSongs.length > 0 ? visibleSongs[0] : songs[0];
   }
+  if (found) {
+    if (!found.resourceUrl && found.sheetUrl) {
+      found.resourceUrl = found.sheetUrl;
+      found.resourceLabel = found.resourceLabel || "Sheet Music";
+    }
+    if (!found.audioUrl && found.audioTracks && found.audioTracks.length > 0) {
+      found.audioUrl = found.audioTracks[0].src;
+    }
+    if (found.audioUrl && typeof found.audioUrl === 'string' && found.audioUrl.includes('drive.google.com/file/d/')) {
+      const match = found.audioUrl.match(/\/file\/d\/([a-zA-Z0-9_-]+)/);
+      if (match && match[1]) {
+        found.audioUrl = `https://drive.google.com/uc?export=download&id=${match[1]}`;
+      }
+    }
+  }
   return found;
 }
 
@@ -3248,43 +3341,20 @@ function renderSelectedSongResource(songKey) {
   const sessionActive = isPracticeSessionActive();
   const isOffline = !navigator.onLine;
 
-  if (!sessionActive) {
-    container.innerHTML = `
-        <div class="song-item ${isPrimary} fade-in">
-          <span class="song-tag" ${tagStyle}>${escapeHtml(song.part || 'Repertoire')}</span>
-          <div class="song-title">${escapeHtml(song.title)}</div>
-          
-          <div class="resource-gated-box">
-            <div class="resource-gated-icon" aria-hidden="true">🔒</div>
-            <div class="resource-gated-content">
-              <h4 class="resource-gated-title">Rehearsal Material Locked</h4>
-              <p class="resource-gated-prompt">
-                Select your hymn, then press <strong>&ldquo;Start Practice&rdquo;</strong> to unlock sheet music and rehearsal audio.
-              </p>
-            </div>
-          </div>
-        </div>
-      `;
-    return;
-  }
-
+  // 1. Decouple Sheet Music / PDF Link:
+  // If song.resourceUrl exists, display: <a href="${song.resourceUrl}" target="_blank" rel="noopener noreferrer" class="btn-resource">📄 ${song.resourceLabel || 'Open Sheet'} ↗</a>
+  // If song.resourceUrl is empty, hide the resource button.
   let actionsHtml = "";
+  const rawResourceUrl = (song.resourceUrl || "").trim();
+  const rawResourceLabel = (song.resourceLabel || "Open Sheet").trim();
+
+  if (rawResourceUrl) {
+    actionsHtml += `<a href="${escapeHtml(rawResourceUrl)}" target="_blank" rel="noopener noreferrer" class="btn-resource">📄 ${escapeHtml(rawResourceLabel || 'Open Sheet')} ↗</a> `;
+  }
 
   const localPdf = song.localSheetUrl || (song.resources && !Array.isArray(song.resources) && song.resources.pdf) || "";
   if (localPdf) {
     actionsHtml += `<button class="btn-link" type="button" onclick="openResourceModal('${escapeHtml(song.title)} (Local Sheet)', '${escapeHtml(localPdf)}', 'doc')">🎼 Preview Sheet (Offline PDF) <span class="badge-cached-offline">Offline Ready</span></button> `;
-  }
-
-  if (song.sheetUrl) {
-    const isGoogleDrive = song.sheetUrl.includes("drive.google.com");
-    const offlineBadge = isOffline ? ` <span class="badge-offline-req">⚠️ Requires Internet</span>` : "";
-    if (isGoogleDrive) {
-      actionsHtml += `<button class="btn-link ${isOffline ? 'link-disabled-offline' : ''}" type="button" onclick="${isOffline ? "showToast('Google Drive requires an active internet connection.')" : `openResourceModal('${escapeHtml(song.title)} (Sheet)', '${escapeHtml(sanitizeDriveUrl(song.sheetUrl))}', 'doc')`}">🎼 Preview Drive Sheet${offlineBadge}</button> `;
-      const directFolderUrl = song.sheetUrl.replace('/embeddedfolderview', '/drive/folders').split('#')[0];
-      actionsHtml += `<a class="btn-link ${isOffline ? 'link-disabled-offline' : ''}" href="${isOffline ? 'javascript:void(0);' : escapeHtml(directFolderUrl)}" ${isOffline ? `onclick="showToast('Google Drive requires an active internet connection.')"` : 'target="_blank" rel="noopener noreferrer"'}>📁 Open Drive Folder ↗${offlineBadge}</a> `;
-    } else {
-      actionsHtml += `<a class="btn-link ${isOffline ? 'link-disabled-offline' : ''}" href="${isOffline ? 'javascript:void(0);' : escapeHtml(song.sheetUrl)}" ${isOffline ? `onclick="showToast('Online sheet requires an active internet connection.')"` : 'target="_blank" rel="noopener noreferrer"'}>🎼 Interactive Sheet & Audio ↗${offlineBadge}</a> `;
-    }
   }
 
   const localVideo = song.localVideoUrl || (song.resources && !Array.isArray(song.resources) && song.resources.video && song.resources.video.endsWith('.mp4') ? song.resources.video : "");
@@ -3364,38 +3434,54 @@ function renderSelectedSongResource(songKey) {
     }
   }
 
+  // 2. Decouple Audio Player (<audio>):
+  // If song.audioUrl is non-empty, set <audio> src to song.audioUrl, show player controls, and ensure placeholder warning is hidden.
+  // If song.audioUrl is empty, pause player, clear src, and display notice: "No rehearsal audio track linked for this piece".
   let localAudioHtml = "";
-  let tracks = (song.audioTracks && song.audioTracks.length > 0) ? song.audioTracks : [];
-  if (tracks.length === 0 && song.resources && song.resources.audio) {
-    if (typeof song.resources.audio === 'object') {
-      tracks = Object.keys(song.resources.audio).map(k => {
-        const name = k.charAt(0).toUpperCase() + k.slice(1);
-        return { name: name, src: song.resources.audio[k] };
+  const rawAudioUrl = (song.audioUrl || (song.audioTracks && song.audioTracks.length > 0 ? song.audioTracks[0].src : "") || "").trim();
+
+  if (rawAudioUrl) {
+    let tracks = (song.audioTracks && song.audioTracks.length > 0) ? song.audioTracks : [];
+    let pillsHtml = "";
+    if (tracks.length > 1) {
+      tracks.forEach((track, idx) => {
+        const isActive = (track.src === rawAudioUrl || idx === 0) ? "active" : "";
+        pillsHtml += `<button type="button" class="audio-part-pill ${isActive}" onclick="selectAudioTrack('${escapeHtml(track.src)}', this)">${escapeHtml(track.name)}</button>`;
       });
     }
-  }
-
-  if (tracks && tracks.length > 0) {
-    let pillsHtml = "";
-    tracks.forEach((track, idx) => {
-      const isActive = idx === 0 ? "active" : "";
-      pillsHtml += `<button type="button" class="audio-part-pill ${isActive}" onclick="selectAudioTrack('${escapeHtml(track.src)}', this)">${escapeHtml(track.name)}</button>`;
-    });
 
     localAudioHtml = `
-        <div class="local-audio-card">
+        <div class="local-audio-card" id="rehearsalAudioContainer">
           <div class="local-audio-header">
             <div class="local-audio-title">
-              <span>🎧 Rehearsal Audio Tracks</span>
+              <span>🎧 Rehearsal Audio Player</span>
               <span class="badge-cached-offline">⚡ Offline Ready</span>
             </div>
           </div>
-          <div class="local-audio-part-selector" role="group" aria-label="Select Voice Part Track">
-            ${pillsHtml}
-          </div>
-          <audio id="activeLocalAudio" class="local-audio-element" controls preload="metadata" src="${escapeHtml(tracks[0].src)}">
+          ${pillsHtml ? `<div class="local-audio-part-selector" role="group" aria-label="Select Voice Part Track">${pillsHtml}</div>` : ''}
+          <audio id="activeLocalAudio" class="local-audio-element" controls preload="metadata" src="${escapeHtml(rawAudioUrl)}">
             Your browser does not support local audio playback.
           </audio>
+        </div>
+      `;
+  } else {
+    // Empty audioUrl: pause player, clear src, and display notice
+    const existingAudio = document.getElementById("activeLocalAudio");
+    if (existingAudio) {
+      try {
+        existingAudio.pause();
+        existingAudio.removeAttribute("src");
+        existingAudio.src = "";
+        existingAudio.load();
+      } catch (e) {}
+    }
+
+    localAudioHtml = `
+        <div class="local-audio-card no-audio-track-card" id="rehearsalAudioContainer">
+          <div class="no-audio-track-notice" style="padding: 12px; text-align: center; color: var(--text-muted); font-size: 0.85rem; background: var(--bg-alt, rgba(0,0,0,0.03)); border: 1px dashed var(--border); border-radius: var(--radius-sm, 8px);">
+            <span>⚠️ No rehearsal audio track linked for this piece</span>
+          </div>
+          <audio id="activeLocalAudio" class="local-audio-element" style="display: none;" preload="none"></audio>
         </div>
       `;
   }
@@ -3426,7 +3512,7 @@ function renderSelectedSongResource(songKey) {
   }
 
   const mins = getUserSettings().timerMinutes || 15;
-  const defaultNote = song.sheetUrl ? `ℹ️ Opens in external tab. Your ${mins}-minute timer will keep running while you practice!` : "";
+  const defaultNote = (rawResourceUrl || song.sheetUrl) ? `ℹ️ Opens in external tab. Your ${mins}-minute timer will keep running while you practice!` : "";
   const noteText = song.note !== undefined && song.note !== "" ? song.note : defaultNote;
   const noteHtml = noteText ? `<div class="external-note">${escapeHtml(noteText)}</div>` : "";
 
@@ -3434,7 +3520,7 @@ function renderSelectedSongResource(songKey) {
       <div class="song-item ${isPrimary} fade-in">
         <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 6px;">
           <span class="song-tag" ${tagStyle}>${escapeHtml(song.part || 'Repertoire')}</span>
-          <span class="resource-status-badge">🔓 Session Active &bull; Unlocked</span>
+          <span class="resource-status-badge">${sessionActive ? '🔓 Session Active &bull; Unlocked' : '🎵 Rehearsal Ready'}</span>
         </div>
         <div class="song-title">${escapeHtml(song.title)}</div>
         
@@ -10221,3 +10307,6 @@ window.cancelProfileEdit = cancelProfileEdit;
 window.handleSongSelectionChange = handleSongSelectionChange;
 window.populateSongDropdown = populateSongDropdown;
 window.populateSongSelectDropdown = populateSongSelectDropdown;
+window.normalizeAudioUrl = normalizeAudioUrl;
+window.groupRowsIntoSongs = groupRowsIntoSongs;
+window.renderSelectedSongResource = renderSelectedSongResource;

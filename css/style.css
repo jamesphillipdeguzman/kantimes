@@ -1465,7 +1465,8 @@ input[type="text"].input-invalid {
   flex-wrap: wrap;
 }
 
-.btn-link {
+.btn-link,
+.btn-resource {
   font-size: 0.82rem;
   padding: 7px 12px;
   min-height: 36px;
