@@ -9774,7 +9774,7 @@ body.piano-fullscreen-active {
   color: #ffffff;
 }
 
-/* Header Action Buttons & G-Clef Icon */
+/* Header Action Buttons & Piano Icon */
 .header-action-btn {
   display: inline-flex;
   align-items: center;
@@ -9785,20 +9785,22 @@ body.piano-fullscreen-active {
   background: #ffffff;
   border: 1px solid rgba(0, 0, 0, 0.08);
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-  color: #1e293b;
+  color: #334155;
   cursor: pointer;
   transition: transform 0.15s ease, background-color 0.15s ease;
+}
+
+.header-action-btn i {
+  line-height: 1;
+  font-size: 1.15rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .header-action-btn:hover {
   transform: translateY(-1px);
   background: #f8fafc;
-}
-
-.g-clef-icon {
-  display: inline-block;
-  vertical-align: middle;
-  flex-shrink: 0;
 }
 
 [data-theme="dark"] .header-action-btn {
