@@ -147,7 +147,7 @@ function sanitizeDriveUrl(url) {
   if (!url || typeof url !== "string") return "";
   const trimmed = url.trim();
   const fileIdMatch = trimmed.match(/\/file\/d\/([a-zA-Z0-9_-]+)/) ||
-                      trimmed.match(/[?&]id=([a-zA-Z0-9_-]+)/);
+    trimmed.match(/[?&]id=([a-zA-Z0-9_-]+)/);
   if (fileIdMatch && fileIdMatch[1]) {
     return `https://drive.google.com/file/d/${fileIdMatch[1]}/preview`;
   }
@@ -456,8 +456,8 @@ function groupRowsIntoSongs(rows) {
 
     if (isValidResourceUrl(rawAudioUrl)) {
       const cleanPart = voicePart ? voicePart.trim().toLowerCase() : "all";
-      const trackName = voicePart && cleanPart !== "all" 
-        ? `${voicePart.charAt(0).toUpperCase() + voicePart.slice(1)} Track` 
+      const trackName = voicePart && cleanPart !== "all"
+        ? `${voicePart.charAt(0).toUpperCase() + voicePart.slice(1)} Track`
         : (rawResourceLabel || "Audio Track");
       const normAudio = normalizeAudioUrl(rawAudioUrl);
       if (!song.audioTracks.some(t => normalizeAudioUrl(t.src) === normAudio)) {
@@ -473,8 +473,8 @@ function groupRowsIntoSongs(rows) {
       const sanitizedUrl = sanitizeResourceUrl(rawResourceUrl);
       if (isValidResourceUrl(sanitizedUrl)) {
         const cleanPart = voicePart ? voicePart.trim().toLowerCase() : "all";
-        const defaultLabel = cleanPart && cleanPart !== "all" 
-          ? `${cleanPart.charAt(0).toUpperCase() + cleanPart.slice(1)} Sheet` 
+        const defaultLabel = cleanPart && cleanPart !== "all"
+          ? `${cleanPart.charAt(0).toUpperCase() + cleanPart.slice(1)} Sheet`
           : (rawResourceLabel || "Sheet Music");
         const finalLabel = rawResourceLabel || defaultLabel;
 
@@ -1634,7 +1634,7 @@ function initProfileModalListeners() {
   const saveBtn = document.getElementById("btnSaveProfileVoice") || document.getElementById("saveProfileBtn");
   if (saveBtn && !saveBtn.dataset.listenerBound) {
     saveBtn.dataset.listenerBound = "true";
-    saveBtn.addEventListener("click", function(e) {
+    saveBtn.addEventListener("click", function (e) {
       saveProfileVoiceSettings(e);
     });
   }
@@ -1642,7 +1642,7 @@ function initProfileModalListeners() {
   const nickInput = document.getElementById("profileNickname");
   if (nickInput && !nickInput.dataset.listenerBound) {
     nickInput.dataset.listenerBound = "true";
-    nickInput.addEventListener("input", function() {
+    nickInput.addEventListener("input", function () {
       validateNicknameInput(this);
     });
   }
@@ -1892,7 +1892,7 @@ function getSectionStandings() {
   const initial = { ...DEFAULT_SECTION_STANDINGS };
   try {
     localStorage.setItem("kantimes_section_standings", JSON.stringify(initial));
-  } catch (e) {}
+  } catch (e) { }
   return initial;
 }
 
@@ -1906,7 +1906,7 @@ function initFreshStakeSectionStandings(useZeros = false) {
     : { ...DEFAULT_SECTION_STANDINGS };
   try {
     localStorage.setItem("kantimes_section_standings", JSON.stringify(initial));
-  } catch (e) {}
+  } catch (e) { }
   renderSectionStandingsUI();
   return initial;
 }
@@ -3554,7 +3554,7 @@ function renderRepertoireResources(song) {
   if (rawVideoUrl && isValidResourceUrl(rawVideoUrl)) {
     resPillsHtml += `
       <a href="${escapeHtml(rawVideoUrl)}" target="_blank" rel="noopener noreferrer" class="btn-resource song-resource-pill">
-        <span class="res-label">📺 Watch on YouTube ↗</span>
+        <span class="res-label">📺 Watch Video ↗</span>
       </a>
     `;
   }
@@ -3759,7 +3759,7 @@ function renderSelectedSongResource(songKey) {
         existingAudio.removeAttribute("src");
         existingAudio.src = "";
         existingAudio.load();
-      } catch (e) {}
+      } catch (e) { }
     }
 
     localAudioHtml = `
@@ -7551,7 +7551,7 @@ function selectAudioTrack(trackSrc, pillEl, trackName) {
 
   if (isSoundCloud && audioContainer) {
     if (audioEl) {
-      try { audioEl.pause(); } catch (e) {}
+      try { audioEl.pause(); } catch (e) { }
       audioEl.style.display = "none";
     }
     let extWrapper = audioContainer.querySelector(".external-audio-card");
@@ -7596,7 +7596,7 @@ function handleAudioPlaybackError(audioEl, audioUrl) {
   if (!container) return;
 
   // Immediately hide failing audio element
-  try { audioEl.pause(); } catch (e) {}
+  try { audioEl.pause(); } catch (e) { }
   audioEl.style.display = "none";
 
   if (container.querySelector(".external-audio-card") || container.querySelector(".btn-audio-external-primary")) {
@@ -10542,7 +10542,7 @@ window.addEventListener("DOMContentLoaded", function () {
   syncOfflinePracticeQueue();
   initPWAInstallBanner();
   wireCopyTemplateButton();
-  
+
   const btnStats = document.getElementById("btnRepertoireStats") || document.getElementById("openStakeSheetBtn");
   if (btnStats && !btnStats.onclick) {
     btnStats.onclick = () => openStakeSheetModal();
