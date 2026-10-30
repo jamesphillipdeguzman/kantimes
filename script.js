@@ -663,24 +663,44 @@ async function handleStakeSheetConnect() {
 /**
  * Handles "Reset / Disconnect Repertoire" in Stake Sheet Switcher modal.
  */
-async function resetToDefaultRepertoire() {
+/**
+ * Disconnects the active custom Google Sheet repertoire and reverts to unconfigured onboarding state.
+ */
+function disconnectRepertoireSheet() {
   localStorage.removeItem("kantimes_active_sheet_id");
+  localStorage.removeItem("kantimes_repertoire_cache");
   localStorage.removeItem("kantimes_cached_songs");
+
   const settings = getUserSettings();
   settings.songs = [];
   saveUserSettings(settings);
+
   initFreshStakeSectionStandings(false);
-  updateStakeSheetStatusUI();
-  const inputEl = document.getElementById("googleSheetInput") || document.getElementById("stakeSheetInput");
-  if (inputEl) inputEl.value = "";
+
+  const input = document.getElementById("googleSheetInput") || document.getElementById("stakeSheetInput");
+  if (input) {
+    input.value = "";
+    input.setAttribute("title", "Enter your Google Sheet URL or ID");
+  }
+
   const errEl = document.getElementById("stakeSheetError");
   if (errEl) errEl.style.display = "none";
+
+  const btnDisconnect = document.getElementById("btnDisconnectSheet") || document.getElementById("btnResetDefault");
+  if (btnDisconnect) {
+    btnDisconnect.style.display = "none";
+  }
+
+  updateStakeSheetStatusUI();
   closeStakeSheetModal();
   populateSongDropdown([]);
   renderRepertoireEmptyState();
   renderRepertoireList();
-  showToast("Repertoire disconnected. Connect your stake sheet to sync! 📑");
+  showToast("Repertoire sheet disconnected! 🔌");
 }
+
+// Backwards-compatible alias
+const resetToDefaultRepertoire = disconnectRepertoireSheet;
 
 /**
  * Updates status indicator and details in Stake Sheet Switcher modal.
@@ -733,6 +753,11 @@ function updateStakeSheetStatusUI() {
   const shareBox = document.getElementById("stakeShareLinkBox");
   if (shareBox) {
     shareBox.style.display = isConnected ? "block" : "none";
+  }
+
+  const btnDisconnect = document.getElementById("btnDisconnectSheet") || document.getElementById("btnResetDefault");
+  if (btnDisconnect) {
+    btnDisconnect.style.display = isConnected ? "inline-flex" : "none";
   }
 }
 
@@ -10451,6 +10476,11 @@ window.addEventListener("DOMContentLoaded", function () {
   syncOfflinePracticeQueue();
   initPWAInstallBanner();
   wireCopyTemplateButton();
+  
+  const btnStats = document.getElementById("btnRepertoireStats") || document.getElementById("openStakeSheetBtn");
+  if (btnStats && !btnStats.onclick) {
+    btnStats.onclick = () => openStakeSheetModal();
+  }
   initStakeRepertoireSync();
   initIdentityAndPracticeTracking();
 });
@@ -10536,7 +10566,8 @@ window.closeStakeSheetModal = closeStakeSheetModal;
 window.closeStakeSheetOnBackdrop = closeStakeSheetOnBackdrop;
 window.updateStakeSheetStatusUI = updateStakeSheetStatusUI;
 window.handleStakeSheetConnect = handleStakeSheetConnect;
-window.resetToDefaultRepertoire = resetToDefaultRepertoire;
+window.disconnectRepertoireSheet = disconnectRepertoireSheet;
+window.resetToDefaultRepertoire = disconnectRepertoireSheet;
 window.copyChoirShareLink = copyChoirShareLink;
 window.sanitizeResourceUrl = sanitizeResourceUrl;
 window.sanitizeDriveUrl = sanitizeDriveUrl;

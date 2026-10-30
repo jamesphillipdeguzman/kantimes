@@ -9742,3 +9742,72 @@ body.piano-fullscreen-active {
   border-color: #0284c7;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
 }
+
+/* Disconnect Sheet Action Button */
+.btn-disconnect-sheet {
+  background: transparent;
+  border: 1px solid rgba(239, 68, 68, 0.4);
+  color: #dc2626;
+  padding: 0.5rem 0.85rem;
+  border-radius: 0.5rem;
+  font-size: 0.85rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.btn-disconnect-sheet:hover {
+  background: rgba(239, 68, 68, 0.15);
+  border-color: #ef4444;
+  color: #b91c1c;
+}
+
+[data-theme="dark"] .btn-disconnect-sheet {
+  color: #fca5a5;
+  border-color: rgba(239, 68, 68, 0.4);
+}
+
+[data-theme="dark"] .btn-disconnect-sheet:hover {
+  color: #ffffff;
+}
+
+/* Header Action Buttons & G-Clef Icon */
+.header-action-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 8px;
+  background: #ffffff;
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  color: #1e293b;
+  cursor: pointer;
+  transition: transform 0.15s ease, background-color 0.15s ease;
+}
+
+.header-action-btn:hover {
+  transform: translateY(-1px);
+  background: #f8fafc;
+}
+
+.g-clef-icon {
+  display: inline-block;
+  vertical-align: middle;
+  flex-shrink: 0;
+}
+
+[data-theme="dark"] .header-action-btn {
+  background: rgba(255, 255, 255, 0.16);
+  border: 1px solid rgba(255, 255, 255, 0.28);
+  color: #ffffff;
+}
+
+[data-theme="dark"] .header-action-btn:hover {
+  background: rgba(255, 255, 255, 0.28);
+  color: #ffffff;
+}
