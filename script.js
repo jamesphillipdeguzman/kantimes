@@ -78,8 +78,8 @@ const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycby6r8JCXFOeuDqk
 // 1. CONFIGURATION & BRING YOUR OWN GOOGLE SHEET (STAKE REPERTOIRE ENGINE)
 // ==========================================================================
 const REPERTOIRE_CONFIG = {
-  // Clones the clean 'Template' tab (gid=0) into the user's personal Google Drive
-  TEMPLATE_COPY_URL: "https://docs.google.com/spreadsheets/d/123fm9MSGA-FcOqN37sGrElVqhVaknl34Ii7tsr9gt8w/copy?gid=0"
+  // Clones the clean 'Template' tab into the user's personal Google Drive
+  TEMPLATE_COPY_URL: "https://docs.google.com/spreadsheets/d/1WhGzAbKOc5TTuCi3UbLImZ2Kh82buf2rC1tCDX3hRL8/copy"
 };
 const DEFAULT_SHEET_ID = "";
 

@@ -6,7 +6,7 @@ let content = fs.readFileSync('script.js', 'utf8');
 if (!content.includes('const DEFAULT_SHEET_ID = "";')) {
   content = content.replace(
     'const REPERTOIRE_CONFIG = {',
-    'const REPERTOIRE_CONFIG = {\n  // Clones the clean \'Template\' tab (gid=0) into the user\'s personal Google Drive\n  TEMPLATE_COPY_URL: "https://docs.google.com/spreadsheets/d/123fm9MSGA-FcOqN37sGrElVqhVaknl34Ii7tsr9gt8w/copy?gid=0"\n};\nconst DEFAULT_SHEET_ID = "";'
+    'const REPERTOIRE_CONFIG = {\n  // Clones the clean \'Template\' tab (gid=0) into the user\'s personal Google Drive\n  TEMPLATE_COPY_URL: "https://docs.google.com/spreadsheets/d/1WhGzAbKOc5TTuCi3UbLImZ2Kh82buf2rC1tCDX3hRL8/copy"\n};\nconst DEFAULT_SHEET_ID = "";'
   );
   // If TEMPLATE_COPY_URL was duplicated or already inside REPERTOIRE_CONFIG, let's normalize REPERTOIRE_CONFIG block:
 }
@@ -15,7 +15,7 @@ if (!content.includes('const DEFAULT_SHEET_ID = "";')) {
 const configRegex = /const REPERTOIRE_CONFIG = \{[\s\S]*?\};(\r?\n)?(const DEFAULT_SHEET_ID = "";)?/;
 const standardConfig = `const REPERTOIRE_CONFIG = {
   // Clones the clean 'Template' tab (gid=0) into the user's personal Google Drive
-  TEMPLATE_COPY_URL: "https://docs.google.com/spreadsheets/d/123fm9MSGA-FcOqN37sGrElVqhVaknl34Ii7tsr9gt8w/copy?gid=0"
+  TEMPLATE_COPY_URL: "https://docs.google.com/spreadsheets/d/1WhGzAbKOc5TTuCi3UbLImZ2Kh82buf2rC1tCDX3hRL8/copy"
 };
 const DEFAULT_SHEET_ID = "";`;
 
