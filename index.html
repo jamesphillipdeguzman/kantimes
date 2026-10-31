@@ -187,13 +187,18 @@
         <label for="onboardingStake" class="form-label font-semibold">
           Stake / District <span class="text-xs text-muted">(Optional)</span>
         </label>
-        <input 
-          type="text" 
-          id="onboardingStake" 
-          class="form-control" 
-          placeholder="e.g. Iloilo Philippines Stake"
-          autocomplete="off"
-        />
+        <div class="stake-input-combobox-wrapper">
+          <input 
+            type="text" 
+            id="onboardingStake" 
+            list="stakeDistrictOptions" 
+            class="form-control stake-combobox-input" 
+            placeholder="Select or type your Stake (e.g. Iloilo Philippines Stake)"
+            autocomplete="off"
+          />
+          <span class="combobox-chevron-icon" aria-hidden="true">▼</span>
+        </div>
+        <datalist id="stakeDistrictOptions"></datalist>
         <p class="field-hint text-xs text-muted">Appears in your group chat practice report.</p>
       </div>
 
@@ -985,12 +990,12 @@
             <div class="settings-section">
               <label for="profileStake" class="profile-field-label">Stake / District <span
                   class="label-hint">(Optional)</span></label>
-              <div class="stake-select-wrapper">
-                <input type="text" id="profileStake" list="phStakesList"
+              <div class="stake-select-wrapper stake-input-combobox-wrapper">
+                <input type="text" id="profileStake" list="profileStakeOptions" class="form-control stake-combobox-input"
                   placeholder="Select or type your Stake (e.g. Iloilo Philippines Stake)" autocomplete="off" />
-                <datalist id="phStakesList">
-                  <!-- Populated dynamically from data/ph-stakes.json -->
-                </datalist>
+                <span class="combobox-chevron-icon" aria-hidden="true">▼</span>
+                <datalist id="profileStakeOptions"></datalist>
+                <datalist id="phStakesList"></datalist>
               </div>
               <span class="settings-hint field-hint">Appears in your group chat practice report. Start typing to
                 filter.</span>

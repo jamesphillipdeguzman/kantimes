@@ -2249,77 +2249,85 @@ const FALLBACK_PH_STAKES = [
 let cachedPhStakesData = null;
 
 /**
- * Hydrates <datalist id="phStakesList"> with curated Philippine stakes and districts.
- * Fetches data/ph-stakes.json; falls back gracefully to FALLBACK_PH_STAKES when offline or if fetch fails.
+ * Hydrates Philippine stakes and districts datalists for both onboarding and settings modals.
+ * Recursively flattens nested ph-stakes.json and populates all registered datalists.
  */
-async function initPhStakesDatalist() {
-  const datalist = document.getElementById("phStakesList");
-  if (!datalist) return;
+async function loadAndPopulateStakesDatalist() {
+  const datalists = [
+    document.getElementById('stakeDistrictOptions'),
+    document.getElementById('profileStakeOptions'),
+    document.getElementById('phStakesList')
+  ].filter(Boolean);
+
+  if (datalists.length === 0) return;
 
   // If already populated, return early
-  if (datalist.children && datalist.children.length > 0) return;
+  const isPopulated = datalists.some(dl => dl.children && dl.children.length > 0);
+  if (isPopulated) return;
+
+  let stakesList = [];
 
   try {
-    const res = await fetch("./data/ph-stakes.json");
-    if (!res.ok) throw new Error("HTTP " + res.status);
-    const data = await res.json();
-    cachedPhStakesData = data;
-    populatePhStakesDatalist(data);
-  } catch (err) {
-    console.warn("[Kantimes] Using offline fallback Philippine Stakes list:", err);
-    populatePhStakesDatalistFallback();
-  }
-}
+    // 1. Fetch the structured JSON file
+    let response = await fetch('./ph-stakes.json').catch(() => null);
+    if (!response || !response.ok) {
+      response = await fetch('./data/ph-stakes.json').catch(() => null);
+    }
+    if (!response || !response.ok) throw new Error(`HTTP ${response ? response.status : 'fetch failed'}`);
+    const data = await response.json();
 
-/**
- * Populates datalist with structured data grouped by Region and Area.
- */
-function populatePhStakesDatalist(data) {
-  const datalist = document.getElementById("phStakesList");
-  if (!datalist || !data) return;
-
-  if (typeof document.createDocumentFragment !== "function") return;
-  const fragment = document.createDocumentFragment();
-
-  // Iterate Regions (Visayas, Luzon, Mindanao)
-  Object.keys(data).forEach(region => {
-    const areas = data[region];
-    if (!areas || typeof areas !== "object") return;
-    Object.keys(areas).forEach(area => {
-      const stakes = areas[area];
-      if (Array.isArray(stakes)) {
-        stakes.forEach(stake => {
-          const opt = document.createElement("option");
-          opt.value = stake;
-          opt.label = `${area} • ${region}`;
-          fragment.appendChild(opt);
+    // 2. Recursively flatten all nested arrays (Visayas -> Panay & Guimaras -> [...])
+    function extractStakes(obj) {
+      let results = [];
+      if (Array.isArray(obj)) {
+        results.push(...obj);
+      } else if (typeof obj === 'object' && obj !== null) {
+        Object.values(obj).forEach(val => {
+          results.push(...extractStakes(val));
         });
       }
-    });
-  });
+      return results;
+    }
 
-  datalist.innerHTML = "";
-  datalist.appendChild(fragment);
+    stakesList = extractStakes(data);
+  } catch (err) {
+    console.warn('Could not load ph-stakes.json, using fallback list:', err);
+    stakesList = [
+      "Iloilo Philippines Stake",
+      "Iloilo Philippines North Stake",
+      "Iloilo Philippines Central Stake",
+      "Roxas Philippines Stake",
+      "Kalibo Philippines Stake",
+      "Antique Philippines District",
+      "Bacolod Philippines Stake",
+      "Bacolod Philippines North Stake",
+      "Bacolod Philippines South Stake",
+      "Cebu Philippines Stake",
+      "Cebu Philippines Central Stake",
+      "Malaybalay Philippines Stake"
+    ];
+  }
+
+  // 3. Deduplicate and sort alphabetically
+  const uniqueStakes = Array.from(new Set(stakesList)).sort((a, b) => a.localeCompare(b));
+
+  // 4. Render into datalists
+  const optionsHtml = uniqueStakes
+    .map(stake => `<option value="${escapeHtml(stake)}"></option>`)
+    .join('');
+
+  datalists.forEach(dl => {
+    dl.innerHTML = optionsHtml;
+  });
 }
 
-/**
- * Populates datalist with hardcoded fallback stakes array.
- */
-function populatePhStakesDatalistFallback() {
-  const datalist = document.getElementById("phStakesList");
-  if (!datalist) return;
-
-  if (typeof document.createDocumentFragment !== "function") return;
-  const fragment = document.createDocumentFragment();
-  FALLBACK_PH_STAKES.forEach(stake => {
-    const opt = document.createElement("option");
-    opt.value = stake;
-    fragment.appendChild(opt);
-  });
-
-  datalist.innerHTML = "";
-  datalist.appendChild(fragment);
+function initPhStakesDatalist() {
+  return loadAndPopulateStakesDatalist();
 }
+
+window.loadAndPopulateStakesDatalist = loadAndPopulateStakesDatalist;
+window.initPhStakesDatalist = initPhStakesDatalist;
+document.addEventListener('DOMContentLoaded', loadAndPopulateStakesDatalist);
 
 // ==========================================================================
 // SECTION STANDINGS ENGINE (ZERO-PII LOCAL AGGREGATION)
@@ -11593,6 +11601,7 @@ window.addEventListener("DOMContentLoaded", function () {
   renderArchivedRepertoireSection();
   initKnownSingers();
   loadProfile();
+  loadAndPopulateStakesDatalist();
   initOnboardingInputs();
   initNameValidation();
   restoreTimerState();

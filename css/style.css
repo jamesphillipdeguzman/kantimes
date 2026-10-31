@@ -10349,3 +10349,29 @@ body.layout-horizontal .dashboard-section-tab.tab-active {
   outline-offset: 2px;
 }
 
+/* Stake / District Combobox Styling */
+.stake-input-combobox-wrapper {
+  position: relative;
+  width: 100%;
+  display: flex;
+  align-items: center;
+}
+
+.stake-combobox-input {
+  width: 100%;
+  padding-right: 32px !important;
+}
+
+.combobox-chevron-icon {
+  position: absolute;
+  right: 12px;
+  font-size: 10px;
+  color: #94a3b8;
+  pointer-events: none;
+  user-select: none;
+}
+
+.stake-select-wrapper.stake-input-combobox-wrapper::after {
+  content: none !important;
+}
+
