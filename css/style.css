@@ -10113,3 +10113,25 @@ body.piano-fullscreen-active {
   background: rgba(59, 130, 246, 0.25);
   color: #bfdbfe;
 }
+
+
+/* Archived Repertoire Badge */
+.badge-repertoire-archived {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 0.72rem;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 9999px;
+  background: rgba(234, 179, 8, 0.15);
+  color: #eab308;
+  border: 1px solid rgba(234, 179, 8, 0.3);
+  margin-left: 6px;
+}
+
+[data-theme="dark"] .badge-repertoire-archived {
+  background: rgba(234, 179, 8, 0.2);
+  color: #facc15;
+  border-color: rgba(234, 179, 8, 0.4);
+}

@@ -444,7 +444,7 @@
           aria-controls="archivedRepertoireContent">
           <div class="archived-title-wrap">
             <h2>📁 Archived / Past Conferences</h2>
-            <span class="archived-count-pill" id="archivedCountPill">0 pieces</span>
+            <span class="archived-count-pill archived-count-badge" id="archivedCountPill" data-alt-id="archivedAccordionCount">0 pieces</span>
           </div>
           <button type="button" class="btn-icon-collapse" id="archivedCollapseBtn"
             aria-label="Toggle archived repertoire">▼</button>
@@ -452,7 +452,7 @@
         <div class="archived-repertoire-content" id="archivedRepertoireContent" style="display: none;">
           <p class="archived-subtitle">Repertoire from past events &amp; conferences. Tap any piece to load it into the
             rehearsal workspace.</p>
-          <div class="archived-items-grid" id="archivedItemsGrid">
+          <div class="archived-items-grid" id="archivedItemsGrid" data-alt-id="archivedSongsList">
             <!-- Dynamically populated from archived songs -->
           </div>
         </div>

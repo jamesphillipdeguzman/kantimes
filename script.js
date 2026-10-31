@@ -751,7 +751,24 @@ window.parseRepertoireCsv = parseRepertoireCsv;
  * Sets and persists the active choir repertoire across memory and cache.
  */
 function setActiveRepertoire(parsedSongs) {
-  const songs = Array.isArray(parsedSongs) ? parsedSongs : [];
+  let songs = Array.isArray(parsedSongs) ? parsedSongs : [];
+
+  // Apply persisted archived IDs so sheet syncs preserve archive state
+  try {
+    const archivedIds = JSON.parse(localStorage.getItem('kantimes_archived_song_ids') || '[]');
+    if (Array.isArray(archivedIds) && archivedIds.length > 0) {
+      songs.forEach(s => {
+        const identifier = s.id || s.title;
+        if (archivedIds.includes(identifier) || archivedIds.includes(s.id) || (s.title && archivedIds.includes(s.title))) {
+          s.isArchived = true;
+          s.archived = true;
+        }
+      });
+    }
+  } catch (e) {
+    console.warn("[Kantimes] Error applying archived IDs in setActiveRepertoire:", e);
+  }
+
   localStorage.setItem("kantimes_repertoire_cache", JSON.stringify(songs));
   localStorage.setItem("kantimes_cached_songs", JSON.stringify(songs));
 
@@ -759,32 +776,8 @@ function setActiveRepertoire(parsedSongs) {
   settings.songs = songs;
   saveUserSettings(settings);
 
-  // Completely repopulate the song dropdown
-  populateSongDropdown(songs);
-
-  const select = document.getElementById("targetSong") || document.getElementById("songSelect") || document.getElementById("selectSongToRehearse") || document.querySelector(".rehearsal-song-select");
-  let activeSong = (select && select.value) ? select.value : "";
-  const songExists = songs.some(s => s.title === activeSong || s.id === activeSong);
-
-  // If the currently rehearsed song was deleted or changed, fall back to the first available song cleanly
-  if (!songExists || !activeSong) {
-    activeSong = (songs[0] && songs[0].title) ? songs[0].title : "";
-    if (select && activeSong) {
-      select.value = activeSong;
-      localStorage.setItem("kantime_target_song", activeSong);
-      localStorage.setItem("kantimes_target_song", activeSong);
-    }
-  }
-
-  if (activeSong) {
-    renderSelectedSongResource(activeSong);
-  } else {
-    const resourceContainer = document.getElementById("dynamicResourceContainer");
-    if (resourceContainer) resourceContainer.innerHTML = "";
-  }
-
+  updateRepertoireUI(songs);
   renderRepertoireList();
-  renderArchivedRepertoireSection();
   updateStakeSheetStatusUI();
 }
 window.setActiveRepertoire = setActiveRepertoire;
@@ -878,6 +871,22 @@ async function loadSongsFromSheet(sheetIdOrUrl, options = {}) {
       }
     } catch (e) {
       console.warn("[Kantimes] Error merging local extra songs:", e);
+    }
+
+    // Apply persisted archived IDs so sheet re-syncs do not undo local archives
+    try {
+      const archivedIds = JSON.parse(localStorage.getItem('kantimes_archived_song_ids') || '[]');
+      if (Array.isArray(archivedIds) && archivedIds.length > 0) {
+        songs.forEach(s => {
+          const identifier = s.id || s.title;
+          if (archivedIds.includes(identifier) || archivedIds.includes(s.id) || (s.title && archivedIds.includes(s.title))) {
+            s.isArchived = true;
+            s.archived = true;
+          }
+        });
+      }
+    } catch (e) {
+      console.warn("[Kantimes] Error applying archived IDs in loadSongsFromSheet:", e);
     }
 
     // Check if repertoire changed compared to cached version
@@ -3325,8 +3334,10 @@ function populateSongDropdown(songList) {
 function populateSongSelectDropdown() {
   const select = document.getElementById('songSelect') || document.querySelector('.rehearsal-song-select') || document.getElementById('targetSong');
   if (!select) return;
+  const songs = (typeof getMasterRepertoireList === "function") ? getMasterRepertoireList() : (getUserSettings().songs || []);
   const settings = getUserSettings();
-  populateSongDropdown(settings.songs || []);
+  const activeSongs = settings.showPastRepertoire ? songs : songs.filter(s => !s.isArchived && !s.archived);
+  populateSongDropdown(activeSongs.length > 0 ? activeSongs : songs);
 }
 
 function getSongResource(songKeyOrTitle) {
@@ -6958,25 +6969,22 @@ function handleSettingPastRepertoireToggle(checked) {
   showToast(checked ? "Showing past conference repertoire! 📁" : "Past repertoire hidden from active hub. 🔒");
 }
 
-function renderArchivedRepertoireSection() {
+function renderArchivedRepertoireSection(customArchivedSongs) {
   const card = document.getElementById("archivedRepertoireCard");
   if (!card) return;
 
   const settings = getUserSettings();
-  if (!settings.showPastRepertoire) {
-    card.style.display = "none";
-    return;
-  }
+  const songs = (typeof getMasterRepertoireList === "function") ? getMasterRepertoireList() : (settings.songs || []);
+  const archivedSongs = Array.isArray(customArchivedSongs) 
+    ? customArchivedSongs 
+    : songs.filter(s => Boolean(s.isArchived || s.archived));
 
-  const songs = settings.songs || [];
-  const archivedSongs = songs.filter(s => Boolean(s.isArchived));
-
-  const countPill = document.getElementById("archivedCountPill");
+  const countPill = document.querySelector("#archivedAccordionCount, #archivedCountPill, .archived-count-badge");
   if (countPill) {
-    countPill.innerText = `${archivedSongs.length} ${archivedSongs.length === 1 ? "piece" : "pieces"}`;
+    countPill.textContent = `${archivedSongs.length} piece${archivedSongs.length === 1 ? "" : "s"}`;
   }
 
-  const grid = document.getElementById("archivedItemsGrid");
+  const grid = document.getElementById("archivedSongsList") || document.getElementById("archivedItemsGrid");
   if (grid) {
     if (archivedSongs.length === 0) {
       grid.innerHTML = `<div style="grid-column: 1 / -1; text-align: center; color: var(--text-muted); font-size: 0.85rem; padding: 14px;">No archived pieces found. You can archive pieces from Settings (⚙️).</div>`;
@@ -7013,7 +7021,7 @@ function renderArchivedRepertoireSection() {
             <div class="archived-song-card-top">
               <div class="archived-song-badges">
                 <span class="badge-event">🏷️ ${eventLabel}</span>
-                <span class="badge-archived-pill">Archived</span>
+                <span class="badge-repertoire-archived">📦 Archived</span>
                 ${archiveDateTag}
                 ${partBadge}
                 ${tracksBadge}
@@ -7033,7 +7041,12 @@ function renderArchivedRepertoireSection() {
     }
   }
 
-  card.style.display = "block";
+  // Show section whenever pieces are archived or showPastRepertoire is on
+  if (archivedSongs.length > 0 || settings.showPastRepertoire) {
+    card.style.display = "block";
+  } else {
+    card.style.display = "none";
+  }
 }
 
 function toggleArchivedRepertoireCollapse() {
@@ -7078,25 +7091,113 @@ function selectAndRehearseArchivedSong(songTitle) {
   showToast(`Loaded "${songTitle}" for rehearsal! 🎶`);
 }
 
-function toggleSongArchiveState(songId) {
-  const settings = getUserSettings();
-  const song = settings.songs.find(s => s.id === songId);
-  if (!song) return;
+function getMasterRepertoireList() {
+  let cached = getCachedSongs();
+  if (!cached || cached.length === 0) {
+    const settings = getUserSettings();
+    cached = settings.songs || [];
+  }
+  return cached;
+}
+window.getMasterRepertoireList = getMasterRepertoireList;
 
-  song.isArchived = !song.isArchived;
+function toggleSongArchiveStatus(songId) {
+  // 1. Retrieve the master repertoire list (and any local additions)
+  let songs = getMasterRepertoireList(); 
+  const targetIndex = songs.findIndex(s => String(s.id) === String(songId) || s.title === songId);
+  
+  if (targetIndex === -1) return;
+
+  // 2. Toggle both boolean variants to prevent property-mismatch bugs
+  const willBeArchived = !Boolean(songs[targetIndex].isArchived || songs[targetIndex].archived);
+  songs[targetIndex].isArchived = willBeArchived;
+  songs[targetIndex].archived = willBeArchived;
+
+  // 3. Persist an archived ID list to localStorage so sheet re-syncs do not undo local archives
+  let archivedIds = [];
+  try {
+    archivedIds = JSON.parse(localStorage.getItem('kantimes_archived_song_ids') || '[]');
+    if (!Array.isArray(archivedIds)) archivedIds = [];
+  } catch (e) {
+    archivedIds = [];
+  }
+  const identifier = songs[targetIndex].id || songs[targetIndex].title;
+  
+  if (willBeArchived) {
+    if (!archivedIds.includes(identifier)) archivedIds.push(identifier);
+    if (songs[targetIndex].title && !archivedIds.includes(songs[targetIndex].title)) archivedIds.push(songs[targetIndex].title);
+  } else {
+    archivedIds = archivedIds.filter(id => id !== identifier && id !== songs[targetIndex].title && id !== songs[targetIndex].id);
+  }
+  localStorage.setItem('kantimes_archived_song_ids', JSON.stringify(archivedIds));
+
+  // 4. Update the active repertoire cache
+  localStorage.setItem('kantimes_repertoire_cache', JSON.stringify(songs));
+  localStorage.setItem('kantimes_cached_songs', JSON.stringify(songs));
+  const settings = getUserSettings();
+  settings.songs = songs;
   saveUserSettings(settings);
 
-  renderRepertoireList();
-  populateSongSelectDropdown();
-  renderArchivedRepertoireSection();
+  // 5. Re-render both the modal list and the main UI (dropdown, counters, and bottom accordion)
+  renderSettingsRepertoireList();
+  updateRepertoireUI(songs);
+  showToast(willBeArchived ? `Archived "${songs[targetIndex].title}" 📦` : `Restored "${songs[targetIndex].title}" 🎶`);
+}
+window.toggleSongArchiveStatus = toggleSongArchiveStatus;
+window.toggleSongArchiveState = toggleSongArchiveStatus;
 
-  const select = document.getElementById("targetSong");
-  if (select && select.value) {
-    renderSelectedSongResource(select.value);
+function updateRepertoireUI(songsList) {
+  let songs = songsList || getMasterRepertoireList();
+
+  // Apply kantimes_archived_song_ids
+  try {
+    const archivedIds = JSON.parse(localStorage.getItem('kantimes_archived_song_ids') || '[]');
+    if (Array.isArray(archivedIds) && archivedIds.length > 0) {
+      songs.forEach(song => {
+        const identifier = song.id || song.title;
+        if (archivedIds.includes(identifier) || archivedIds.includes(song.id) || (song.title && archivedIds.includes(song.title))) {
+          song.isArchived = true;
+          song.archived = true;
+        }
+      });
+    }
+  } catch (e) {
+    console.warn("[Kantimes] Error applying archived IDs in updateRepertoireUI:", e);
   }
 
-  showToast(song.isArchived ? `Archived "${song.title}" 📦` : `Restored "${song.title}" to active list 🎶`);
+  const activeSongs = songs.filter(s => !s.isArchived && !s.archived);
+  const archivedSongs = songs.filter(s => s.isArchived || s.archived);
+
+  // Populate the main dropdown (#songSelect) with activeSongs only
+  populateSongDropdown(activeSongs.length > 0 ? activeSongs : songs);
+
+  // If currently rehearsed song was archived, select first active song
+  const select = document.getElementById("targetSong") || document.getElementById("songSelect") || document.querySelector(".rehearsal-song-select");
+  if (select && select.value) {
+    const currentSongArchived = archivedSongs.some(s => s.title === select.value || s.id === select.value);
+    if (currentSongArchived && activeSongs.length > 0) {
+      select.value = activeSongs[0].title;
+      localStorage.setItem("kantime_target_song", activeSongs[0].title);
+      localStorage.setItem("kantimes_target_song", activeSongs[0].title);
+      renderSelectedSongResource(activeSongs[0].title);
+    }
+  }
+
+  // Update the accordion header count
+  const archivedCountEl = document.querySelector('#archivedAccordionCount, #archivedCountPill, .archived-count-badge');
+  if (archivedCountEl) {
+    archivedCountEl.textContent = `${archivedSongs.length} piece${archivedSongs.length === 1 ? '' : 's'}`;
+  }
+
+  // Render the archived song cards inside the #archivedSongsList container within the accordion
+  renderArchivedRepertoireSection(archivedSongs);
 }
+window.updateRepertoireUI = updateRepertoireUI;
+
+function renderSettingsRepertoireList() {
+  renderRepertoireList();
+}
+window.renderSettingsRepertoireList = renderSettingsRepertoireList;
 
 function renderRepertoireList() {
   const container = document.getElementById("repertoireListContainer");
@@ -7142,7 +7243,10 @@ function renderRepertoireList() {
 
       const videoTag = song.videoUrl ? `<span class="link-tag">📹 Video</span>` : "";
       const sheetTag = song.sheetUrl ? `<span class="link-tag">🎼 Sheet</span>` : "";
-      const archiveTag = song.isArchived ? `<span class="badge-archived-pill">Archived</span>` : "";
+      const isArchived = Boolean(song.isArchived || song.archived);
+      const archiveBadgeHtml = isArchived
+        ? `<span class="badge-repertoire-archived">📦 Archived</span>`
+        : '';
 
       html += `
         <div class="repertoire-list-item">
@@ -7150,7 +7254,7 @@ function renderRepertoireList() {
             <div class="repertoire-item-title-row">
               <strong>${escapeHtml(song.title)}</strong>
               ${partBadge}
-              ${archiveTag}
+              ${archiveBadgeHtml}
             </div>
             <div class="repertoire-item-links">
               ${videoTag}
@@ -7158,7 +7262,7 @@ function renderRepertoireList() {
             </div>
           </div>
           <div class="repertoire-item-actions">
-            <button type="button" class="btn-icon" onclick="toggleSongArchiveState('${song.id}')" title="${song.isArchived ? 'Restore to active repertoire' : 'Archive this piece'}" aria-label="${song.isArchived ? 'Restore piece' : 'Archive piece'}">${song.isArchived ? '📤' : '📦'}</button>
+            <button type="button" class="btn-icon btn-archive-song" data-song-id="${song.id}" onclick="toggleSongArchiveStatus('${song.id}')" title="${isArchived ? 'Restore to active repertoire' : 'Archive this piece'}" aria-label="${isArchived ? 'Restore piece' : 'Archive piece'}">${isArchived ? '📤' : '📦'}</button>
             <button type="button" class="btn-icon" onclick="openSongForm('${song.id}')" title="Edit piece" aria-label="Edit ${escapeHtml(song.title)}">✏️</button>
             <button type="button" class="btn-icon btn-icon-danger" onclick="deleteSong('${song.id}')" title="Delete piece" aria-label="Delete ${escapeHtml(song.title)}">🗑️</button>
           </div>
@@ -7373,6 +7477,14 @@ function deleteSong(songId) {
     if (Array.isArray(localExtras) && localExtras.length > 0) {
       const filtered = localExtras.filter(s => s.id !== songId);
       localStorage.setItem("kantimes_local_extra_songs", JSON.stringify(filtered));
+    }
+  } catch (e) { }
+
+  try {
+    let archivedIds = JSON.parse(localStorage.getItem('kantimes_archived_song_ids') || '[]');
+    if (Array.isArray(archivedIds) && archivedIds.length > 0) {
+      archivedIds = archivedIds.filter(id => id !== songId);
+      localStorage.setItem('kantimes_archived_song_ids', JSON.stringify(archivedIds));
     }
   } catch (e) { }
 
