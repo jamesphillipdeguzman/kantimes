@@ -126,30 +126,79 @@
         style="margin-top:0; min-height:36px; white-space:nowrap;">⚙️ Profile Settings &amp; Guide</button>
     </div>
 
-    <!-- Singer Profile Setup Card (Visible before sign-in / on change) -->
-    <div class="card fade-in" id="profileCard">
+    <!-- Singer Profile Setup Card / First-Time Onboarding Modal (Visible before sign-in / on change) -->
+    <div class="card fade-in" id="profileCard" data-modal="welcomeModal" data-alt-id="firstRunProfileModal,initialSetupModal,welcomeModal">
       <h2 id="profileCardTitle">👤 Choir Member Setup</h2>
-      <label for="memberName">Initials or Nickname (Required)</label>
-      <input type="text" id="memberName" placeholder="e.g. JD, Sam" maxlength="6" minlength="2" required
-        autocomplete="off"
-        oninput="this.value = this.value.toUpperCase(); document.getElementById('memberNameValidationMsg').style.display = 'none';" />
-      <div class="input-validation-msg" id="memberNameValidationMsg"
-        style="display: none; color: #f87171; font-size: 0.8rem; margin-top: 0.35rem;">
-        ⚠️ Please enter your initials or nickname (2 to 6 characters).
-      </div>
-      <div class="field-hint" style="font-size: 0.8rem; color: var(--text-muted, #94a3b8); margin-top: 0.25rem;">
-        Used in your choir handle and weekly practice report (e.g., JD#8PBP).
+
+      <!-- Full Name Field -->
+      <div class="form-group mb-3">
+        <label for="onboardingFullName" class="form-label font-semibold">
+          Full Name <span class="text-xs text-muted">(Optional, local in-app only)</span>
+        </label>
+        <input 
+          type="text" 
+          id="onboardingFullName" 
+          class="form-control" 
+          placeholder="e.g. James Phillip De Guzman"
+          autocomplete="name"
+        />
+        <p class="field-hint text-xs text-muted">Used for your private in-app greeting and dashboard.</p>
       </div>
 
-      <label for="memberSection">Voice Part / Choir</label>
-      <select id="memberSection">
-        <option value="">-- Select Your Voice --</option>
-        <option value="Soprano">Soprano</option>
-        <option value="Alto">Alto</option>
-        <option value="Tenor">Tenor</option>
-        <option value="Bass">Bass</option>
-        <option value="Primary">Primary</option>
-      </select>
+      <!-- Initials or Nickname Field -->
+      <div class="form-group mb-3">
+        <label for="onboardingNickname" class="form-label font-semibold">
+          Initials or Nickname <span class="text-xs text-danger">* (2–6 chars)</span>
+        </label>
+        <input 
+          type="text" 
+          id="onboardingNickname" 
+          data-alt-id="memberName"
+          class="form-control" 
+          placeholder="e.g. JD, SAM" 
+          maxlength="6"
+          required
+          autocomplete="off"
+          autocapitalize="characters"
+        />
+        <div class="input-validation-msg" id="memberNameValidationMsg"
+          style="display: none; color: #f87171; font-size: 0.8rem; margin-top: 0.35rem;">
+          ⚠️ Please enter your initials or nickname (2 to 6 characters).
+        </div>
+        <p class="field-hint text-xs text-muted">Used for anonymous reports and handles (e.g., JD#GRU5).</p>
+      </div>
+
+      <!-- Voice Part Field -->
+      <div class="form-group mb-3">
+        <label for="onboardingVoicePart" class="form-label font-semibold">Voice Part / Choir</label>
+        <select id="onboardingVoicePart" data-alt-id="memberSection" class="form-control">
+          <option value="">-- Select Your Voice --</option>
+          <option value="Soprano">Soprano</option>
+          <option value="Alto">Alto</option>
+          <option value="Tenor">Tenor</option>
+          <option value="Bass">Bass</option>
+          <option value="Primary">Primary</option>
+        </select>
+      </div>
+
+      <!-- Stake / District Field (Optional) -->
+      <div class="form-group mb-3">
+        <label for="onboardingStake" class="form-label font-semibold">
+          Stake / District <span class="text-xs text-muted">(Optional)</span>
+        </label>
+        <input 
+          type="text" 
+          id="onboardingStake" 
+          class="form-control" 
+          placeholder="e.g. Iloilo Philippines Stake"
+          autocomplete="off"
+        />
+        <p class="field-hint text-xs text-muted">Appears in your group chat practice report.</p>
+      </div>
+
+      <!-- Hidden legacy fallbacks to prevent null references -->
+      <input type="hidden" id="memberName" />
+      <select id="memberSection" style="display:none;" tabindex="-1" aria-hidden="true"></select>
 
       <div class="avatar-picker-wrapper">
         <label class="avatar-picker-label">
@@ -858,7 +907,7 @@
     </div>
 
     <!-- Personal Settings / Preferences / Profile Modal -->
-    <div id="settingsModal" class="modal-backdrop" onclick="closeSettingsOnBackdrop(event)" role="dialog"
+    <div id="settingsModal" data-alt-id="profileSettingsModal" class="modal-backdrop" onclick="closeSettingsOnBackdrop(event)" role="dialog"
       aria-modal="true" aria-labelledby="settingsModalTitle">
       <div class="modal-box settings-modal-box">
         <div class="modal-header">
@@ -910,7 +959,7 @@
             <div class="settings-section">
               <label for="profileNickname">Initials or Nickname <span class="label-hint">(Required, 2–6
                   chars)</span></label>
-              <input type="text" id="profileNickname" minlength="2" maxlength="6" required placeholder="e.g. JD, SAM"
+              <input type="text" id="profileNickname" data-alt-id="profileInitials" minlength="2" maxlength="6" required placeholder="e.g. JD, SAM"
                 autocomplete="off" autocapitalize="characters"
                 oninput="this.value = this.value.toUpperCase(); if(typeof validateNicknameInput==='function')validateNicknameInput(this);">
               <div class="input-validation-msg" id="profileNicknameValidationMsg" style="display: none;">⚠️ Please enter

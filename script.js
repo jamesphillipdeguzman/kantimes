@@ -1372,20 +1372,26 @@ function getUserIdentity() {
 
     const existingPart = localStorage.getItem("choir_voice") || localStorage.getItem("choir_section") || "";
     const existingName = localStorage.getItem("choir_name") || "";
+    const existingNickname = localStorage.getItem("choir_nickname") || "";
 
     identity = {
       ...DEFAULT_USER_IDENTITY,
       tag: tag,
       name: existingName,
       fullName: existingName,
+      nickname: existingNickname,
+      initials: existingNickname || (existingName ? existingName.slice(0, 4) : ""),
       part: existingPart,
       voice: existingPart,
       section: existingPart,
       stake: "",
       avatar: "default-avatar.png",
-      isConfigured: Boolean(existingName && existingName.trim().length >= 2)
+      isConfigured: Boolean((existingName && existingName.trim().length >= 2) || (existingNickname && existingNickname.trim().length >= 2))
     };
     localStorage.setItem("kantimes_user_identity", JSON.stringify(identity));
+  } else {
+    if (!identity.nickname && identity.initials) identity.nickname = identity.initials;
+    if (!identity.nickname && localStorage.getItem("choir_nickname")) identity.nickname = localStorage.getItem("choir_nickname");
   }
   return identity;
 }
@@ -1395,7 +1401,8 @@ function getUserIdentity() {
  */
 function getDisplayHandle(identity = getUserIdentity()) {
   if (!identity) return "Choir Member";
-  const name = identity.initials ? identity.initials.trim().toUpperCase() : (identity.fullName || identity.name || (identity.part && identity.part !== "All" ? identity.part : ""));
+  const nick = identity.nickname || identity.initials;
+  const name = nick ? nick.trim().toUpperCase() : (identity.fullName || identity.name || (identity.part && identity.part !== "All" ? identity.part : ""));
   if (name) {
     return `${name}#${identity.tag}`;
   }
@@ -1645,7 +1652,7 @@ function saveProfileVoiceSettings(e) {
     e.preventDefault();
   }
 
-  const nicknameInput = document.getElementById("profileNickname") || document.getElementById("profileInitialsInput") || document.getElementById("settingMemberName");
+  const nicknameInput = document.getElementById("profileNickname") || document.getElementById("profileInitials") || document.getElementById("profileInitialsInput") || document.getElementById("settingMemberName");
   const fullNameInput = document.getElementById("profileFullName") || document.getElementById("settingMemberName");
   const partSelect = document.getElementById("profileVoicePart") || document.getElementById("profileVoicePartSelect") || document.getElementById("settingMemberSection");
   const stakeInput = document.getElementById("profileStake") || document.getElementById("profileStakeInput");
@@ -1693,8 +1700,11 @@ function saveProfileVoiceSettings(e) {
   }
 
   identity.fullName = fullName;
+  identity.nickname = rawNickname;
   identity.initials = rawNickname;
+  identity.name = fullName || rawNickname;
   identity.part = part;
+  identity.voice = part;
   identity.stake = stake;
   identity.avatar = avatar;
 
@@ -1705,13 +1715,10 @@ function saveProfileVoiceSettings(e) {
     console.error("[Kantimes] Error writing identity to localStorage:", err);
   }
 
-  // 3. Sync legacy keys for backward compatibility
+  // 3. Separate Storage Keys in Profile Persistence
   try {
-    if (fullName) {
-      localStorage.setItem("choir_name", fullName);
-    } else if (rawNickname) {
-      localStorage.setItem("choir_name", rawNickname);
-    }
+    localStorage.setItem("choir_name", fullName);
+    localStorage.setItem("choir_nickname", rawNickname);
     if (part && part !== "All") {
       localStorage.setItem("choir_voice", part);
       localStorage.setItem("choir_section", part);
@@ -1720,7 +1727,7 @@ function saveProfileVoiceSettings(e) {
       localStorage.setItem("choir_avatar", avatar);
     }
   } catch (err) {
-    console.warn("[Kantimes] Error syncing legacy choir keys:", err);
+    console.warn("[Kantimes] Error syncing choir keys:", err);
   }
 
   // 4. Downstream UI refreshes safely wrapped in try-catches
@@ -1835,12 +1842,12 @@ function updateIdentityUI() {
   // Form inputs in Profile & Voice tab
   const fullNameInput = document.getElementById("profileFullName");
   if (fullNameInput && document.activeElement !== fullNameInput) {
-    fullNameInput.value = identity.fullName || localStorage.getItem("choir_name") || "";
+    fullNameInput.value = identity.fullName || "";
   }
 
-  const nicknameInput = document.getElementById("profileNickname") || document.getElementById("profileInitialsInput");
+  const nicknameInput = document.getElementById("profileNickname") || document.getElementById("profileInitials") || document.getElementById("profileInitialsInput");
   if (nicknameInput && document.activeElement !== nicknameInput) {
-    nicknameInput.value = identity.initials || "";
+    nicknameInput.value = identity.nickname || identity.initials || localStorage.getItem("choir_nickname") || "";
   }
 
   const partSelect = document.getElementById("profileVoicePart") || document.getElementById("profileVoicePartSelect");
@@ -4355,9 +4362,11 @@ function loadProfile() {
   applyTimerDuration(getUserSettings().timerMinutes, false);
   populateSongSelectDropdown();
 
-  const savedName = localStorage.getItem("choir_name");
-  const savedSection = localStorage.getItem("choir_voice") || localStorage.getItem("choir_section");
-  const savedAvatar = localStorage.getItem("choir_avatar") || "";
+  const identity = getUserIdentity();
+  const savedFullName = localStorage.getItem("choir_name") || identity.fullName || "";
+  const savedNickname = localStorage.getItem("choir_nickname") || identity.nickname || identity.initials || "";
+  const savedSection = localStorage.getItem("choir_voice") || localStorage.getItem("choir_section") || identity.part || "";
+  const savedAvatar = localStorage.getItem("choir_avatar") || identity.avatar || "";
   const profileCard = document.getElementById("profileCard");
   const activeBanner = document.getElementById("activeProfileBanner");
   const mainDashboard = document.getElementById("mainDashboard");
@@ -4365,16 +4374,25 @@ function loadProfile() {
 
   renderAvatarPicker(savedAvatar);
 
-  if (savedName && savedName.trim().length >= 2 && savedSection) {
-    const formattedName = formatDisplayName(savedName);
-    if (formattedName !== savedName) {
-      localStorage.setItem("choir_name", formattedName);
-    }
-    const memNameInput = document.getElementById("memberName");
-    if (memNameInput) memNameInput.value = formattedName;
-    const memSecInput = document.getElementById("memberSection");
+  const hasValidProfile = (savedFullName && savedFullName.trim().length >= 2) || (savedNickname && savedNickname.trim().length >= 2);
+
+  if (hasValidProfile && savedSection) {
+    const displayName = formatDisplayName(savedFullName || savedNickname);
+
+    const memFullNameInput = document.getElementById("onboardingFullName");
+    if (memFullNameInput) memFullNameInput.value = savedFullName;
+    const memNameInput = document.getElementById("onboardingNickname") || document.getElementById("memberName");
+    if (memNameInput) memNameInput.value = savedNickname || savedFullName;
+    const legacyMemName = document.getElementById("memberName");
+    if (legacyMemName && legacyMemName !== memNameInput) legacyMemName.value = savedNickname || savedFullName;
+    const memSecInput = document.getElementById("onboardingVoicePart") || document.getElementById("memberSection");
     if (memSecInput) memSecInput.value = savedSection;
-    updateActiveProfileDisplay(formattedName, savedSection, savedAvatar);
+    const legacyMemSec = document.getElementById("memberSection");
+    if (legacyMemSec && legacyMemSec !== memSecInput) legacyMemSec.value = savedSection;
+    const stakeInput = document.getElementById("onboardingStake");
+    if (stakeInput) stakeInput.value = identity.stake || "";
+
+    updateActiveProfileDisplay(displayName, savedSection, savedAvatar);
 
     if (profileCard) profileCard.style.display = "none";
     if (activeBanner) activeBanner.style.display = "flex";
@@ -4392,9 +4410,9 @@ function loadProfile() {
 
     loadLeaderboard();
   } else {
-    profileCard.style.display = "block";
-    activeBanner.style.display = "none";
-    mainDashboard.style.display = "none";
+    if (profileCard) profileCard.style.display = "block";
+    if (activeBanner) activeBanner.style.display = "none";
+    if (mainDashboard) mainDashboard.style.display = "none";
     if (cancelBtn) cancelBtn.style.display = "none";
 
     const pitchWidget = document.getElementById("pitchCheckerWidget");
@@ -4734,7 +4752,9 @@ function handleDuplicateAction(actionType) {
  * Common helper to persist profile data to localStorage and synchronize the UI.
  */
 function applyProfileData(name, section, avatar) {
-  localStorage.setItem("choir_name", name);
+  if (!localStorage.getItem("choir_name") && name) {
+    localStorage.setItem("choir_name", name);
+  }
   localStorage.setItem("choir_section", section);
   localStorage.setItem("choir_voice", section);
   if (avatar) {
@@ -4744,14 +4764,23 @@ function applyProfileData(name, section, avatar) {
   }
 
   // Update inputs on main setup card & settings modal
-  const pageNameInput = document.getElementById("memberName");
-  if (pageNameInput) pageNameInput.value = name;
-  const pageSecSelect = document.getElementById("memberSection");
-  if (pageSecSelect) pageSecSelect.value = section;
+  const pageFullName = document.getElementById("onboardingFullName");
+  if (pageFullName) pageFullName.value = localStorage.getItem("choir_name") || "";
+  const pageNameInput = document.getElementById("onboardingNickname") || document.getElementById("memberName");
+  if (pageNameInput) pageNameInput.value = localStorage.getItem("choir_nickname") || name;
+  const legacyMemberName = document.getElementById("memberName");
+  if (legacyMemberName && legacyMemberName !== pageNameInput) legacyMemberName.value = localStorage.getItem("choir_nickname") || name;
 
-  const settingNameInput = document.getElementById("settingMemberName");
-  if (settingNameInput) settingNameInput.value = name;
-  const settingSecSelect = document.getElementById("settingMemberSection");
+  const pageSecSelect = document.getElementById("onboardingVoicePart") || document.getElementById("memberSection");
+  if (pageSecSelect) pageSecSelect.value = section;
+  const legacyMemberSec = document.getElementById("memberSection");
+  if (legacyMemberSec && legacyMemberSec !== pageSecSelect) legacyMemberSec.value = section;
+
+  const settingFullName = document.getElementById("profileFullName");
+  if (settingFullName) settingFullName.value = localStorage.getItem("choir_name") || "";
+  const settingNickInput = document.getElementById("profileNickname") || document.getElementById("profileInitials");
+  if (settingNickInput) settingNickInput.value = localStorage.getItem("choir_nickname") || name;
+  const settingSecSelect = document.getElementById("profileVoicePart") || document.getElementById("settingMemberSection");
   if (settingSecSelect) settingSecSelect.value = section;
 
   selectedAvatarFile = avatar || "";
@@ -4760,6 +4789,7 @@ function applyProfileData(name, section, avatar) {
   renderSettingAvatarPicker(avatar);
 
   updateActiveProfileDisplay(name, section, avatar);
+  updateIdentityUI();
 
   const profileCard = document.getElementById("profileCard");
   if (profileCard) profileCard.style.display = "none";
@@ -4788,48 +4818,148 @@ function applyProfileData(name, section, avatar) {
   }
 }
 
-function handleProfileSubmit() {
-  const nameInput = document.getElementById("memberName");
-  const msgEl = document.getElementById("memberNameValidationMsg");
-  const submitBtn = document.getElementById("setupProfileSubmitBtn") || document.getElementById("saveProfileBtn");
-  const rawName = nameInput ? nameInput.value.trim() : "";
-  const name = formatDisplayName(rawName);
-  if (nameInput) nameInput.value = name;
-  const section = document.getElementById("memberSection").value;
-  const avatar = selectedAvatarFile;
+function saveOnboardingProfile() {
+  const enteredFullName = document.getElementById('onboardingFullName')?.value.trim() || '';
+  const nicknameInput = document.getElementById('onboardingNickname') || document.getElementById('memberName');
+  const rawNickname = nicknameInput ? nicknameInput.value.trim().toUpperCase() : '';
+  const enteredNickname = (rawNickname || enteredFullName.slice(0, 3) || 'CHOIR').toUpperCase();
 
-  if (!name || name.length < 2) {
-    if (nameInput) nameInput.classList.add("input-invalid");
+  const voiceSelect = document.getElementById('onboardingVoicePart') || document.getElementById('memberSection');
+  const enteredVoice = voiceSelect ? voiceSelect.value : 'All';
+
+  const stakeInput = document.getElementById('onboardingStake');
+  const enteredStake = stakeInput ? stakeInput.value.trim() : '';
+
+  const avatar = selectedAvatarFile || '';
+
+  // Validate nickname: 2 to 6 characters
+  const msgEl = document.getElementById('memberNameValidationMsg');
+  const submitBtn = document.getElementById('setupProfileSubmitBtn') || document.getElementById('saveProfileBtn');
+
+  if (!enteredNickname || enteredNickname.length < 2 || enteredNickname.length > 6) {
+    if (nicknameInput) {
+      nicknameInput.classList.add('input-invalid');
+      nicknameInput.focus();
+    }
     if (msgEl) {
-      msgEl.textContent = "⚠️ Please enter a valid name (at least 2 characters).";
-      msgEl.style.display = "block";
+      msgEl.textContent = '⚠️ Please enter your initials or nickname (2 to 6 characters).';
+      msgEl.style.display = 'block';
     }
     if (submitBtn) submitBtn.disabled = true;
-    showToast("⚠️ Please enter a valid name (at least 2 characters).");
-    if (nameInput) nameInput.focus();
-    return;
-  }
-  if (!section) {
-    alert("Please select your voice part (Soprano, Alto, Tenor, Bass, or Primary)!");
-    document.getElementById("memberSection").focus();
-    return;
+    showToast('⚠️ Please enter your initials or nickname (2 to 6 characters).');
+    return false;
   }
 
-  // ── Fuzzy Name Deduplication Check ──
-  const matchResult = findSimilarSinger(name);
-  if (matchResult) {
-    showDuplicateConfirmModal(matchResult.matchedSinger, {
-      name,
-      section,
-      avatar,
-      isSetting: false
-    });
-    return;
+  if (nicknameInput) {
+    nicknameInput.classList.remove('input-invalid');
+    nicknameInput.value = enteredNickname;
+  }
+  if (msgEl) {
+    msgEl.style.display = 'none';
   }
 
-  applyProfileData(name, section, avatar);
-  showToast("Profile updated!");
+  // Preserve existing tag if present, else generate one
+  let currentTag = '8K2P';
+  try {
+    const existing = JSON.parse(localStorage.getItem('kantimes_user_identity') || '{}');
+    if (existing.tag) currentTag = existing.tag;
+    else {
+      currentTag = Math.floor(Math.random() * Math.pow(36, 4)).toString(36).toUpperCase().padStart(4, '0');
+    }
+  } catch (e) {
+    currentTag = Math.floor(Math.random() * Math.pow(36, 4)).toString(36).toUpperCase().padStart(4, '0');
+  }
+
+  const profile = {
+    fullName: enteredFullName,
+    nickname: enteredNickname,
+    initials: enteredNickname,
+    voice: document.getElementById('onboardingVoicePart')?.value || document.getElementById('memberSection')?.value || 'All',
+    stake: document.getElementById('onboardingStake')?.value || '',
+    isConfigured: true
+  };
+
+  localStorage.setItem('kantimes_user_identity', JSON.stringify({
+    ...profile,
+    tag: currentTag,
+    part: profile.voice,
+    section: profile.voice,
+    name: profile.fullName || profile.nickname,
+    avatar: avatar
+  }));
+  localStorage.setItem('choir_name', profile.fullName);
+  localStorage.setItem('choir_nickname', profile.nickname);
+  if (profile.voice && profile.voice !== 'All') {
+    localStorage.setItem('choir_voice', profile.voice);
+    localStorage.setItem('choir_section', profile.voice);
+  }
+  if (avatar) {
+    localStorage.setItem('choir_avatar', avatar);
+  }
+
+  applyProfileData(profile.fullName || profile.nickname, profile.voice, avatar);
+  showToast('Welcome to Kantimes! Profile configured 🎶');
+  return true;
 }
+
+function handleProfileSubmit() {
+  saveOnboardingProfile();
+}
+
+function initOnboardingInputs() {
+  const fullNameInput = document.getElementById('onboardingFullName');
+  const nicknameInput = document.getElementById('onboardingNickname') || document.getElementById('memberName');
+  let userManuallyEditedNickname = false;
+
+  if (nicknameInput) {
+    if (nicknameInput.value.trim().length > 0) {
+      userManuallyEditedNickname = true;
+    }
+    nicknameInput.addEventListener('input', () => {
+      nicknameInput.value = nicknameInput.value.toUpperCase();
+      userManuallyEditedNickname = nicknameInput.value.trim().length > 0;
+      const msgEl = document.getElementById('memberNameValidationMsg');
+      if (msgEl) msgEl.style.display = 'none';
+      const legacyEl = document.getElementById('memberName');
+      if (legacyEl && legacyEl !== nicknameInput) legacyEl.value = nicknameInput.value;
+      const submitBtn = document.getElementById('setupProfileSubmitBtn') || document.getElementById('saveProfileBtn');
+      if (submitBtn) submitBtn.disabled = false;
+    });
+  }
+
+  if (fullNameInput && nicknameInput) {
+    fullNameInput.addEventListener('input', () => {
+      if (!userManuallyEditedNickname) {
+        const initials = fullNameInput.value
+          .trim()
+          .split(/\s+/)
+          .filter(Boolean)
+          .map(word => word[0].toUpperCase())
+          .join('')
+          .slice(0, 4);
+        nicknameInput.value = initials;
+        const legacyEl = document.getElementById('memberName');
+        if (legacyEl && legacyEl !== nicknameInput) legacyEl.value = initials;
+        const submitBtn = document.getElementById('setupProfileSubmitBtn') || document.getElementById('saveProfileBtn');
+        if (submitBtn) submitBtn.disabled = false;
+        const msgEl = document.getElementById('memberNameValidationMsg');
+        if (msgEl && initials.length >= 2) msgEl.style.display = 'none';
+      }
+    });
+  }
+
+  const voiceSelect = document.getElementById('onboardingVoicePart');
+  if (voiceSelect) {
+    voiceSelect.addEventListener('change', () => {
+      const legacySec = document.getElementById('memberSection');
+      if (legacySec && legacySec !== voiceSelect) legacySec.value = voiceSelect.value;
+    });
+  }
+}
+
+window.saveOnboardingProfile = saveOnboardingProfile;
+window.handleProfileSubmit = handleProfileSubmit;
+window.initOnboardingInputs = initOnboardingInputs;
 
 function saveProfileFromSettings(e) {
   return saveProfileVoiceSettings(e);
@@ -8638,7 +8768,7 @@ function validateNameInput(inputEl, msgEl, btnEl) {
 }
 
 function initNameValidation() {
-  const setupInput = document.getElementById("memberName");
+  const setupInput = document.getElementById("onboardingNickname") || document.getElementById("memberName");
   const setupMsg = document.getElementById("memberNameValidationMsg");
   const setupBtn = document.getElementById("setupProfileSubmitBtn") || document.getElementById("saveProfileBtn");
 
@@ -11363,6 +11493,7 @@ window.addEventListener("DOMContentLoaded", function () {
   renderArchivedRepertoireSection();
   initKnownSingers();
   loadProfile();
+  initOnboardingInputs();
   initNameValidation();
   restoreTimerState();
   updateMetronomeBeatDots();

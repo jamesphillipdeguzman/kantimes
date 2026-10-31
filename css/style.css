@@ -10287,3 +10287,40 @@ body.layout-horizontal .dashboard-section-tab.tab-active {
     transform: translateY(0);
   }
 }
+
+/* ==========================================================================
+   Onboarding Modal & Setup Form Styling
+   ========================================================================== */
+.form-group.mb-3 {
+  margin-bottom: 1rem;
+}
+
+.form-label.font-semibold {
+  display: block;
+  font-weight: 600;
+  margin-bottom: 0.35rem;
+  color: var(--text, #1e293b);
+  font-size: 0.9rem;
+}
+
+.text-xs {
+  font-size: 0.78rem;
+}
+
+.text-muted {
+  color: var(--text-muted, #94a3b8);
+  font-weight: normal;
+}
+
+.text-danger {
+  color: #ef4444;
+}
+
+.field-hint.text-xs {
+  font-size: 0.78rem;
+  color: var(--text-muted, #94a3b8);
+  margin-top: 0.25rem;
+  margin-bottom: 0;
+  line-height: 1.4;
+}
+
