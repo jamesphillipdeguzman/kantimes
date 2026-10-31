@@ -1037,7 +1037,7 @@
             </div>
 
             <!-- Song Add / Edit Form -->
-            <div id="songEditorForm" class="song-editor-card" style="display: none;">
+            <div id="repertoirePieceForm" class="song-editor-card song-editor-form" style="display: none;">
               <h5 id="songFormHeading">➕ Add New Repertoire Piece</h5>
               <input type="hidden" id="editingSongId" value="">
 
@@ -1079,8 +1079,9 @@
               <input type="text" id="songFormSheet" placeholder="https://... PDF or Google Drive link">
 
               <div style="display: flex; gap: 8px; margin-top: 10px;">
-                <button type="button" class="btn btn-primary" style="flex: 1;" onclick="saveSongFromForm()">Save
-                  Piece</button>
+                <button type="button" id="btnAddPieceSubmit" class="btn btn-primary btn-add-piece" style="flex: 1;" onclick="handleAddNewSongFromModal()">
+                  ➕ Save Piece to Repertoire
+                </button>
                 <button type="button" class="btn btn-outline" style="width: auto;"
                   onclick="closeSongForm()">Cancel</button>
               </div>

@@ -820,9 +820,23 @@ async function loadSongsFromSheet(sheetIdOrUrl, options = {}) {
       throw new Error("Sheet returned HTML. Please ensure Google Sheet is shared as 'Anyone with the link can view' or Published to Web.");
     }
 
-    const songs = parseRepertoireCsv(text);
+    let songs = parseRepertoireCsv(text);
     if (!songs || songs.length === 0) {
       throw new Error("No songs could be parsed from sheet columns.");
+    }
+
+    // Re-append local extra songs added manually so syncs don't erase them
+    try {
+      const localExtras = JSON.parse(localStorage.getItem("kantimes_local_extra_songs") || "[]");
+      if (Array.isArray(localExtras) && localExtras.length > 0) {
+        localExtras.forEach(extra => {
+          if (!songs.some(s => s.id === extra.id || (s.title && s.title.toLowerCase() === extra.title.toLowerCase()))) {
+            songs.push(extra);
+          }
+        });
+      }
+    } catch (e) {
+      console.warn("[Kantimes] Error merging local extra songs:", e);
     }
 
     // Check if repertoire changed compared to cached version
@@ -6571,6 +6585,16 @@ function openSettingsModal(defaultTab = 'profile') {
 }
 
 function closeSettingsModal() {
+  // Prevent closing if user typed into Song Title input without saving
+  const titleInput = document.getElementById("songFormTitle");
+  const formCard = document.getElementById("repertoirePieceForm") || document.getElementById("songEditorForm");
+  const isFormOpen = formCard && formCard.style.display !== "none";
+  if (isFormOpen && titleInput && titleInput.value.trim().length > 0) {
+    showToast("⚠️ Unsaved piece: Click '➕ Save Piece to Repertoire' or Cancel before closing.");
+    titleInput.focus();
+    return;
+  }
+
   const timerDurSelect = document.getElementById("settingTimerDuration");
   if (timerDurSelect) {
     const selectedMins = Number(timerDurSelect.value) || 15;
@@ -6926,7 +6950,7 @@ function renderRepertoireList() {
 }
 
 function openSongForm(songId) {
-  const formCard = document.getElementById("songEditorForm");
+  const formCard = document.getElementById("repertoirePieceForm") || document.getElementById("songEditorForm");
   const heading = document.getElementById("songFormHeading");
   const titleInput = document.getElementById("songFormTitle");
   const eventInput = document.getElementById("songFormEvent");
@@ -6940,17 +6964,17 @@ function openSongForm(songId) {
 
   if (songId) {
     const settings = getUserSettings();
-    const song = settings.songs.find(s => s.id === songId);
+    const song = (settings.songs || []).find(s => s.id === songId);
     if (!song) return;
 
     idInput.value = songId;
     heading.innerText = `✏️ Edit Repertoire Piece`;
     titleInput.value = song.title || "";
-    if (eventInput) eventInput.value = song.event || "";
+    if (eventInput) eventInput.value = song.event || song.category || "";
     if (archivedCheckbox) archivedCheckbox.checked = Boolean(song.isArchived);
-    partSelect.value = song.part || "All";
+    partSelect.value = song.part || song.voicePart || "All";
     videoInput.value = song.videoUrl || "";
-    sheetInput.value = song.sheetUrl || "";
+    sheetInput.value = song.sheetUrl || song.resourceUrl || song.pdfUrl || "";
   } else {
     idInput.value = "";
     heading.innerText = `➕ Add New Repertoire Piece`;
@@ -6968,11 +6992,21 @@ function openSongForm(songId) {
 }
 
 function closeSongForm() {
-  const formCard = document.getElementById("songEditorForm");
+  const formCard = document.getElementById("repertoirePieceForm") || document.getElementById("songEditorForm");
   if (formCard) formCard.style.display = "none";
+  const titleEl = document.getElementById("songFormTitle");
+  if (titleEl) titleEl.value = "";
+  const idEl = document.getElementById("editingSongId");
+  if (idEl) idEl.value = "";
+  const videoEl = document.getElementById("songFormVideo");
+  if (videoEl) videoEl.value = "";
+  const sheetEl = document.getElementById("songFormSheet");
+  if (sheetEl) sheetEl.value = "";
+  const heading = document.getElementById("songFormHeading");
+  if (heading) heading.innerText = "➕ Add New Repertoire Piece";
 }
 
-function saveSongFromForm() {
+function handleAddNewSongFromModal() {
   const titleEl = document.getElementById("songFormTitle");
   const title = titleEl ? titleEl.value.trim() : "";
   const partEl = document.getElementById("songFormPart");
@@ -6988,7 +7022,7 @@ function saveSongFromForm() {
 
   if (!title) {
     alert("Please enter a song title!");
-    document.getElementById("songFormTitle").focus();
+    if (titleEl) titleEl.focus();
     return;
   }
 
@@ -6996,42 +7030,97 @@ function saveSongFromForm() {
     videoUrl = formatYouTubeEmbedUrl(videoUrl);
   }
 
-  const settings = getUserSettings();
+  const isSheetActive = Boolean(getActiveSheetId());
+  const newSongId = songId || `local-${Date.now()}`;
 
-  if (songId) {
-    const idx = settings.songs.findIndex(s => s.id === songId);
-    if (idx !== -1) {
-      settings.songs[idx] = {
-        ...settings.songs[idx],
-        title: title,
-        part: part,
-        event: eventGroup,
-        isArchived: isArchived,
-        videoUrl: videoUrl,
-        sheetUrl: sheetUrl
-      };
-    }
-  } else {
-    const newId = "song_" + Date.now();
-    settings.songs.push({
-      id: newId,
-      title: title,
-      part: part,
-      event: eventGroup,
-      isArchived: isArchived,
-      videoUrl: videoUrl,
-      sheetUrl: sheetUrl,
-      note: sheetUrl ? `ℹ️ Opens in external tab. Your timer will keep running while you practice!` : ""
+  const newSong = {
+    id: newSongId,
+    title: title,
+    part: part,
+    voicePart: part,
+    event: eventGroup,
+    category: eventGroup,
+    isArchived: isArchived,
+    videoUrl: videoUrl,
+    sheetUrl: sheetUrl,
+    resourceUrl: sheetUrl,
+    resourceLabel: sheetUrl ? "Sheet Music (PDF)" : "",
+    pdfUrl: sheetUrl,
+    audioUrl: "",
+    resources: [],
+    audioTracks: [],
+    note: sheetUrl ? `ℹ️ Opens in external tab. Your timer will keep running while you practice!` : ""
+  };
+
+  if (sheetUrl) {
+    newSong.resources.push({
+      type: "pdf",
+      label: "Sheet Music (PDF)",
+      url: sheetUrl
+    });
+  }
+  if (videoUrl) {
+    newSong.resources.push({
+      type: "video",
+      label: "Rehearsal Video (YouTube)",
+      url: videoUrl
     });
   }
 
-  saveUserSettings(settings);
+  // 1. If Google Sheet is active: save to local extras and update cache
+  if (isSheetActive) {
+    let localExtras = [];
+    try {
+      localExtras = JSON.parse(localStorage.getItem("kantimes_local_extra_songs") || "[]");
+      if (!Array.isArray(localExtras)) localExtras = [];
+    } catch (e) {
+      localExtras = [];
+    }
+
+    if (songId) {
+      const extraIdx = localExtras.findIndex(s => s.id === songId);
+      if (extraIdx !== -1) {
+        localExtras[extraIdx] = newSong;
+      } else {
+        localExtras.push(newSong);
+      }
+    } else {
+      localExtras.push(newSong);
+    }
+    localStorage.setItem("kantimes_local_extra_songs", JSON.stringify(localExtras));
+
+    // Update active cache
+    let cached = getCachedSongs() || [];
+    const existingIdx = cached.findIndex(s => s.id === newSong.id);
+    if (existingIdx !== -1) {
+      cached[existingIdx] = newSong;
+    } else {
+      cached.push(newSong);
+    }
+    setActiveRepertoire(cached);
+  } else {
+    // No sheet active: standard user settings repertoire
+    const settings = getUserSettings();
+    if (songId) {
+      const idx = settings.songs.findIndex(s => s.id === songId);
+      if (idx !== -1) {
+        settings.songs[idx] = newSong;
+      } else {
+        settings.songs.push(newSong);
+      }
+    } else {
+      settings.songs.push(newSong);
+    }
+    saveUserSettings(settings);
+    setActiveRepertoire(settings.songs);
+  }
+
   closeSongForm();
   renderRepertoireList();
   populateSongSelectDropdown();
   renderArchivedRepertoireSection();
 
-  const targetSelect = document.getElementById("targetSong");
+  const targetSelect = document.getElementById("targetSong") || document.getElementById("songSelect");
   if (targetSelect) {
     if (!targetSelect.value || targetSelect.value === title) {
       targetSelect.value = title;
@@ -7040,8 +7129,10 @@ function saveSongFromForm() {
     renderSelectedSongResource(targetSelect.value);
   }
 
-  showToast("Repertoire saved! 🎶");
+  showToast("Piece added to your local repertoire! 🎶");
 }
+window.handleAddNewSongFromModal = handleAddNewSongFromModal;
+window.saveSongFromForm = handleAddNewSongFromModal;
 
 function deleteSong(songId) {
   const settings = getUserSettings();
@@ -7053,6 +7144,20 @@ function deleteSong(songId) {
 
   settings.songs = settings.songs.filter(s => s.id !== songId);
   saveUserSettings(settings);
+
+  try {
+    const localExtras = JSON.parse(localStorage.getItem("kantimes_local_extra_songs") || "[]");
+    if (Array.isArray(localExtras) && localExtras.length > 0) {
+      const filtered = localExtras.filter(s => s.id !== songId);
+      localStorage.setItem("kantimes_local_extra_songs", JSON.stringify(filtered));
+    }
+  } catch (e) { }
+
+  if (getActiveSheetId()) {
+    let cached = getCachedSongs() || [];
+    cached = cached.filter(s => s.id !== songId);
+    setActiveRepertoire(cached);
+  }
 
   renderRepertoireList();
   populateSongSelectDropdown();
