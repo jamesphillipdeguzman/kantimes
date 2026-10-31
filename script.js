@@ -2239,18 +2239,13 @@ function initProfileModalListeners() {
     });
   }
 
-  const btnEditProfile = document.getElementById("btnEditProfile") || document.querySelector(".btn-edit-profile");
-  if (btnEditProfile) {
-    btnEditProfile.onclick = (e) => {
-      handleEditProfileClick(e);
-    };
-  }
-
-  const allEditButtons = document.querySelectorAll("#btnEditProfile, .btn-edit-profile, .edit-profile-btn, #openProfileModalBtn, #btnProfilePill, .user-profile-pill");
+  const allEditButtons = document.querySelectorAll("#btnProfilePill, .user-profile-pill, #openProfileModalBtn, .btn-edit-profile, .edit-profile-btn, #btnEditProfile, #btnEditProfileMilestones");
   allEditButtons.forEach(btn => {
-    btn.onclick = (e) => {
-      handleEditProfileClick(e);
-    };
+    if (btn) {
+      btn.onclick = (e) => {
+        handleEditProfileClick(e);
+      };
+    }
   });
 
   initVocalTipsButton();
