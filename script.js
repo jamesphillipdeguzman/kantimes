@@ -3094,19 +3094,16 @@ function getYouTubeId(url) {
   return (match && match[2].length === 11) ? match[2] : null;
 }
 
+function extractYouTubeId(url) {
+  return getYouTubeId(url);
+}
+
 function formatYouTubeEmbedUrl(url) {
   if (!url || !url.trim()) return "";
   const trimmed = url.trim();
-  if (trimmed.includes("youtube.com/embed/")) {
-    const sep = trimmed.includes("?") ? "&" : "?";
-    if (!trimmed.includes("playsinline=1")) {
-      return `${trimmed}${sep}enablejsapi=1&playsinline=1`;
-    }
-    return trimmed;
-  }
-  const watchMatch = trimmed.match(/(?:youtube\.com\/(?:[^\/]+\/.+\/|(?:v|e(?:mbed)?|shorts)\/|.*[?&]v=)|youtu\.be\/)([^"&?\/\s]{11})/i);
-  if (watchMatch && watchMatch[1]) {
-    return `https://www.youtube.com/embed/${watchMatch[1]}?enablejsapi=1&playsinline=1`;
+  const id = getYouTubeId(trimmed);
+  if (id) {
+    return `https://www.youtube-nocookie.com/embed/${id}?autoplay=1&enablejsapi=0&playsinline=1`;
   }
   return trimmed;
 }
@@ -4125,9 +4122,99 @@ function renderRepertoireResources(song) {
   `;
 }
 
+/**
+ * High-performance facade for YouTube & rehearsal videos.
+ * Prevents eager iframe initialization, telemetry spam, and ad-blocker errors.
+ */
+function renderVideoContainer(videoUrl) {
+  const videoContainer = document.getElementById('repertoireVideoWrapper');
+  if (!videoContainer) return;
+
+  if (!videoUrl) {
+    videoContainer.innerHTML = '';
+    return;
+  }
+
+  const isOffline = typeof navigator !== 'undefined' && navigator.onLine === false;
+  const videoId = extractYouTubeId(videoUrl);
+
+  if (videoId) {
+    if (isOffline) {
+      videoContainer.innerHTML = `
+        <div style="margin-top: 12px; padding: 14px; background: #fffbeb; border: 1px dashed #fde68a; border-radius: 8px; text-align: center; color: #92400e; font-size: 0.82rem;">
+          ▶️ <strong>YouTube Video:</strong> <span class="badge-offline-req">Requires Internet</span>
+          <p style="margin: 4px 0 0; font-size: 0.76rem; color: #b45309;">Streaming video is disabled in Offline Mode. Use the rehearsal audio player above to practice.</p>
+        </div>
+      `;
+      return;
+    }
+
+    // High-performance facade: Render a static poster preview first
+    videoContainer.innerHTML = `
+      <div class="yt-facade" id="ytFacade" role="button" tabindex="0" aria-label="Play rehearsal video" style="cursor: pointer; position: relative; background: #000; border-radius: 8px; overflow: hidden; margin-top: 12px; width: 100%; aspect-ratio: 16/9; display: flex; align-items: center; justify-content: center;">
+        <img src="https://img.youtube.com/vi/${videoId}/hqdefault.jpg" alt="Video thumbnail" style="width: 100%; height: 100%; object-fit: cover; display: block; opacity: 0.85;" onerror="this.src='https://img.youtube.com/vi/${videoId}/0.jpg';" />
+        <div class="play-btn-overlay" style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 56px; height: 56px; background: rgba(220, 38, 38, 0.9); border-radius: 50%; display: flex; align-items: center; justify-content: center; color: white; font-size: 24px; box-shadow: 0 4px 14px rgba(0,0,0,0.4); transition: transform 0.2s ease;">
+          ▶
+        </div>
+      </div>
+    `;
+
+    // Inject the actual iframe strictly on click
+    const facade = document.getElementById('ytFacade');
+    if (facade) {
+      const loadIframe = () => {
+        videoContainer.innerHTML = `
+          <div style="margin-top: 12px; border-radius: 8px; overflow: hidden; background: #000; position: relative; width: 100%; aspect-ratio: 16/9;">
+            <iframe 
+              src="https://www.youtube-nocookie.com/embed/${videoId}?autoplay=1&enablejsapi=0" 
+              title="Rehearsal Video" 
+              frameborder="0" 
+              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" 
+              allowfullscreen
+              style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; border: 0; border-radius: 8px;">
+            </iframe>
+          </div>
+        `;
+      };
+      facade.addEventListener('click', loadIframe, { once: true });
+      facade.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          loadIframe();
+        }
+      }, { once: true });
+    }
+    return;
+  }
+
+  // Direct video or non-youtube link fallback
+  if (videoUrl.endsWith('.mp4') || videoUrl.includes('.mp4?')) {
+    videoContainer.innerHTML = `
+      <div style="margin-top: 12px; border-radius: 8px; overflow: hidden; background: #000;">
+        <video controls playsinline preload="metadata" src="${escapeHtml(videoUrl)}" style="width: 100%; display: block; max-height: 420px; border-radius: 8px;"></video>
+      </div>
+    `;
+    return;
+  }
+
+  videoContainer.innerHTML = `
+    <div style="margin-top: 12px;">
+      <a href="${escapeHtml(videoUrl)}" target="_blank" rel="noopener noreferrer" class="btn btn-outline" style="display: inline-flex; align-items: center; gap: 6px;">▶ Open Rehearsal Video ↗</a>
+    </div>
+  `;
+}
+window.renderVideoContainer = renderVideoContainer;
+
 function renderSelectedSongResource(songKey) {
   const container = document.getElementById("dynamicResourceContainer");
   if (!container) return;
+
+  // Prevent mounting video players / iframes during initial onboarding setup
+  const profileCard = document.getElementById("profileCard");
+  if (profileCard && profileCard.style.display !== "none") {
+    container.innerHTML = "";
+    return;
+  }
 
   const song = getSongResource(songKey);
   if (!song) {
@@ -4245,32 +4332,8 @@ function renderSelectedSongResource(songKey) {
     `;
   }
 
-  let embedHtml = "";
-  const ytVideoId = getYouTubeId(song.videoUrl);
   const localVideo = (isValidResourceUrl(song.localVideoUrl) && song.localVideoUrl) || (song.resources && !Array.isArray(song.resources) && isValidResourceUrl(song.resources.video) && song.resources.video.endsWith('.mp4') && song.resources.video) || "";
-
-  if (ytVideoId) {
-    if (isOffline) {
-      embedHtml = `
-          <div style="margin-top: 12px; padding: 14px; background: #fffbeb; border: 1px dashed #fde68a; border-radius: 8px; text-align: center; color: #92400e; font-size: 0.82rem;">
-            ▶️ <strong>YouTube Video:</strong> <span class="badge-offline-req">Requires Internet</span>
-            <p style="margin: 4px 0 0; font-size: 0.76rem; color: #b45309;">Streaming video is disabled in Offline Mode. Use the rehearsal audio player above to practice.</p>
-          </div>
-        `;
-    } else {
-      embedHtml = `
-          <div style="margin-top: 12px; border-radius: 8px; overflow: hidden; background: #000; position: relative; padding-bottom: 56.25%; height: 0;">
-            <iframe src="https://www.youtube.com/embed/${ytVideoId}?enablejsapi=1&playsinline=1" style="position: absolute; top:0; left:0; width:100%; height:100%; border:0;" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
-          </div>
-        `;
-    }
-  } else if (localVideo) {
-    embedHtml = `
-        <div style="margin-top: 12px; border-radius: 8px; overflow: hidden; background: #000;">
-          <video controls playsinline preload="metadata" src="${escapeHtml(localVideo)}" style="width: 100%; display: block; max-height: 420px; border-radius: 8px;"></video>
-        </div>
-      `;
-  }
+  const videoSource = song.videoUrl || localVideo || "";
 
   const mins = getUserSettings().timerMinutes || 15;
   const rawResourceUrl = isValidResourceUrl(song.resourceUrl || song.pdfUrl) ? (song.resourceUrl || song.pdfUrl).trim() : "";
@@ -4310,10 +4373,12 @@ function renderSelectedSongResource(songKey) {
           ${renderSelfCheckMicHtml()}
           ${extraResourcesHtml}
           ${noteHtml}
-          ${embedHtml}
+          <div id="repertoireVideoWrapper" class="repertoire-video-wrapper"></div>
         </div>
       </div>
     `;
+
+  renderVideoContainer(videoSource);
 }
 
 

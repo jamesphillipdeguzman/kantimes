@@ -10324,3 +10324,28 @@ body.layout-horizontal .dashboard-section-tab.tab-active {
   line-height: 1.4;
 }
 
+/* YouTube Facade (Zero-telemetry lazy player) */
+.yt-facade {
+  cursor: pointer;
+  position: relative;
+  background: #000;
+  border-radius: var(--radius-md, 8px);
+  overflow: hidden;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+  user-select: none;
+}
+
+.yt-facade:hover {
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.35);
+}
+
+.yt-facade:hover .play-btn-overlay {
+  transform: translate(-50%, -50%) scale(1.12);
+  background: rgba(239, 68, 68, 1);
+}
+
+.yt-facade:focus-visible {
+  outline: 2px solid var(--primary, #2563eb);
+  outline-offset: 2px;
+}
+
