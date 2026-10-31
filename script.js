@@ -22,6 +22,53 @@ function compareSemver(v1, v2) {
   return 0;
 }
 
+// ==========================================================================
+// ANONYMOUS DEFAULTS & STAKE-ISOLATED STORAGE ENGINE
+// ==========================================================================
+
+// Initialize empty rosters and unconfigured user defaults
+const DEFAULT_KNOWN_SINGERS = [];
+
+const DEFAULT_USER_IDENTITY = {
+  name: "",
+  initials: "",
+  voice: "",       // e.g. "Soprano", "Alto", "Tenor", "Bass", or empty
+  section: "",
+  avatar: "default-avatar.png",
+  isConfigured: false
+};
+
+/**
+ * Generates a safe deterministic alphanumeric stake hash for scoping storage keys.
+ * Ensures data isolation across different stakes / Google Sheets.
+ */
+function getStakeHash(sheetIdOrUrl = "") {
+  const source = (sheetIdOrUrl || (typeof getActiveSheetId === 'function' ? getActiveSheetId() : '') || "").trim();
+  if (!source) return "default";
+  let hash = 0;
+  for (let i = 0; i < source.length; i++) {
+    const char = source.charCodeAt(i);
+    hash = ((hash << 5) - hash) + char;
+    hash |= 0;
+  }
+  const cleanPrefix = source.replace(/[^a-zA-Z0-9]/g, "").slice(0, 12) || "stake";
+  return `${cleanPrefix}_${Math.abs(hash).toString(36)}`;
+}
+
+/**
+ * Returns a stake-isolated localStorage key.
+ */
+function getStakeStorageKey(baseKey, customSheet = "") {
+  const sheet = customSheet || (typeof getActiveSheetId === 'function' ? getActiveSheetId() : '');
+  if (!sheet) return baseKey;
+  const stakeKey = getStakeHash(sheet);
+  return `${baseKey}_${stakeKey}`;
+}
+window.DEFAULT_KNOWN_SINGERS = DEFAULT_KNOWN_SINGERS;
+window.DEFAULT_USER_IDENTITY = DEFAULT_USER_IDENTITY;
+window.getStakeHash = getStakeHash;
+window.getStakeStorageKey = getStakeStorageKey;
+
 // --- APPS SCRIPT WEB APP URL ---
 // --- APPS SCRIPT WEB APP URL ---
 const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycby6r8JCXFOeuDqk8mlrTFAY5G5jOUOcoljMIC-ow1tlStLj3EVBpEWE_q9iT_sRngEa/exec";
@@ -848,7 +895,10 @@ async function handleStakeSheetConnect() {
 
   const prevActiveSheet = localStorage.getItem("kantimes_active_sheet_id");
   if (prevActiveSheet !== storedSource) {
+    localStorage.setItem("kantimes_active_sheet_id", storedSource);
     initFreshStakeSectionStandings(true);
+    cachedKnownSingers = [];
+    loadKnownSingersCache();
   }
   // Wipe stale cache before fetching so new sheet columns immediately take effect
   localStorage.removeItem("kantimes_repertoire_cache");
@@ -868,9 +918,18 @@ async function handleStakeSheetConnect() {
  * Disconnects the active custom Google Sheet repertoire and reverts to unconfigured onboarding state.
  */
 function disconnectRepertoireSheet() {
+  const currentSheet = localStorage.getItem("kantimes_active_sheet_id");
+  if (currentSheet) {
+    const stakeKey = getStakeHash(currentSheet);
+    localStorage.removeItem(`kantimes_known_singers_${stakeKey}`);
+    localStorage.removeItem(`kantimes_section_standings_${stakeKey}`);
+  }
   localStorage.removeItem("kantimes_active_sheet_id");
   localStorage.removeItem("kantimes_repertoire_cache");
   localStorage.removeItem("kantimes_cached_songs");
+  cachedKnownSingers = [];
+  loadKnownSingersCache();
+  initFreshStakeSectionStandings(true);
 
   const settings = getUserSettings();
   settings.songs = [];
@@ -1033,8 +1092,10 @@ function initStakeRepertoireSync() {
       const cleanParam = sheetParam.trim();
       const currentActive = localStorage.getItem("kantimes_active_sheet_id");
       if (cleanParam !== currentActive) {
-        initFreshStakeSectionStandings(true);
         localStorage.setItem("kantimes_active_sheet_id", cleanParam);
+        initFreshStakeSectionStandings(true);
+        cachedKnownSingers = [];
+        loadKnownSingersCache();
         showToast("Loading Stake Repertoire from link... 🎶");
         loadSongsFromSheet(cleanParam, { isBackground: false, userInitiated: true });
       }
@@ -1088,13 +1149,20 @@ function getUserIdentity() {
       .toUpperCase()
       .padStart(4, "0");
 
-    const existingPart = localStorage.getItem("choir_voice") || localStorage.getItem("choir_section") || "All";
+    const existingPart = localStorage.getItem("choir_voice") || localStorage.getItem("choir_section") || "";
+    const existingName = localStorage.getItem("choir_name") || "";
 
     identity = {
+      ...DEFAULT_USER_IDENTITY,
       tag: tag,
-      initials: "",
-      part: existingPart, // Default voice part
-      stake: ""
+      name: existingName,
+      fullName: existingName,
+      part: existingPart,
+      voice: existingPart,
+      section: existingPart,
+      stake: "",
+      avatar: "default-avatar.png",
+      isConfigured: Boolean(existingName && existingName.trim().length >= 2)
     };
     localStorage.setItem("kantimes_user_identity", JSON.stringify(identity));
   }
@@ -1102,11 +1170,16 @@ function getUserIdentity() {
 }
 
 /**
- * Returns formatted handle string, e.g. "JD#8K2P" or "Tenor#8K2P"
+ * Returns formatted handle string, e.g. "JD#8K2P" or "Choir Member#8K2P"
  */
 function getDisplayHandle(identity = getUserIdentity()) {
-  const name = identity.initials ? identity.initials.trim().toUpperCase() : (identity.part || "All");
-  return `${name}#${identity.tag}`;
+  if (!identity) return "Choir Member";
+  const name = identity.initials ? identity.initials.trim().toUpperCase() : (identity.fullName || identity.name || (identity.part && identity.part !== "All" ? identity.part : ""));
+  if (name) {
+    return `${name}#${identity.tag}`;
+  }
+  // Generic unconfigured first-run label
+  return `Choir Member#${identity.tag}`;
 }
 
 /**
@@ -1490,10 +1563,10 @@ function updateIdentityUI() {
   const identity = getUserIdentity();
   const handle = getDisplayHandle(identity);
 
-  // Header pill handle
+  // Header pill handle: Display generic label if unconfigured
   const headerHandleEl = document.getElementById("headerProfileHandle") || document.getElementById("headerIdentityHandle");
   if (headerHandleEl) {
-    headerHandleEl.textContent = handle;
+    headerHandleEl.textContent = identity.isConfigured ? handle : (identity.part && identity.part !== "All" ? `${identity.part} Member` : "Choir Member");
   }
 
   // Header icon
@@ -2019,33 +2092,23 @@ function populatePhStakesDatalistFallback() {
 // SECTION STANDINGS ENGINE (ZERO-PII LOCAL AGGREGATION)
 // ==========================================================================
 const DEFAULT_SECTION_STANDINGS = {
-  "Soprano": 120,
-  "Alto": 105,
-  "Tenor": 135,
-  "Bass": 90,
-  "Primary": 60
+  "Soprano": 0,
+  "Alto": 0,
+  "Tenor": 0,
+  "Bass": 0,
+  "Primary": 0
 };
 
 /**
- * Retrieves section standings from localStorage ("kantimes_section_standings").
- * Initializes with starter totals if not yet present.
+ * Retrieves section standings from stake-scoped localStorage ("kantimes_section_standings_${stakeKey}").
  */
 function getSectionStandings() {
+  const activeKey = getStakeStorageKey("kantimes_section_standings");
   try {
-    const raw = localStorage.getItem("kantimes_section_standings");
+    const raw = localStorage.getItem(activeKey);
     if (raw) {
       const parsed = JSON.parse(raw);
       if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
-        let changed = false;
-        ["Soprano", "Alto", "Tenor", "Bass", "Primary"].forEach(sec => {
-          if (parsed[sec] === undefined) {
-            parsed[sec] = DEFAULT_SECTION_STANDINGS[sec] || 0;
-            changed = true;
-          }
-        });
-        if (changed) {
-          localStorage.setItem("kantimes_section_standings", JSON.stringify(parsed));
-        }
         return parsed;
       }
     }
@@ -2055,21 +2118,19 @@ function getSectionStandings() {
 
   const initial = { ...DEFAULT_SECTION_STANDINGS };
   try {
-    localStorage.setItem("kantimes_section_standings", JSON.stringify(initial));
+    localStorage.setItem(activeKey, JSON.stringify(initial));
   } catch (e) { }
   return initial;
 }
 
 /**
  * Initializes or resets section standings for a fresh stake connection or default reset.
- * @param {boolean} useZeros If true, resets all sections to 0 minutes (clean slate for new stake).
  */
-function initFreshStakeSectionStandings(useZeros = false) {
-  const initial = useZeros
-    ? { "Soprano": 0, "Alto": 0, "Tenor": 0, "Bass": 0, "Primary": 0 }
-    : { ...DEFAULT_SECTION_STANDINGS };
+function initFreshStakeSectionStandings(useZeros = true) {
+  const activeKey = getStakeStorageKey("kantimes_section_standings");
+  const initial = { "Soprano": 0, "Alto": 0, "Tenor": 0, "Bass": 0, "Primary": 0 };
   try {
-    localStorage.setItem("kantimes_section_standings", JSON.stringify(initial));
+    localStorage.setItem(activeKey, JSON.stringify(initial));
   } catch (e) { }
   renderSectionStandingsUI();
   return initial;
@@ -2106,7 +2167,7 @@ function recordSectionPracticeMinutes(part, minutes) {
   }
 
   try {
-    localStorage.setItem("kantimes_section_standings", JSON.stringify(standings));
+    localStorage.setItem(getStakeStorageKey("kantimes_section_standings"), JSON.stringify(standings));
   } catch (e) {
     console.error("[Kantimes] Error saving section standings:", e);
   }
@@ -2409,7 +2470,8 @@ function getLeaderboardAvatarHtml(avatarFile, singerName) {
 
 // --- USER SETTINGS & DEFAULT CHOIR REPERTOIRE ---
 const DEFAULT_USER_SETTINGS = {
-  targetDate: "Christmas Devotional & Current Practice",
+  targetDate: "",
+  eventTitle: "Choir Rehearsal",
   timerMinutes: 15,
   showPastRepertoire: false,
   songs: [
@@ -2896,7 +2958,7 @@ function applyHeaderTargetDate() {
   const settings = getUserSettings();
   const el = document.getElementById("headerSubtitle");
   if (el) {
-    el.innerText = settings.targetDate || "Christmas Devotional & Current Practice";
+    el.innerText = settings.targetDate || settings.eventTitle || "Choir Rehearsal & Current Practice";
   }
 }
 
@@ -7407,7 +7469,7 @@ function exportTutorialToPdf() {
       color:#64748b;
     ">
       <span style="font-weight:600;">
-        Developed for Iloilo Stake Choir | Built by James Phillip De Guzman
+        Stake Choir Repertoire • Practice Hub
       </span>
 
       <span style="color:#94a3b8;">
@@ -9347,7 +9409,7 @@ function exportVocalDrillsToPdf() {
       color:#64748b;
     ">
       <span style="font-weight:600;">
-        Developed for Iloilo Stake Choir | Built by James Phillip De Guzman
+        Stake Choir Repertoire • Practice Hub
       </span>
 
       <span style="color:#94a3b8;">
