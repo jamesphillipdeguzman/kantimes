@@ -45,11 +45,9 @@
 
   <header>
     <div class="header-inner header-nav">
-      <div class="header-brand brand-wrap">
-        <img src="images/kantimes-logo.png" alt="KanTimes Logo" class="header-logo" id="appLogoRefresh" role="button"
-          tabindex="0" onclick="handleStakeSheetConnect()"
-          onkeydown="if(event.key==='Enter'||event.key===' ')forceAppUpdate()"
-          title="Tap to refresh app and check for new songs" aria-label="Refresh app and check for updates"
+      <div class="header-brand brand-wrap nav-brand" id="appBrandSync" title="Click to refresh repertoire from Sheet" style="cursor: pointer;" role="button" tabindex="0">
+        <img src="images/kantimes-logo.png" alt="KanTimes Logo" class="header-logo" id="appLogoRefresh"
+          title="Click to refresh repertoire from Sheet" aria-label="Refresh repertoire from Sheet"
           onerror="this.style.display='none'">
         <div class="header-text brand-text">
           <h1 class="brand-title">Kantimes <span class="app-version-badge" title="Kantimes v2.8.0">v2.8.0</span></h1>
@@ -197,7 +195,7 @@
           </div>
         </div>
         <label for="targetSong">Select Song to Rehearse</label>
-        <select id="targetSong" class="rehearsal-song-select" onchange="handleSongSelectionChange()">
+        <select id="targetSong" data-alt-id="songSelect,selectSongToRehearse" class="rehearsal-song-select" onchange="handleSongSelectionChange()">
           <!-- Populated dynamically from userSettings.songs -->
         </select>
 
@@ -755,8 +753,8 @@
           </div>
 
           <div class="settings-section" style="margin-top: 14px;">
-            <label for="googleSheetInput">Google Sheet URL or ID</label>
-            <input type="text" id="googleSheetInput" data-alt-id="stakeSheetInput" class="stake-sheet-input"
+            <label for="stakeSheetUrlInput">Google Sheet URL or ID</label>
+            <input type="text" id="stakeSheetUrlInput" data-alt-id="googleSheetInput,stakeSheetInput" class="stake-sheet-input"
               placeholder="Paste Google Sheet URL or pure Sheet ID..."
               onkeydown="if(event.key==='Enter')handleStakeSheetConnect()">
             <p class="settings-hint">

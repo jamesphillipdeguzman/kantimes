@@ -9906,3 +9906,27 @@ body.piano-fullscreen-active {
   color: #34d399;
 }
 
+
+
+/* Kantimes Re-Sync Brand Logo & Spinning Indicator */
+#appBrandSync,
+.nav-brand {
+  cursor: pointer;
+  user-select: none;
+  transition: opacity 0.2s ease, transform 0.15s ease;
+}
+
+#appBrandSync:active {
+  transform: scale(0.98);
+}
+
+.syncing-spin .header-logo,
+.syncing-spin img,
+.syncing-spin svg {
+  animation: brandLogoSpin 0.9s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+}
+
+@keyframes brandLogoSpin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
