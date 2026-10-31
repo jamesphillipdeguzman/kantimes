@@ -8767,7 +8767,7 @@ function getSavedLayoutMode() {
   } catch (e) {
     console.warn('Could not read layout preference from localStorage:', e);
   }
-  return 'vertical';
+  return 'horizontal';
 }
 
 function applyLayoutMode(mode, save = true) {
@@ -8793,7 +8793,7 @@ function applyLayoutMode(mode, save = true) {
   }
 
   if (isHorizontal) {
-    const activeSection = document.querySelector('.dashboard-section-tab.active');
+    const activeSection = document.querySelector('.dashboard-section-tab.active, .dashboard-section-tab.tab-active');
     if (!activeSection) {
       switchHorizontalTab('practiceSection');
     }
@@ -8812,11 +8812,9 @@ function applyLayoutMode(mode, save = true) {
 function switchHorizontalTab(targetId) {
   const sections = document.querySelectorAll('.dashboard-section-tab');
   sections.forEach((sec) => {
-    if (sec.id === targetId) {
-      sec.classList.add('active');
-    } else {
-      sec.classList.remove('active');
-    }
+    const isTarget = sec.id === targetId;
+    sec.classList.toggle('active', isTarget);
+    sec.classList.toggle('tab-active', isTarget);
   });
 
   const tabButtons = document.querySelectorAll('.horizontal-tab-bar .tab-btn');

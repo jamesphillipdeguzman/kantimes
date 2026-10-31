@@ -10271,7 +10271,8 @@ body.layout-horizontal .dashboard-section-tab {
   display: none;
 }
 
-body.layout-horizontal .dashboard-section-tab.active {
+body.layout-horizontal .dashboard-section-tab.active,
+body.layout-horizontal .dashboard-section-tab.tab-active {
   display: block;
   animation: fadeInTab 0.22s cubic-bezier(0.16, 1, 0.3, 1);
 }

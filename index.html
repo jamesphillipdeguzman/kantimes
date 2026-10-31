@@ -41,7 +41,7 @@
   <link rel="stylesheet" href="css/style.css?v=2.8.0">
 </head>
 
-<body>
+<body class="layout-horizontal">
 
   <header>
     <div class="header-inner header-nav">
@@ -173,7 +173,7 @@
     <div id="mainDashboard" class="fade-in" style="display: none;">
 
       <!-- Horizontal Tab Bar (Displayed in Horizontal Layout Mode) -->
-      <nav class="horizontal-tab-bar" id="horizontalTabBar" role="tablist" aria-label="Dashboard Sections" style="display: none;">
+      <nav class="horizontal-tab-bar" id="horizontalTabBar" role="tablist" aria-label="Dashboard Sections">
         <button type="button" class="tab-btn active" role="tab" aria-selected="true" data-tab-target="practiceSection" id="tabNavPractice">
           ⏱️ Rehearse
         </button>
@@ -189,7 +189,7 @@
       </nav>
 
       <!-- Practice Session & Dynamic Workspace -->
-      <div id="practiceSection" class="dashboard-section-tab active">
+      <div id="practiceSection" class="dashboard-section-tab active tab-active">
       <div class="card" id="practiceWorkspace">
         <div class="workspace-header-row">
           <h2>⏱️ <span id="practiceDurationTitle">15</span>-Minute Practice Session</h2>
@@ -1042,10 +1042,10 @@
                 <p class="setting-desc settings-hint" style="margin-top: 2px; margin-bottom: 8px;">Choose between a stacked continuous view or organized horizontal tabs.</p>
               </div>
               <div class="layout-toggle-group" role="radiogroup" aria-label="Dashboard Layout">
-                <button type="button" class="btn-layout-option active" data-layout="vertical" id="layoutBtnVertical">
+                <button type="button" class="btn-layout-option" data-layout="vertical" id="layoutBtnVertical">
                   ↕️ Vertical (Stacked)
                 </button>
-                <button type="button" class="btn-layout-option" data-layout="horizontal" id="layoutBtnHorizontal">
+                <button type="button" class="btn-layout-option active" data-layout="horizontal" id="layoutBtnHorizontal">
                   ↔️ Horizontal (Tabs)
                 </button>
               </div>
