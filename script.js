@@ -1542,24 +1542,26 @@ function recordCompletedPracticeSession(durationMinutes, songTitle, part) {
     if (rawProfile) Object.assign(userProfile, JSON.parse(rawProfile));
   } catch (e) {}
 
-  const userHandle = userProfile.handle || (typeof getDisplayHandle === "function" ? getDisplayHandle(userProfile) : (userProfile.tag ? `${userProfile.nickname || userProfile.initials || "CHOIR"}#${userProfile.tag}` : `${userProfile.nickname || "CHOIR"}#${userProfile.tag || "USR1"}`));
-  const userVoice = part || userProfile.voice || userProfile.part || userProfile.section || "Tenor";
+  const currentHandle = userProfile.handle || (typeof getDisplayHandle === "function" ? getDisplayHandle(userProfile) : `${userProfile.nickname || "CHOIR"}#${userProfile.tag || "USR1"}`);
+  const currentVoice = part || userProfile.voice || userProfile.part || userProfile.section || "Tenor";
+  const currentStake = userProfile.stake || identity.stake || "Unassigned Stake";
   const currentSong = songTitle || (document.getElementById("targetSong") ? document.getElementById("targetSong").value : "") || "General Practice";
 
   let logs = getPracticeLogs();
 
-  const entry = {
-    id: "prac_" + Date.now() + "_" + Math.floor(Math.random() * 10000),
+  const sessionEntry = {
+    id: "session_" + Date.now() + "_" + Math.floor(Math.random() * 10000),
+    handle: currentHandle,
+    voice: currentVoice,
+    part: currentVoice,
+    stake: currentStake,
     songTitle: currentSong,
-    part: userVoice,
-    voice: userVoice,
-    handle: userHandle,
     durationMinutes: mins,
     duration: mins,
-    timestamp: Date.now()
+    timestamp: new Date().toISOString()
   };
 
-  logs.unshift(entry);
+  logs.unshift(sessionEntry);
   if (logs.length > 50) {
     logs = logs.slice(0, 50);
   }
@@ -1575,7 +1577,7 @@ function recordCompletedPracticeSession(durationMinutes, songTitle, part) {
   if (typeof renderPracticeMilestonesUI === "function") {
     renderPracticeMilestonesUI();
   }
-  return entry;
+  return sessionEntry;
 }
 
 /**
@@ -2460,60 +2462,177 @@ const DEFAULT_SECTION_STANDINGS = {
   "Primary": 0
 };
 
+let currentStandingsFilter = 'current-stake';
+let currentSelectedStake = '';
+
+/**
+ * Updates the stake dropdown options based on distinct stakes present in practice logs.
+ */
+function updateStandingsStakeDropdown() {
+  const selectStake = document.getElementById('selectStandingsStake');
+  if (!selectStake) return;
+
+  const logs = getPracticeLogs();
+  const stakesSet = new Set();
+  logs.forEach(l => {
+    if (l && l.stake && l.stake !== 'Unassigned Stake' && l.stake.trim()) {
+      stakesSet.add(l.stake.trim());
+    }
+  });
+
+  try {
+    const profile = JSON.parse(localStorage.getItem('kantimes_user_identity') || '{}');
+    if (profile.stake && profile.stake.trim()) {
+      stakesSet.add(profile.stake.trim());
+    }
+  } catch (e) {}
+
+  const stakesList = Array.from(stakesSet).sort();
+  if (stakesList.length <= 1) {
+    if (currentStandingsFilter !== 'by-stake') {
+      selectStake.style.display = 'none';
+    }
+    return;
+  }
+
+  const currentVal = selectStake.value;
+  selectStake.innerHTML = `<option value="ALL">🌐 All Stakes (${stakesList.length})</option>` +
+    stakesList.map(st => `<option value="${escapeLeaderboardHtml(st)}">📍 ${escapeLeaderboardHtml(st)}</option>`).join('');
+
+  if (currentVal && stakesList.includes(currentVal)) {
+    selectStake.value = currentVal;
+  }
+}
+
+/**
+ * Binds click events to the Standings Stake filter pill controls and dropdown.
+ */
+function initStandingsFilterControls() {
+  const btnCurrent = document.getElementById('btnFilterCurrentStake');
+  const btnAll = document.getElementById('btnFilterAllStakes');
+  const selectStake = document.getElementById('selectStandingsStake');
+
+  updateStandingsStakeDropdown();
+
+  if (btnCurrent && !btnCurrent.dataset.filterBound) {
+    btnCurrent.dataset.filterBound = "true";
+    btnCurrent.addEventListener('click', () => {
+      currentStandingsFilter = 'current-stake';
+      currentSelectedStake = '';
+      if (btnCurrent) btnCurrent.classList.add('active');
+      if (btnAll) btnAll.classList.remove('active');
+      if (selectStake) selectStake.style.display = 'none';
+      renderSectionStandings();
+    });
+  }
+
+  if (btnAll && !btnAll.dataset.filterBound) {
+    btnAll.dataset.filterBound = "true";
+    btnAll.addEventListener('click', () => {
+      currentStandingsFilter = 'all-stakes';
+      currentSelectedStake = '';
+      if (btnAll) btnAll.classList.add('active');
+      if (btnCurrent) btnCurrent.classList.remove('active');
+      if (selectStake) {
+        updateStandingsStakeDropdown();
+        const optionsCount = selectStake.options ? selectStake.options.length : 0;
+        selectStake.style.display = optionsCount > 1 ? 'inline-block' : 'none';
+      }
+      renderSectionStandings();
+    });
+  }
+
+  if (selectStake && !selectStake.dataset.filterBound) {
+    selectStake.dataset.filterBound = "true";
+    selectStake.addEventListener('change', () => {
+      const val = selectStake.value;
+      if (val === 'ALL') {
+        currentStandingsFilter = 'all-stakes';
+        currentSelectedStake = '';
+      } else {
+        currentStandingsFilter = 'by-stake';
+        currentSelectedStake = val;
+      }
+      renderSectionStandings();
+    });
+  }
+}
+
+/**
+ * Aggregates practice session logs by voice part and anonymous handle, filtered by stake view.
+ */
+function getAggregatedStandings(filterMode = currentStandingsFilter, selectedStake = currentSelectedStake) {
+  const logs = getPracticeLogs();
+  let userStake = 'Iloilo Philippines Stake';
+  try {
+    const profile = JSON.parse(localStorage.getItem('kantimes_user_identity') || '{}');
+    userStake = profile.stake || (typeof getUserIdentity === 'function' ? getUserIdentity().stake : '') || 'Iloilo Philippines Stake';
+  } catch (e) {}
+
+  // 1. Filter logs according to the selected view
+  let filteredLogs = logs;
+  if (filterMode === 'current-stake') {
+    filteredLogs = logs.filter(log => (log.stake || userStake) === userStake);
+  } else if (filterMode === 'by-stake' && selectedStake) {
+    filteredLogs = logs.filter(log => log.stake === selectedStake);
+  }
+
+  // 2. Aggregate by Voice Part
+  const voiceTotals = {
+    'Soprano': { minutes: 0, singers: new Map() },
+    'Alto': { minutes: 0, singers: new Map() },
+    'Tenor': { minutes: 0, singers: new Map() },
+    'Bass': { minutes: 0, singers: new Map() },
+    'Primary': { minutes: 0, singers: new Map() }
+  };
+
+  // 3. Tally minutes by voice and anonymous handle
+  filteredLogs.forEach(entry => {
+    let rawVoice = entry.voice || entry.part || 'Tenor';
+    let matchedVoice = Object.keys(voiceTotals).find(k => k.toLowerCase() === (rawVoice || '').toLowerCase());
+    if (!matchedVoice && rawVoice) {
+      const vLower = rawVoice.toLowerCase();
+      if (vLower.includes('soprano')) matchedVoice = 'Soprano';
+      else if (vLower.includes('alto')) matchedVoice = 'Alto';
+      else if (vLower.includes('tenor')) matchedVoice = 'Tenor';
+      else if (vLower.includes('bass')) matchedVoice = 'Bass';
+      else if (vLower.includes('primary')) matchedVoice = 'Primary';
+    }
+    const voice = matchedVoice || 'Tenor';
+    const minutes = Number(entry.durationMinutes || entry.duration || 5);
+    const handle = entry.handle || 'Anonymous';
+    const stakeName = entry.stake || 'Independent';
+
+    if (voiceTotals[voice]) {
+      voiceTotals[voice].minutes += minutes;
+      const prev = voiceTotals[voice].singers.get(handle) || { minutes: 0, stake: stakeName };
+      voiceTotals[voice].singers.set(handle, {
+        minutes: prev.minutes + minutes,
+        stake: stakeName
+      });
+    }
+  });
+
+  return voiceTotals;
+}
+
 /**
  * Computes section totals and public handle rosters dynamically from logged practice sessions.
  * Returns ranked list sorted descending by total practice minutes.
  */
-function getSectionStandingsData() {
-  const sections = {
-    'Soprano': { totalMinutes: 0, singers: new Map() },
-    'Alto': { totalMinutes: 0, singers: new Map() },
-    'Tenor': { totalMinutes: 0, singers: new Map() },
-    'Bass': { totalMinutes: 0, singers: new Map() },
-    'Primary': { totalMinutes: 0, singers: new Map() }
-  };
-
-  const logs = getPracticeLogs();
-
-  let userProfile = {};
-  try {
-    const rawProfile = localStorage.getItem('kantimes_user_identity');
-    if (rawProfile) userProfile = JSON.parse(rawProfile);
-  } catch (e) {
-    userProfile = {};
-  }
-  const userHandle = userProfile.handle || (typeof getDisplayHandle === 'function' ? getDisplayHandle(userProfile) : (userProfile.tag ? `${userProfile.nickname || userProfile.initials || 'CHOIR'}#${userProfile.tag}` : `${userProfile.nickname || 'CHOIR'}#${userProfile.tag || 'USR1'}`));
-  const userVoice = userProfile.voice || userProfile.part || userProfile.section || 'Tenor';
-
-  // Tally all logged sessions
-  logs.forEach(log => {
-    let rawVoice = log.voice || log.part || userVoice;
-    let voice = rawVoice;
-    for (const secKey of Object.keys(sections)) {
-      if (secKey.toLowerCase() === (rawVoice || '').toLowerCase() || (rawVoice && rawVoice.toLowerCase().includes(secKey.toLowerCase()))) {
-        voice = secKey;
-        break;
-      }
-    }
-    const handle = log.handle || userHandle;
-    const minutes = Number(log.durationMinutes || log.duration || 5);
-
-    if (sections[voice]) {
-      sections[voice].totalMinutes += minutes;
-      const currentSingerMin = sections[voice].singers.get(handle) || 0;
-      sections[voice].singers.set(handle, currentSingerMin + minutes);
-    }
-  });
+function getSectionStandingsData(filterMode = currentStandingsFilter, selectedStake = currentSelectedStake) {
+  const voiceTotals = getAggregatedStandings(filterMode, selectedStake);
 
   // Transform into ranked list
-  const ranked = Object.entries(sections).map(([name, data]) => ({
+  const ranked = Object.entries(voiceTotals).map(([name, data]) => ({
     name,
-    minutes: data.totalMinutes,
-    hours: (data.totalMinutes / 60).toFixed(1),
+    minutes: data.minutes,
+    hours: (data.minutes / 60).toFixed(1),
     singerCount: data.singers.size,
-    roster: Array.from(data.singers.entries()).map(([handle, mins]) => ({
+    roster: Array.from(data.singers.entries()).map(([handle, info]) => ({
       handle,
-      minutes: mins
+      minutes: info.minutes,
+      stake: info.stake
     })).sort((a, b) => b.minutes - a.minutes)
   })).sort((a, b) => b.minutes - a.minutes);
 
@@ -2554,6 +2673,8 @@ function recordSectionPracticeMinutes(part, minutes) {
 function renderSectionStandingsUI() {
   const sectionEl = document.getElementById("sectionList");
   if (!sectionEl) return;
+
+  initStandingsFilterControls();
 
   const ranked = getSectionStandingsData();
 
@@ -6104,14 +6225,16 @@ function renderSectionBreakdown(sectionName) {
   }
 
   rosterContainer.innerHTML = sectionData.roster.map((singer, index) => `
-    <div class="roster-singer-item">
-      <div class="singer-rank">#${index + 1}</div>
-      <div class="singer-avatar-chip">🎵</div>
-      <div class="singer-info">
-        <div class="singer-handle font-mono font-bold">${escapeLeaderboardHtml(singer.handle)}</div>
-        <div class="singer-meta text-xs text-muted">Active Rehearser</div>
+    <div class="roster-singer-row roster-singer-item flex items-center justify-between py-2 border-b">
+      <div class="flex items-center gap-2">
+        <span class="singer-rank font-bold text-xs text-muted">#${index + 1}</span>
+        <div class="singer-avatar-chip">🎵</div>
+        <span class="font-mono text-sm font-semibold singer-handle">${escapeLeaderboardHtml(singer.handle)}</span>
+        <span class="stake-badge-pill text-xs px-2 py-0.5 rounded bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-200">
+          ${escapeLeaderboardHtml(singer.stake || 'Independent')}
+        </span>
       </div>
-      <div class="singer-minutes font-semibold">${singer.minutes}m</div>
+      <span class="font-bold text-sm singer-minutes">${singer.minutes}m</span>
     </div>
   `).join('');
 }
@@ -11748,6 +11871,9 @@ window.recordSectionPracticeMinutes = recordSectionPracticeMinutes;
 window.initFreshStakeSectionStandings = initFreshStakeSectionStandings;
 window.renderSectionStandingsUI = renderSectionStandingsUI;
 window.renderSectionStandings = renderSectionStandings;
+window.getAggregatedStandings = getAggregatedStandings;
+window.initStandingsFilterControls = initStandingsFilterControls;
+window.updateStandingsStakeDropdown = updateStandingsStakeDropdown;
 window.renderSectionBreakdown = renderSectionBreakdown;
 window.openSectionBreakdownModal = openSectionBreakdownModal;
 window.closeSectionBreakdownModal = closeSectionBreakdownModal;
