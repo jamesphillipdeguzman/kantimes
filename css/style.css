@@ -10359,10 +10359,11 @@ body.layout-horizontal .dashboard-section-tab.tab-active {
 
 .stake-combobox-input {
   width: 100%;
-  padding-right: 32px !important;
+  padding-right: 36px !important;
 }
 
-/* Hide native browser arrow for datalist inputs */
+/* Suppress the default browser datalist indicator */
+input.stake-combobox-input::-webkit-calendar-picker-indicator,
 .stake-combobox-input::-webkit-calendar-picker-indicator,
 input[list]::-webkit-calendar-picker-indicator,
 input::-webkit-calendar-picker-indicator {
@@ -10374,11 +10375,17 @@ input::-webkit-calendar-picker-indicator {
 
 .combobox-chevron-icon {
   position: absolute;
-  right: 12px;
-  font-size: 10px;
-  color: #94a3b8;
+  right: 14px;
+  width: 16px;
+  height: 16px;
   pointer-events: none;
   user-select: none;
+  transition: transform 0.2s ease;
+}
+
+[data-theme="dark"] .combobox-chevron-icon,
+.dark .combobox-chevron-icon {
+  stroke: #94a3b8;
 }
 
 .stake-select-wrapper.stake-input-combobox-wrapper::after {
