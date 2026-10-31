@@ -10362,6 +10362,16 @@ body.layout-horizontal .dashboard-section-tab.tab-active {
   padding-right: 32px !important;
 }
 
+/* Hide native browser arrow for datalist inputs */
+.stake-combobox-input::-webkit-calendar-picker-indicator,
+input[list]::-webkit-calendar-picker-indicator,
+input::-webkit-calendar-picker-indicator {
+  display: none !important;
+  -webkit-appearance: none !important;
+  opacity: 0 !important;
+  pointer-events: none !important;
+}
+
 .combobox-chevron-icon {
   position: absolute;
   right: 12px;
