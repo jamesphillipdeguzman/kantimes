@@ -9930,3 +9930,37 @@ body.piano-fullscreen-active {
   0% { transform: rotate(0deg); }
   100% { transform: rotate(360deg); }
 }
+
+
+/* Clearable Input Wrapper & Button */
+.input-clearable-wrapper {
+  position: relative;
+  display: flex;
+  align-items: center;
+  width: 100%;
+}
+
+.input-clearable-wrapper input {
+  width: 100%;
+  padding-right: 36px; /* space for clear button */
+}
+
+.btn-clear-input {
+  position: absolute;
+  right: 10px;
+  background: transparent;
+  border: none;
+  color: #94a3b8;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  padding: 4px 6px;
+  border-radius: 4px;
+  display: none; /* toggle via JS when input has text */
+  transition: color 0.15s ease, background 0.15s ease;
+}
+
+.btn-clear-input:hover {
+  color: #ef4444;
+  background: rgba(239, 68, 68, 0.1);
+}

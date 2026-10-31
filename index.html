@@ -754,9 +754,25 @@
 
           <div class="settings-section" style="margin-top: 14px;">
             <label for="stakeSheetUrlInput">Google Sheet URL or ID</label>
-            <input type="text" id="stakeSheetUrlInput" data-alt-id="googleSheetInput,stakeSheetInput" class="stake-sheet-input"
-              placeholder="Paste Google Sheet URL or pure Sheet ID..."
-              onkeydown="if(event.key==='Enter')handleStakeSheetConnect()">
+            <div class="input-clearable-wrapper">
+              <input 
+                type="text" 
+                id="stakeSheetUrlInput" 
+                data-alt-id="googleSheetInput,stakeSheetInput" 
+                class="form-control stake-sheet-input" 
+                placeholder="https://docs.google.com/spreadsheets/d/..." 
+                autocomplete="off" 
+                spellcheck="false"
+                onkeydown="if(event.key==='Enter')handleStakeSheetConnect()"
+              />
+              <button 
+                type="button" 
+                id="btnClearSheetUrl" 
+                class="btn-clear-input" 
+                title="Clear input" 
+                aria-label="Clear Google Sheet link"
+              >✕</button>
+            </div>
             <p class="settings-hint">
               Ensure your Google Sheet is set to <strong>&ldquo;Anyone with the link can view&rdquo;</strong> (Share
               &gt; General access).

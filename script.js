@@ -970,6 +970,7 @@ async function handleStakeSheetConnect() {
 function disconnectRepertoireSheet() {
   const currentSheet = localStorage.getItem("kantimes_active_sheet_id");
   if (currentSheet) {
+    localStorage.setItem("kantimes_last_sheet_url", currentSheet);
     const stakeKey = getStakeHash(currentSheet);
     localStorage.removeItem(`kantimes_known_singers_${stakeKey}`);
     localStorage.removeItem(`kantimes_section_standings_${stakeKey}`);
@@ -987,11 +988,12 @@ function disconnectRepertoireSheet() {
 
   initFreshStakeSectionStandings(false);
 
+  // DO NOT clear input field - retain URL so choir members can reconnect with single tap of "Connect & Sync"
   const input = document.getElementById("stakeSheetUrlInput") || document.getElementById("googleSheetInput") || document.getElementById("stakeSheetInput");
-  if (input) {
-    input.value = "";
-    input.setAttribute("title", "Enter your Google Sheet URL or ID");
+  if (input && !input.value && currentSheet) {
+    input.value = currentSheet;
   }
+  updateClearBtnVisibility();
 
   const errEl = document.getElementById("stakeSheetError");
   if (errEl) errEl.style.display = "none";
@@ -1030,9 +1032,10 @@ function updateStakeSheetStatusUI() {
       badge.className = "stake-source-badge badge-custom active-sheet-link";
       badge.setAttribute("title", fullSourceUrl);
     } else {
-      badge.textContent = "Not Connected";
+      const hasSavedLink = Boolean(input && input.value && input.value.trim().length > 0);
+      badge.textContent = hasSavedLink ? "Disconnected (Saved Link)" : "Not Connected";
       badge.className = "stake-source-badge badge-default active-sheet-link";
-      badge.setAttribute("title", "No Google Sheet connected. Paste a published CSV link or ID.");
+      badge.setAttribute("title", hasSavedLink ? "Sheet disconnected. Click 'Connect & Sync' to reconnect." : "No Google Sheet connected. Paste a published CSV link or ID.");
     }
   }
 
@@ -1100,21 +1103,62 @@ function copyChoirShareLink() {
   }
 }
 
+function updateClearBtnVisibility() {
+  const sheetInput = document.getElementById('stakeSheetUrlInput') || document.getElementById('googleSheetInput') || document.getElementById('stakeSheetInput');
+  const clearBtn = document.getElementById('btnClearSheetUrl');
+  if (clearBtn && sheetInput) {
+    clearBtn.style.display = sheetInput.value.trim().length > 0 ? 'block' : 'none';
+  }
+}
+window.updateClearBtnVisibility = updateClearBtnVisibility;
+
+function initClearSheetUrlButton() {
+  const sheetInput = document.getElementById('stakeSheetUrlInput') || document.getElementById('googleSheetInput') || document.getElementById('stakeSheetInput');
+  const clearBtn = document.getElementById('btnClearSheetUrl');
+
+  if (sheetInput && !sheetInput._clearBound) {
+    sheetInput._clearBound = true;
+    sheetInput.addEventListener('input', () => {
+      updateClearBtnVisibility();
+      updateStakeSheetStatusUI();
+    });
+  }
+
+  if (clearBtn && !clearBtn._clearBound) {
+    clearBtn._clearBound = true;
+    clearBtn.addEventListener('click', () => {
+      if (sheetInput) {
+        sheetInput.value = '';
+        sheetInput.focus();
+      }
+      updateClearBtnVisibility();
+      updateStakeSheetStatusUI();
+    });
+  }
+
+  updateClearBtnVisibility();
+}
+window.initClearSheetUrlButton = initClearSheetUrlButton;
+
 function openStakeSheetModal() {
   const modal = document.getElementById("stakeSheetModal");
   if (!modal) return;
-  updateStakeSheetStatusUI();
   wireCopyTemplateButton();
+  initClearSheetUrlButton();
   const errEl = document.getElementById("stakeSheetError");
   if (errEl) {
     errEl.style.display = "none";
     errEl.textContent = "";
   }
   const input = document.getElementById("stakeSheetUrlInput") || document.getElementById("googleSheetInput") || document.getElementById("stakeSheetInput");
-  const customSource = localStorage.getItem("kantimes_active_sheet_id");
+  const customSource = localStorage.getItem("kantimes_active_sheet_id") || localStorage.getItem("kantimes_last_sheet_url");
   if (input) {
-    input.value = customSource ? customSource.trim() : "";
+    if (!input.value && customSource) {
+      input.value = customSource.trim();
+    }
   }
+  updateStakeSheetStatusUI();
+  updateClearBtnVisibility();
   modal.classList.add("active");
   document.body.style.overflow = "hidden";
 }
@@ -11045,6 +11089,7 @@ window.addEventListener("DOMContentLoaded", function () {
   initStakeRepertoireSync();
   initIdentityAndPracticeTracking();
   initAppBrandSync();
+  initClearSheetUrlButton();
 });
 
 // Close modals on Escape key
