@@ -10035,3 +10035,81 @@ body.piano-fullscreen-active {
   color: #f87171;
   transform: scale(1.08);
 }
+
+
+.stake-sheet-field-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 6px;
+}
+
+.sheet-lock-badge {
+  font-size: 0.72rem;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 9999px;
+  background: rgba(37, 99, 235, 0.1);
+  color: #2563eb;
+  border: 1px solid rgba(37, 99, 235, 0.25);
+  transition: all 0.15s ease;
+}
+
+[data-theme="dark"] .sheet-lock-badge {
+  background: rgba(59, 130, 246, 0.18);
+  color: #93c5fd;
+  border-color: rgba(59, 130, 246, 0.35);
+}
+
+/* Read-only style when locked */
+.stake-sheet-textarea[readonly] {
+  background-color: #f8fafc;
+  cursor: default;
+  border-color: #e2e8f0;
+  color: #475569;
+}
+
+[data-theme="dark"] .stake-sheet-textarea[readonly] {
+  background-color: rgba(15, 23, 42, 0.4);
+  border-color: rgba(255, 255, 255, 0.1);
+  color: #94a3b8;
+}
+
+.stake-sheet-field-actions {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+  margin-top: 8px;
+}
+
+.btn-edit-sheet-url {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  padding: 4px 10px;
+  border-radius: 6px;
+  background: rgba(37, 99, 235, 0.08);
+  border: 1px solid rgba(37, 99, 235, 0.2);
+  color: #2563eb;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.btn-edit-sheet-url:hover {
+  background: rgba(37, 99, 235, 0.16);
+  color: #1d4ed8;
+}
+
+[data-theme="dark"] .btn-edit-sheet-url {
+  background: rgba(59, 130, 246, 0.15);
+  border-color: rgba(59, 130, 246, 0.3);
+  color: #93c5fd;
+}
+
+[data-theme="dark"] .btn-edit-sheet-url:hover {
+  background: rgba(59, 130, 246, 0.25);
+  color: #bfdbfe;
+}

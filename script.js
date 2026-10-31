@@ -943,6 +943,7 @@ async function handleStakeSheetConnect() {
     // Force-sync with fresh timestamp (no early exit even if sheet URL unchanged)
     await syncRepertoire({ force: true, rawUrl: rawUrl, silent: false });
 
+    setSheetInputMode(false);
     updateStakeSheetStatusUI();
     showToast('Repertoire updated successfully!');
     closeStakeSheetModal();
@@ -993,6 +994,7 @@ function disconnectRepertoireSheet() {
   if (input && !input.value && currentSheet) {
     input.value = currentSheet;
   }
+  setSheetInputMode(true);
   updateClearBtnVisibility();
 
   const errEl = document.getElementById("stakeSheetError");
@@ -1036,6 +1038,22 @@ function updateStakeSheetStatusUI() {
       badge.textContent = hasSavedLink ? "Disconnected (Saved Link)" : "Not Connected";
       badge.className = "stake-source-badge badge-default active-sheet-link";
       badge.setAttribute("title", hasSavedLink ? "Sheet disconnected. Click 'Connect & Sync' to reconnect." : "No Google Sheet connected. Paste a published CSV link or ID.");
+    }
+  }
+
+  const lockBadge = document.getElementById("sheetLockBadge");
+  const isEditing = input && !input.hasAttribute("readonly");
+  if (lockBadge) {
+    if (isEditing) {
+      lockBadge.textContent = "Editing";
+      lockBadge.style.color = "#eab308";
+    } else if (isConnected) {
+      lockBadge.textContent = "Connected";
+      lockBadge.style.color = "";
+    } else {
+      const hasSavedLink = Boolean(input && input.value && input.value.trim().length > 0);
+      lockBadge.textContent = hasSavedLink ? "Disconnected (Saved)" : "Not Connected";
+      lockBadge.style.color = "";
     }
   }
 
@@ -1099,11 +1117,58 @@ function copyChoirShareLink() {
   }
 }
 
+function setSheetInputMode(isEditing) {
+  const sheetTextarea = document.getElementById('stakeSheetUrlInput');
+  const editBtn = document.getElementById('btnToggleEditSheetUrl');
+  const lockBadge = document.getElementById('sheetLockBadge');
+  const clearBtn = document.getElementById('btnClearSheetUrl');
+
+  if (!sheetTextarea) return;
+  if (isEditing) {
+    sheetTextarea.removeAttribute('readonly');
+    sheetTextarea.focus();
+    if (editBtn) editBtn.innerHTML = '🔒 Lock URL';
+    if (lockBadge) {
+      lockBadge.textContent = 'Editing';
+      lockBadge.style.color = '#eab308';
+    }
+    if (clearBtn && sheetTextarea.value.trim().length > 0) {
+      clearBtn.style.display = 'flex';
+    }
+  } else {
+    sheetTextarea.setAttribute('readonly', 'true');
+    if (editBtn) editBtn.innerHTML = '✏️ Edit Sheet Link';
+    const hasActive = !!localStorage.getItem('kantimes_active_sheet_id');
+    if (lockBadge) {
+      lockBadge.textContent = hasActive ? 'Connected' : 'Not Connected';
+      lockBadge.style.color = '';
+    }
+    if (clearBtn) clearBtn.style.display = 'none';
+  }
+}
+window.setSheetInputMode = setSheetInputMode;
+
+function initSheetEditButton() {
+  const editBtn = document.getElementById('btnToggleEditSheetUrl');
+  const sheetTextarea = document.getElementById('stakeSheetUrlInput');
+  if (editBtn && !editBtn._editBound) {
+    editBtn._editBound = true;
+    editBtn.addEventListener('click', (e) => {
+      e.preventDefault();
+      if (!sheetTextarea) return;
+      const isCurrentlyReadOnly = sheetTextarea.hasAttribute('readonly');
+      setSheetInputMode(isCurrentlyReadOnly);
+    });
+  }
+}
+window.initSheetEditButton = initSheetEditButton;
+
 function updateClearBtnVisibility() {
   const sheetInput = document.getElementById('stakeSheetUrlInput') || document.getElementById('googleSheetInput') || document.getElementById('stakeSheetInput');
   const clearBtn = document.getElementById('btnClearSheetUrl');
   if (clearBtn && sheetInput) {
-    clearBtn.style.display = sheetInput.value.trim().length > 0 ? 'flex' : 'none';
+    const isReadOnly = sheetInput.hasAttribute('readonly');
+    clearBtn.style.display = (!isReadOnly && sheetInput.value.trim().length > 0) ? 'flex' : 'none';
   }
 }
 window.updateClearBtnVisibility = updateClearBtnVisibility;
@@ -1162,6 +1227,7 @@ function openStakeSheetModal() {
   if (!modal) return;
   wireCopyTemplateButton();
   initClearSheetUrlButton();
+  initSheetEditButton();
   const errEl = document.getElementById("stakeSheetError");
   if (errEl) {
     errEl.style.display = "none";
@@ -1173,6 +1239,12 @@ function openStakeSheetModal() {
     if (!input.value && customSource) {
       input.value = customSource.trim();
     }
+  }
+  const hasConnectedSheet = Boolean(localStorage.getItem("kantimes_active_sheet_id"));
+  if (hasConnectedSheet) {
+    setSheetInputMode(false); // Locked for active sheet
+  } else {
+    setSheetInputMode(true); // Unlocked so users can paste immediately
   }
   updateStakeSheetStatusUI();
   updateClearBtnVisibility();
@@ -11107,6 +11179,7 @@ window.addEventListener("DOMContentLoaded", function () {
   initIdentityAndPracticeTracking();
   initAppBrandSync();
   initClearSheetUrlButton();
+  initSheetEditButton();
 });
 
 // Close modals on Escape key

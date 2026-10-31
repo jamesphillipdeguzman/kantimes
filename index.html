@@ -729,17 +729,6 @@
         </div>
 
         <div class="modal-body stake-sheet-modal-body">
-          <!-- Active Source Status Indicator -->
-          <div class="stake-source-status-card">
-            <div class="stake-source-status-top">
-              <span class="stake-source-label">Active Source:</span>
-              <span class="stake-source-badge badge-default active-sheet-link" id="stakeSourceStatusBadge">Default
-                Master</span>
-            </div>
-            <div class="stake-source-details" id="stakeSourceDetails">
-              No sheet connected (using default starter repertoire)
-            </div>
-          </div>
           <!-- Share Link Box (Visible when a custom stake sheet is active) -->
           <div class="stake-share-link-box" id="stakeShareLinkBox" style="display: none;">
             <div class="stake-share-link-info">
@@ -752,8 +741,12 @@
             </button>
           </div>
 
-          <div class="settings-section" style="margin-top: 14px;">
-            <label for="stakeSheetUrlInput">Google Sheet URL or ID</label>
+          <div class="stake-sheet-input-group" style="margin-top: 14px;">
+            <div class="stake-sheet-field-header">
+              <label for="stakeSheetUrlInput" class="field-label" style="font-weight: 600; font-size: 0.85rem; letter-spacing: 0.03em; color: var(--text-muted, #94a3b8);">GOOGLE SHEET URL OR ID</label>
+              <span id="sheetLockBadge" class="sheet-lock-badge">Connected</span>
+            </div>
+
             <div class="stake-sheet-input-wrapper">
               <textarea 
                 id="stakeSheetUrlInput" 
@@ -764,6 +757,7 @@
                 autocomplete="off" 
                 spellcheck="false"
                 wrap="soft"
+                readonly
                 onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();handleStakeSheetConnect();}"
               ></textarea>
               <button 
@@ -772,12 +766,18 @@
                 class="btn-clear-sheet-url" 
                 title="Clear input" 
                 aria-label="Clear Google Sheet link"
+                style="display: none;"
               >✕</button>
             </div>
-            <p class="settings-hint stake-sheet-helper-note stake-modal-field-hint">
-              Ensure your Google Sheet is set to <strong>&ldquo;Anyone with the link can view&rdquo;</strong> (Share
-              &gt; General access).
-            </p>
+
+            <div class="stake-sheet-field-actions">
+              <button type="button" id="btnToggleEditSheetUrl" class="btn btn-sm btn-edit-sheet-url">
+                ✏️ Edit Sheet Link
+              </button>
+              <p class="stake-sheet-helper-note stake-modal-field-hint">
+                Ensure your Google Sheet is set to <strong>&ldquo;Anyone with the link can view&rdquo;</strong> (Share &gt; General access).
+              </p>
+            </div>
             <div class="stake-sheet-error" id="stakeSheetError" style="display: none;"></div>
           </div>
 
