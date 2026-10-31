@@ -10375,3 +10375,131 @@ body.layout-horizontal .dashboard-section-tab.tab-active {
   content: none !important;
 }
 
+
+/* ==========================================================================
+   SECTION ROSTER & LEADERS BREAKDOWN MODAL
+   ========================================================================== */
+.roster-singer-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 10px;
+  border-radius: 8px;
+  margin: 4px 0;
+  background: var(--bg-card, rgba(255, 255, 255, 0.04));
+  border: 1px solid var(--border-color, rgba(255, 255, 255, 0.08));
+  gap: 10px;
+  transition: background-color 0.15s ease;
+  box-sizing: border-box;
+}
+
+.roster-singer-item:hover {
+  background: rgba(59, 130, 246, 0.08);
+}
+
+.singer-rank {
+  font-size: 0.8rem;
+  font-weight: 750;
+  color: var(--text-muted, #64748b);
+  min-width: 26px;
+}
+
+[data-theme="dark"] .singer-rank,
+.dark .singer-rank {
+  color: #94a3b8;
+}
+
+.singer-avatar-chip {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: rgba(59, 130, 246, 0.15);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.9rem;
+  flex-shrink: 0;
+}
+
+.singer-info {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  overflow: hidden;
+}
+
+.singer-handle {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+  font-size: 0.84rem;
+  font-weight: 700;
+  color: var(--text-main, #0f172a);
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+[data-theme="dark"] .singer-handle,
+.dark .singer-handle {
+  color: var(--text-main, #f8fafc);
+}
+
+.singer-meta {
+  font-size: 0.72rem;
+  color: var(--text-muted, #64748b);
+}
+
+[data-theme="dark"] .singer-meta,
+.dark .singer-meta {
+  color: #94a3b8;
+}
+
+.singer-minutes {
+  font-size: 0.84rem;
+  font-weight: 700;
+  color: var(--primary, #1d4ed8);
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+[data-theme="dark"] .singer-minutes,
+.dark .singer-minutes {
+  color: #60a5fa;
+}
+
+.empty-roster-state {
+  padding: 24px 12px;
+  text-align: center;
+  color: var(--text-muted, #64748b);
+  font-size: 0.85rem;
+  line-height: 1.5;
+}
+
+[data-theme="dark"] .empty-roster-state,
+.dark .empty-roster-state {
+  color: #94a3b8;
+}
+
+.font-mono {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace !important;
+}
+
+.font-bold {
+  font-weight: 700 !important;
+}
+
+.font-semibold {
+  font-weight: 600 !important;
+}
+
+#sectionBreakdownModal .section-details-footer {
+  padding: 8px 14px 12px;
+  border-top: none;
+  background: var(--bg-modal, var(--card-bg, #ffffff));
+  flex-shrink: 0;
+}
+
+[data-theme="dark"] #sectionBreakdownModal .section-details-footer,
+.dark #sectionBreakdownModal .section-details-footer {
+  background: var(--bg-modal, #131b2e);
+}

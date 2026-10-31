@@ -1721,7 +1721,7 @@
     </div>
 
     <!-- Section Standings: Full Details Pop-Up Modal -->
-    <div id="sectionDetailsModal" class="modal-backdrop section-details-backdrop"
+    <div id="sectionBreakdownModal" class="modal-backdrop section-details-backdrop"
       onclick="closeSectionDetailsModalOnBackdrop(event)" role="dialog" aria-modal="true"
       aria-labelledby="sectionDetailsModalTitle" aria-hidden="true" style="display: none;">
       <div class="modal-box section-details-modal-box">
@@ -1740,7 +1740,7 @@
             </div>
             <div class="section-details-hero-info">
               <div class="section-details-title-row">
-                <h4 class="section-details-name" id="sectionDetailsName">Section Name</h4>
+                <h4 class="section-details-name" id="sectionDetailsName"><span id="breakdownSectionName">Section Name</span></h4>
                 <span class="part-badge section-details-voice" id="sectionDetailsVoicePart"
                   data-voice="Tenor">Tenor</span>
               </div>
@@ -1752,8 +1752,8 @@
           <div class="section-details-stats-strip">
             <div class="section-stat-col">
               <span class="section-stat-label">Total</span>
-              <span class="section-stat-val-inline"><strong id="sectionDetailsTimeValue">0m</strong> <span
-                  class="stat-sub-inline" id="sectionDetailsTimeSub">(0.0h)</span></span>
+              <span class="section-stat-val-inline"><strong id="breakdownTotalMinutes">0m (0.0h)</strong> <span
+                  class="stat-sub-inline" id="sectionDetailsTimeSub" style="display: none;">(0.0h)</span><span id="sectionDetailsTimeValue" style="display: none;">0m</span></span>
             </div>
             <div class="section-stat-col">
               <span class="section-stat-label">Rank</span>
@@ -1762,8 +1762,8 @@
             </div>
             <div class="section-stat-col">
               <span class="section-stat-label">Singers</span>
-              <span class="section-stat-val-inline"><strong id="sectionDetailsContributorsValue">0</strong> <span
-                  class="stat-sub-inline" id="sectionDetailsContributorsSub">active</span></span>
+              <span class="section-stat-val-inline"><strong id="breakdownSingersCount">0 active</strong> <span
+                  class="stat-sub-inline" id="sectionDetailsContributorsSub" style="display: none;">active</span><span id="sectionDetailsContributorsValue" style="display: none;">0</span></span>
             </div>
           </div>
 
@@ -1774,7 +1774,9 @@
               <span class="section-contributors-count" id="sectionContributorsCount">0 singers</span>
             </div>
             <div class="section-contributors-list" id="sectionContributorsList">
-              <!-- Populated dynamically -->
+              <div id="sectionRosterList" class="section-roster-list">
+                <!-- Populated dynamically with public handles and logged practice -->
+              </div>
             </div>
           </div>
         </div>

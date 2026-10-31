@@ -39,6 +39,17 @@ const DEFAULT_USER_IDENTITY = {
 };
 
 /**
+ * Returns a safe, isolated storage key prefix scoped by active sheet identifier.
+ * Enforces strict zero-leak stake isolation across different connected sheets.
+ */
+function getStorageScope() {
+  const activeSheet = localStorage.getItem('kantimes_active_sheet_id') || 'default_template';
+  // Clean alphanumeric identifier (last 16 characters)
+  const cleanKey = activeSheet.replace(/[^a-zA-Z0-9]/g, '').slice(-16) || 'default';
+  return `kantimes_${cleanKey}`;
+}
+
+/**
  * Generates a safe deterministic alphanumeric stake hash for scoping storage keys.
  * Ensures data isolation across different stakes / Google Sheets.
  */
@@ -56,18 +67,105 @@ function getStakeHash(sheetIdOrUrl = "") {
 }
 
 /**
- * Returns a stake-isolated localStorage key.
+ * Returns a stake-isolated localStorage key using the active sheet scope.
  */
 function getStakeStorageKey(baseKey, customSheet = "") {
-  const sheet = customSheet || (typeof getActiveSheetId === 'function' ? getActiveSheetId() : '');
-  if (!sheet) return baseKey;
-  const stakeKey = getStakeHash(sheet);
-  return `${baseKey}_${stakeKey}`;
+  if (customSheet) {
+    const cleanKey = customSheet.replace(/[^a-zA-Z0-9]/g, '').slice(-16) || 'default';
+    return `kantimes_${cleanKey}_${baseKey.replace(/^kantimes_/, '')}`;
+  }
+  return `${getStorageScope()}_${baseKey.replace(/^kantimes_/, '')}`;
 }
+
+/**
+ * Returns array of recorded practice logs strictly scoped by the active sheet identifier.
+ */
+function getPracticeLogs() {
+  const key = `${getStorageScope()}_practice_logs`;
+  try {
+    const raw = localStorage.getItem(key) || (getStorageScope() === "kantimes_default" || getStorageScope() === "kantimes_defaulttemplate" ? localStorage.getItem("kantimes_practice_logs") : null);
+    const parsed = raw ? JSON.parse(raw) : [];
+    return Array.isArray(parsed) ? parsed : [];
+  } catch (e) {
+    return [];
+  }
+}
+
+/**
+ * Persists practice logs strictly scoped by the active sheet identifier.
+ */
+function savePracticeLogs(logs) {
+  const key = `${getStorageScope()}_practice_logs`;
+  try {
+    localStorage.setItem(key, JSON.stringify(logs));
+  } catch (e) {
+    console.warn("Could not save practice logs to scoped storage:", e);
+  }
+}
+
+/**
+ * Returns array of local manually-added songs strictly scoped by active sheet identifier.
+ */
+function getLocalExtraSongs() {
+  const key = `${getStorageScope()}_local_extra_songs`;
+  try {
+    const raw = localStorage.getItem(key) || (getStorageScope() === "kantimes_default" || getStorageScope() === "kantimes_defaulttemplate" ? localStorage.getItem("kantimes_local_extra_songs") : null);
+    const parsed = raw ? JSON.parse(raw) : [];
+    return Array.isArray(parsed) ? parsed : [];
+  } catch (e) {
+    return [];
+  }
+}
+
+/**
+ * Persists local extra songs strictly scoped by active sheet identifier.
+ */
+function saveLocalExtraSongs(songs) {
+  const key = `${getStorageScope()}_local_extra_songs`;
+  try {
+    localStorage.setItem(key, JSON.stringify(songs));
+  } catch (e) {
+    console.warn("Could not save local extra songs to scoped storage:", e);
+  }
+}
+
+/**
+ * Returns array of archived song IDs strictly scoped by active sheet identifier.
+ */
+function getArchivedSongIds() {
+  const key = `${getStorageScope()}_archived_song_ids`;
+  try {
+    const raw = localStorage.getItem(key) || (getStorageScope() === "kantimes_default" || getStorageScope() === "kantimes_defaulttemplate" ? localStorage.getItem("kantimes_archived_song_ids") : null);
+    const parsed = raw ? JSON.parse(raw) : [];
+    return Array.isArray(parsed) ? parsed : [];
+  } catch (e) {
+    return [];
+  }
+}
+
+/**
+ * Persists archived song IDs strictly scoped by active sheet identifier.
+ */
+function saveArchivedSongIds(ids) {
+  const key = `${getStorageScope()}_archived_song_ids`;
+  try {
+    localStorage.setItem(key, JSON.stringify(ids));
+  } catch (e) {
+    console.warn("Could not save archived song ids to scoped storage:", e);
+  }
+}
+
 window.DEFAULT_KNOWN_SINGERS = DEFAULT_KNOWN_SINGERS;
 window.DEFAULT_USER_IDENTITY = DEFAULT_USER_IDENTITY;
+window.getStorageScope = getStorageScope;
 window.getStakeHash = getStakeHash;
 window.getStakeStorageKey = getStakeStorageKey;
+window.getPracticeLogs = getPracticeLogs;
+window.savePracticeLogs = savePracticeLogs;
+window.getLocalExtraSongs = getLocalExtraSongs;
+window.saveLocalExtraSongs = saveLocalExtraSongs;
+window.getArchivedSongIds = getArchivedSongIds;
+window.saveArchivedSongIds = saveArchivedSongIds;
 
 // --- APPS SCRIPT WEB APP URL ---
 // --- APPS SCRIPT WEB APP URL ---
@@ -755,7 +853,7 @@ function setActiveRepertoire(parsedSongs) {
 
   // Apply persisted archived IDs so sheet syncs preserve archive state
   try {
-    const archivedIds = JSON.parse(localStorage.getItem('kantimes_archived_song_ids') || '[]');
+    const archivedIds = getArchivedSongIds();
     if (Array.isArray(archivedIds) && archivedIds.length > 0) {
       songs.forEach(s => {
         const identifier = s.id || s.title;
@@ -1399,46 +1497,65 @@ function getUserIdentity() {
 }
 
 /**
- * Returns formatted handle string, e.g. "JD#8K2P" or "Choir Member#8K2P"
+ * Returns formatted anonymous handle string, e.g. "JPDG#8K2P" or "Choir Member#8K2P".
+ * Guarantees identity privacy: full names stay strictly local on device and are never leaked.
  */
 function getDisplayHandle(identity = getUserIdentity()) {
   if (!identity) return "Choir Member";
-  const nick = identity.nickname || identity.initials;
-  const name = nick ? nick.trim().toUpperCase() : (identity.fullName || identity.name || (identity.part && identity.part !== "All" ? identity.part : ""));
-  if (name) {
-    return `${name}#${identity.tag}`;
+  let nick = (identity.nickname || identity.initials || "").trim();
+  if (!nick && identity.fullName) {
+    // Generate initials from fullName, e.g. "James Phillip De Guzman" -> "JPDG"
+    nick = identity.fullName
+      .split(/\s+/)
+      .map(part => part[0])
+      .filter(Boolean)
+      .join("")
+      .slice(0, 4)
+      .toUpperCase();
   }
-  // Generic unconfigured first-run label
-  return `Choir Member#${identity.tag}`;
+  if (!nick && identity.name) {
+    nick = identity.name.slice(0, 4).toUpperCase();
+  }
+  if (!nick && identity.part && identity.part !== "All") {
+    nick = identity.part.toUpperCase();
+  }
+  if (!nick) {
+    nick = "CHOIR";
+  }
+  const tag = identity.tag || "USR1";
+  return `${nick.toUpperCase()}#${tag}`;
 }
 
 /**
- * Logs a practice activity session to localStorage ("kantimes_practice_logs").
- * Keeps the most recent 50 sessions.
- * Format: { id, songTitle, part, durationMinutes, timestamp }
+ * Auto-credits and logs a completed practice activity session to scoped localStorage.
+ * Records session under current user handle and voice part, updates session history, and triggers
+ * immediate standings board refresh.
  */
-function logPracticeSession(songTitle, part, durationMinutes) {
-  const mins = Math.round((Number(durationMinutes) || 0) * 10) / 10;
+function recordCompletedPracticeSession(durationMinutes, songTitle, part) {
+  const mins = Math.max(1, Math.round((Number(durationMinutes) || 0) * 10) / 10);
   if (mins <= 0) return null;
 
   const identity = getUserIdentity();
-  let logs = [];
+  let userProfile = { ...identity };
   try {
-    const raw = localStorage.getItem("kantimes_practice_logs");
-    if (raw) logs = JSON.parse(raw);
-    if (!Array.isArray(logs)) logs = [];
-  } catch (e) {
-    logs = [];
-  }
+    const rawProfile = localStorage.getItem("kantimes_user_identity");
+    if (rawProfile) Object.assign(userProfile, JSON.parse(rawProfile));
+  } catch (e) {}
 
+  const userHandle = userProfile.handle || (typeof getDisplayHandle === "function" ? getDisplayHandle(userProfile) : (userProfile.tag ? `${userProfile.nickname || userProfile.initials || "CHOIR"}#${userProfile.tag}` : `${userProfile.nickname || "CHOIR"}#${userProfile.tag || "USR1"}`));
+  const userVoice = part || userProfile.voice || userProfile.part || userProfile.section || "Tenor";
   const currentSong = songTitle || (document.getElementById("targetSong") ? document.getElementById("targetSong").value : "") || "General Practice";
-  const userPart = part || identity.part || "All";
+
+  let logs = getPracticeLogs();
 
   const entry = {
     id: "prac_" + Date.now() + "_" + Math.floor(Math.random() * 10000),
     songTitle: currentSong,
-    part: userPart,
+    part: userVoice,
+    voice: userVoice,
+    handle: userHandle,
     durationMinutes: mins,
+    duration: mins,
     timestamp: Date.now()
   };
 
@@ -1446,24 +1563,27 @@ function logPracticeSession(songTitle, part, durationMinutes) {
   if (logs.length > 50) {
     logs = logs.slice(0, 50);
   }
-  localStorage.setItem("kantimes_practice_logs", JSON.stringify(logs));
+  savePracticeLogs(logs);
+
+  // Save into session history for weekly stats
+  recordCompletedSession(mins);
+
+  // Auto-credit and immediately re-render section standings board
+  renderSectionStandings();
 
   updatePracticeSummaryUI();
-  recordSectionPracticeMinutes(userPart, mins);
+  if (typeof renderPracticeMilestonesUI === "function") {
+    renderPracticeMilestonesUI();
+  }
   return entry;
 }
 
 /**
- * Returns array of recorded practice logs.
+ * Logs a practice activity session to scoped storage.
+ * Delegates to recordCompletedPracticeSession to keep handles, voice, and section standings in sync.
  */
-function getPracticeLogs() {
-  try {
-    const raw = localStorage.getItem("kantimes_practice_logs");
-    const parsed = raw ? JSON.parse(raw) : [];
-    return Array.isArray(parsed) ? parsed : [];
-  } catch (e) {
-    return [];
-  }
+function logPracticeSession(songTitle, part, durationMinutes) {
+  return recordCompletedPracticeSession(durationMinutes, songTitle, part);
 }
 
 /**
@@ -2341,79 +2461,90 @@ const DEFAULT_SECTION_STANDINGS = {
 };
 
 /**
- * Retrieves section standings from stake-scoped localStorage ("kantimes_section_standings_${stakeKey}").
+ * Computes section totals and public handle rosters dynamically from logged practice sessions.
+ * Returns ranked list sorted descending by total practice minutes.
  */
-function getSectionStandings() {
-  const activeKey = getStakeStorageKey("kantimes_section_standings");
+function getSectionStandingsData() {
+  const sections = {
+    'Soprano': { totalMinutes: 0, singers: new Map() },
+    'Alto': { totalMinutes: 0, singers: new Map() },
+    'Tenor': { totalMinutes: 0, singers: new Map() },
+    'Bass': { totalMinutes: 0, singers: new Map() },
+    'Primary': { totalMinutes: 0, singers: new Map() }
+  };
+
+  const logs = getPracticeLogs();
+
+  let userProfile = {};
   try {
-    const raw = localStorage.getItem(activeKey);
-    if (raw) {
-      const parsed = JSON.parse(raw);
-      if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
-        return parsed;
+    const rawProfile = localStorage.getItem('kantimes_user_identity');
+    if (rawProfile) userProfile = JSON.parse(rawProfile);
+  } catch (e) {
+    userProfile = {};
+  }
+  const userHandle = userProfile.handle || (typeof getDisplayHandle === 'function' ? getDisplayHandle(userProfile) : (userProfile.tag ? `${userProfile.nickname || userProfile.initials || 'CHOIR'}#${userProfile.tag}` : `${userProfile.nickname || 'CHOIR'}#${userProfile.tag || 'USR1'}`));
+  const userVoice = userProfile.voice || userProfile.part || userProfile.section || 'Tenor';
+
+  // Tally all logged sessions
+  logs.forEach(log => {
+    let rawVoice = log.voice || log.part || userVoice;
+    let voice = rawVoice;
+    for (const secKey of Object.keys(sections)) {
+      if (secKey.toLowerCase() === (rawVoice || '').toLowerCase() || (rawVoice && rawVoice.toLowerCase().includes(secKey.toLowerCase()))) {
+        voice = secKey;
+        break;
       }
     }
-  } catch (e) {
-    console.warn("[Kantimes] Error reading section standings:", e);
-  }
+    const handle = log.handle || userHandle;
+    const minutes = Number(log.durationMinutes || log.duration || 5);
 
-  const initial = { ...DEFAULT_SECTION_STANDINGS };
-  try {
-    localStorage.setItem(activeKey, JSON.stringify(initial));
-  } catch (e) { }
-  return initial;
+    if (sections[voice]) {
+      sections[voice].totalMinutes += minutes;
+      const currentSingerMin = sections[voice].singers.get(handle) || 0;
+      sections[voice].singers.set(handle, currentSingerMin + minutes);
+    }
+  });
+
+  // Transform into ranked list
+  const ranked = Object.entries(sections).map(([name, data]) => ({
+    name,
+    minutes: data.totalMinutes,
+    hours: (data.totalMinutes / 60).toFixed(1),
+    singerCount: data.singers.size,
+    roster: Array.from(data.singers.entries()).map(([handle, mins]) => ({
+      handle,
+      minutes: mins
+    })).sort((a, b) => b.minutes - a.minutes)
+  })).sort((a, b) => b.minutes - a.minutes);
+
+  return ranked;
+}
+
+/**
+ * Retrieves section standings key-value map dynamically from logged practice.
+ */
+function getSectionStandings() {
+  const ranked = getSectionStandingsData();
+  const obj = {};
+  ranked.forEach(item => {
+    obj[item.name] = item.minutes;
+  });
+  return obj;
 }
 
 /**
  * Initializes or resets section standings for a fresh stake connection or default reset.
  */
 function initFreshStakeSectionStandings(useZeros = true) {
-  const activeKey = getStakeStorageKey("kantimes_section_standings");
-  const initial = { "Soprano": 0, "Alto": 0, "Tenor": 0, "Bass": 0, "Primary": 0 };
-  try {
-    localStorage.setItem(activeKey, JSON.stringify(initial));
-  } catch (e) { }
-  renderSectionStandingsUI();
-  return initial;
+  renderSectionStandings();
+  return { "Soprano": 0, "Alto": 0, "Tenor": 0, "Bass": 0, "Primary": 0 };
 }
 
 /**
- * Dynamically increments a section's practice minutes in localStorage ("kantimes_section_standings")
- * and re-renders the standings.
- * @param {string} part Voice part (Soprano, Alto, Tenor, Bass, Primary, Accompanist, Director, All)
- * @param {number} minutes Duration in minutes
+ * Dynamically records minutes and re-renders the standings.
  */
 function recordSectionPracticeMinutes(part, minutes) {
-  const mins = Math.round((Number(minutes) || 0) * 10) / 10;
-  if (mins <= 0) return;
-
-  const standings = getSectionStandings();
-  const rawPart = (part || "").trim().toLowerCase();
-
-  let matchedSection = null;
-  if (rawPart.includes("soprano")) matchedSection = "Soprano";
-  else if (rawPart.includes("alto")) matchedSection = "Alto";
-  else if (rawPart.includes("tenor")) matchedSection = "Tenor";
-  else if (rawPart.includes("bass")) matchedSection = "Bass";
-  else if (rawPart.includes("primary")) matchedSection = "Primary";
-
-  if (matchedSection) {
-    standings[matchedSection] = (Number(standings[matchedSection]) || 0) + Math.round(mins);
-  } else {
-    // For non-vocal or multi-part roles (Accompanist, Director, All), distribute proportionally
-    const share = Math.max(1, Math.round(mins / 5));
-    ["Soprano", "Alto", "Tenor", "Bass", "Primary"].forEach(sec => {
-      standings[sec] = (Number(standings[sec]) || 0) + share;
-    });
-  }
-
-  try {
-    localStorage.setItem(getStakeStorageKey("kantimes_section_standings"), JSON.stringify(standings));
-  } catch (e) {
-    console.error("[Kantimes] Error saving section standings:", e);
-  }
-
-  renderSectionStandingsUI();
+  recordCompletedPracticeSession(minutes, "", part);
 }
 
 /**
@@ -2424,29 +2555,33 @@ function renderSectionStandingsUI() {
   const sectionEl = document.getElementById("sectionList");
   if (!sectionEl) return;
 
-  const standings = getSectionStandings();
-  const sortedSections = Object.entries(standings).sort((a, b) => (Number(b[1]) || 0) - (Number(a[1]) || 0));
+  const ranked = getSectionStandingsData();
 
   // Update cachedSectionStandings for modal drilldown
-  cachedSectionStandings = sortedSections.map(([sec, mins], idx) => {
+  cachedSectionStandings = ranked.map((item, idx) => {
     return {
-      section: sec,
+      section: item.name,
       rank: idx + 1,
-      totalSections: sortedSections.length,
-      totalMins: Number(mins) || 0,
-      hours: ((Number(mins) || 0) / 60).toFixed(1),
-      singers: []
+      totalSections: ranked.length,
+      totalMins: item.minutes,
+      hours: item.hours,
+      singers: item.roster.map(r => ({
+        name: r.handle,
+        handle: r.handle,
+        totalMins: r.minutes,
+        section: item.name
+      }))
     };
   });
 
   let sectionHtml = "";
-  sortedSections.forEach(([sec, mins], idx) => {
+  ranked.forEach((item, idx) => {
     const isTop3 = idx < 3 ? "rank-top3" : "";
     const medal = idx === 0 ? "🥇 " : idx === 1 ? "🥈 " : idx === 2 ? "🥉 " : "";
-    const numMins = Number(mins) || 0;
-    const hours = (numMins / 60).toFixed(1);
-    const safeSec = escapeLeaderboardHtml(sec);
-    const safeEncodedSec = encodeURIComponent(sec);
+    const numMins = item.minutes;
+    const hours = item.hours;
+    const safeSec = escapeLeaderboardHtml(item.name);
+    const safeEncodedSec = encodeURIComponent(item.name);
 
     sectionHtml += `
       <div class="board-row section-standings-row section-item clickable-section leaderboard-row"
@@ -2480,6 +2615,20 @@ function renderSectionStandingsUI() {
         showSectionDetails(name, r ? Number(r) : 1, e);
       }
     });
+  }
+}
+
+/**
+ * Standard trigger to refresh section standings board.
+ * Refreshes breakdown modal as well if currently opened.
+ */
+function renderSectionStandings() {
+  renderSectionStandingsUI();
+  if (currentOpenSection) {
+    const modal = document.getElementById("sectionBreakdownModal") || document.getElementById("sectionDetailsModal");
+    if (modal && (modal.classList.contains("active") || modal.classList.contains("show") || modal.style.display === "flex")) {
+      renderSectionBreakdown(currentOpenSection);
+    }
   }
 }
 
@@ -5506,10 +5655,10 @@ function completeTimerSession() {
   }
 
   updateDurationSelectorUI(currentDurationMins, false);
-  recordCompletedSession(currentDurationMins);
   const currentSong = document.getElementById("targetSong") ? document.getElementById("targetSong").value : "";
   const identity = getUserIdentity();
-  logPracticeSession(currentSong, identity.part || "All", currentDurationMins);
+  const userVoice = identity.voice || identity.part || "Tenor";
+  recordCompletedPracticeSession(currentDurationMins, currentSong, userVoice);
   const stats = getWeekSessionStats();
 
   const celebrationPraise = CELEBRATION_MESSAGES[Math.floor(Math.random() * CELEBRATION_MESSAGES.length)];
@@ -5898,172 +6047,144 @@ function closeSingerDetailsModalOnBackdrop(event) {
   closeSingerDetailsModal();
 }
 
-// --- SECTION DETAILS MODAL CONTROLLER ---
+// --- SECTION DETAILS & BREAKDOWN MODAL CONTROLLER ---
 let cachedSectionStandings = [];
+let currentOpenSection = null;
+
+/**
+ * Renders the Section Breakdown modal with real logged minutes, rank, and public handles.
+ */
+function renderSectionBreakdown(sectionName) {
+  currentOpenSection = sectionName;
+  const standings = getSectionStandingsData();
+  const normalizedSec = (sectionName || "").trim().toLowerCase();
+  const rankIndex = standings.findIndex(s => s.name.trim().toLowerCase() === normalizedSec);
+  const rank = rankIndex !== -1 ? rankIndex + 1 : 1;
+  const sectionData = (rankIndex !== -1 ? standings[rankIndex] : null) || {
+    name: sectionName || "Section",
+    minutes: 0,
+    hours: '0.0',
+    singerCount: 0,
+    roster: []
+  };
+
+  // Update header values
+  const nameEl = document.getElementById('breakdownSectionName');
+  if (nameEl) nameEl.textContent = `${sectionData.name} Section`;
+  const secDetailsName = document.getElementById('sectionDetailsName');
+  if (secDetailsName && !nameEl) secDetailsName.textContent = `${sectionData.name} Section`;
+
+  const totalMinEl = document.getElementById('breakdownTotalMinutes');
+  if (totalMinEl) {
+    totalMinEl.textContent = `${sectionData.minutes}m (${sectionData.hours}h)`;
+  }
+  const timeVal = document.getElementById('sectionDetailsTimeValue');
+  if (timeVal) timeVal.textContent = `${sectionData.minutes}m`;
+  const timeSub = document.getElementById('sectionDetailsTimeSub');
+  if (timeSub) timeSub.textContent = `(${sectionData.hours}h)`;
+
+  const singersCountEl = document.getElementById('breakdownSingersCount');
+  if (singersCountEl) {
+    singersCountEl.textContent = `${sectionData.singerCount} active`;
+  }
+  const contribVal = document.getElementById('sectionDetailsContributorsValue');
+  if (contribVal) contribVal.textContent = `${sectionData.singerCount}`;
+  const countEl = document.getElementById('sectionContributorsCount');
+  if (countEl) countEl.textContent = `${sectionData.singerCount} ${sectionData.singerCount === 1 ? 'singer' : 'singers'}`;
+
+  const rankPill = document.getElementById('sectionDetailsRankPill');
+  if (rankPill) rankPill.textContent = `#${rank} • ${sectionData.minutes}m (${sectionData.hours}h)`;
+
+  const rankVal = document.getElementById('sectionDetailsRankValue');
+  if (rankVal) rankVal.textContent = `#${rank}`;
+  const rankSub = document.getElementById('sectionDetailsRankSub');
+  if (rankSub) rankSub.textContent = `of ${standings.length || 5}`;
+
+  const voiceEl = document.getElementById('sectionDetailsVoicePart');
+  if (voiceEl) {
+    voiceEl.textContent = sectionData.name;
+    voiceEl.setAttribute('data-voice', sectionData.name);
+  }
+
+  const avatarContainer = document.getElementById('sectionDetailsAvatarContainer');
+  if (avatarContainer) {
+    const iconMap = { Soprano: '🌸', Alto: '💜', Tenor: '🌟', Bass: '⚓', Primary: '🧒' };
+    const icon = iconMap[sectionData.name] || '🎶';
+    avatarContainer.innerHTML = `<div class="section-avatar-icon" data-voice="${escapeLeaderboardHtml(sectionData.name)}" title="${escapeLeaderboardHtml(sectionData.name)}">${icon}</div>`;
+  }
+
+  // Render Roster with Public Handles
+  const rosterContainer = document.getElementById('sectionRosterList') || document.getElementById('sectionContributorsList');
+  if (!rosterContainer) return;
+
+  if (sectionData.roster.length === 0) {
+    rosterContainer.innerHTML = `
+      <div class="empty-roster-state text-muted text-center py-4 text-sm">
+        No practice logged for ${sectionData.name} yet. Tap "Rehearse" to start!
+      </div>
+    `;
+    return;
+  }
+
+  rosterContainer.innerHTML = sectionData.roster.map((singer, index) => `
+    <div class="roster-singer-item">
+      <div class="singer-rank">#${index + 1}</div>
+      <div class="singer-avatar-chip">🎵</div>
+      <div class="singer-info">
+        <div class="singer-handle font-mono font-bold">${escapeLeaderboardHtml(singer.handle)}</div>
+        <div class="singer-meta text-xs text-muted">Active Rehearser</div>
+      </div>
+      <div class="singer-minutes font-semibold">${singer.minutes}m</div>
+    </div>
+  `).join('');
+}
 
 function showSectionDetails(identifier, optionalRank, e) {
   if (e) {
     if (typeof e.stopPropagation === "function") e.stopPropagation();
     if (typeof e.preventDefault === "function") e.preventDefault();
   }
-  let sectionData = null;
-  let rank = optionalRank;
-
+  let secName = "Tenor";
   if (typeof identifier === "string") {
-    let decoded = "";
     try {
-      decoded = decodeURIComponent(identifier).trim().toLowerCase();
-    } catch (e) {
-      decoded = identifier.trim().toLowerCase();
-    }
-
-    if (cachedSectionStandings && cachedSectionStandings.length > 0) {
-      const found = cachedSectionStandings.find(s => (s.section || "").trim().toLowerCase() === decoded);
-      if (found) {
-        sectionData = found;
-        rank = rank || found.rank;
-      }
+      secName = decodeURIComponent(identifier).trim();
+    } catch (err) {
+      secName = identifier.trim();
     }
   } else if (typeof identifier === "object" && identifier !== null) {
-    sectionData = identifier;
+    secName = identifier.section || identifier.name || "Tenor";
   }
 
-  if (!sectionData) {
-    const secName = typeof identifier === "string" ? decodeURIComponent(identifier).trim() : "Section";
-    sectionData = {
-      section: secName,
-      rank: rank || 1,
-      totalSections: 5,
-      totalMins: 0,
-      hours: "0.0",
-      singers: []
-    };
-  }
+  openSectionBreakdownModal(secName);
+}
 
-  openSectionDetailsModal(sectionData, rank || sectionData.rank || 1);
+function openSectionBreakdownModal(sectionName) {
+  renderSectionBreakdown(sectionName);
+  const modal = document.getElementById("sectionBreakdownModal") || document.getElementById("sectionDetailsModal");
+  if (modal) {
+    modal.classList.add("active", "show");
+    modal.style.display = "flex";
+    modal.setAttribute("aria-hidden", "false");
+  }
 }
 
 function openSectionDetailsModal(sectionData, displayRank) {
-  const modal = document.getElementById("sectionDetailsModal");
-  if (!modal) return;
-
-  const sec = sectionData.section || "Choir Section";
-  const isPrimary = (sec || "").trim().toLowerCase() === "primary";
-  const displayTitle = isPrimary ? "Primary Choir" : `${sec} Section`;
-  const rankCategory = `of ${sectionData.totalSections || 5} Sections`;
-
-  const avatarContainer = document.getElementById("sectionDetailsAvatarContainer");
-  if (avatarContainer) {
-    const iconMap = {
-      Soprano: "🌸",
-      Alto: "💜",
-      Tenor: "🌟",
-      Bass: "⚓",
-      Primary: "🧒"
-    };
-    const icon = iconMap[sec] || "🎶";
-    avatarContainer.innerHTML = `<div class="section-avatar-icon" data-voice="${escapeLeaderboardHtml(sec)}" title="${escapeLeaderboardHtml(displayTitle)}">${icon}</div>`;
-  }
-
-  const nameEl = document.getElementById("sectionDetailsName");
-  if (nameEl) {
-    nameEl.textContent = displayTitle;
-  }
-
-  const voiceEl = document.getElementById("sectionDetailsVoicePart");
-  if (voiceEl) {
-    voiceEl.textContent = sec;
-    voiceEl.setAttribute("data-voice", sec);
-  }
-
-  const mins = Number(sectionData.totalMins) || 0;
-  const hours = sectionData.hours || (mins / 60).toFixed(1);
-
-  const rankPill = document.getElementById("sectionDetailsRankPill");
-  if (rankPill) {
-    rankPill.textContent = `#${displayRank} • ${mins}m (${hours}h)`;
-  }
-
-  const timeVal = document.getElementById("sectionDetailsTimeValue");
-  const timeSub = document.getElementById("sectionDetailsTimeSub");
-  if (timeVal) timeVal.textContent = `${mins}m`;
-  if (timeSub) timeSub.textContent = `(${hours}h)`;
-
-  const rankVal = document.getElementById("sectionDetailsRankValue");
-  const rankSub = document.getElementById("sectionDetailsRankSub");
-  if (rankVal) rankVal.textContent = `#${displayRank}`;
-  if (rankSub) rankSub.textContent = `of ${sectionData.totalSections || 5}`;
-
-  let contributors = sectionData.singers || [];
-  // Dynamic fallback: if sectionData.singers is empty or undefined, query cachedLeaderboardSingers
-  if ((!contributors || contributors.length === 0) && typeof cachedLeaderboardSingers !== "undefined" && cachedLeaderboardSingers.length > 0) {
-    const targetSec = (sec || "").trim().toLowerCase();
-    contributors = cachedLeaderboardSingers.filter(s => {
-      const sSec = (s.section || "").trim().toLowerCase();
-      return sSec === targetSec && (s.totalMins > 0 || (s.name && s.name.trim().length > 0));
-    });
-  }
-
-  const contribVal = document.getElementById("sectionDetailsContributorsValue");
-  const contribSub = document.getElementById("sectionDetailsContributorsSub");
-  if (contribVal) contribVal.textContent = `${contributors.length}`;
-  if (contribSub) contribSub.textContent = `active`;
-
-  const countEl = document.getElementById("sectionContributorsCount");
-  if (countEl) {
-    countEl.textContent = `${contributors.length} ${contributors.length === 1 ? "singer" : "singers"}`;
-  }
-
-  const listEl = document.getElementById("sectionContributorsList");
-  if (listEl) {
-    if (contributors.length === 0) {
-      listEl.innerHTML = `<div class="section-contributors-empty">No active singers logged in this section yet.</div>`;
-    } else {
-      let listHtml = "";
-      // Render all matching singers sequentially without any slicing or numeric cap
-      contributors.forEach((s, idx) => {
-        const safeName = escapeLeaderboardHtml(s.name);
-        const safeEncodedName = encodeURIComponent(s.name);
-        const sMins = s.totalMins || 0;
-        const sHours = (sMins / 60).toFixed(1);
-        const medal = idx === 0 ? "🥇 " : idx === 1 ? "🥈 " : idx === 2 ? "🥉 " : "";
-        const avatarSrc = s.avatar ? getAvatarImgSrc(s.avatar) : "";
-        const avatarEl = avatarSrc
-          ? `<img src="${avatarSrc}" alt="${safeName}" class="section-contributor-avatar" onerror="this.style.display='none'; this.nextElementSibling.style.display='inline-flex';"><span class="section-contributor-fallback" style="display:none;">🎵</span>`
-          : `<span class="section-contributor-fallback">🎵</span>`;
-
-        listHtml += `
-          <div class="section-contributor-row"
-               onclick="closeSectionDetailsModal(); showSingerDetails('${safeEncodedName}');"
-               role="button" tabindex="0"
-               title="View ${safeName}'s Profile"
-               aria-label="#${idx + 1} ${safeName}, ${sMins} minutes"
-               onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();closeSectionDetailsModal(); showSingerDetails('${safeEncodedName}');}">
-            <div class="section-contributor-left">
-              <span class="section-contributor-rank">${medal}#${idx + 1}</span>
-              ${avatarEl}
-              <span class="section-contributor-name">${safeName}</span>
-            </div>
-            <span class="section-contributor-time">${sMins}m <span class="mins-sub">(${sHours}h)</span></span>
-          </div>
-        `;
-      });
-      listEl.innerHTML = listHtml;
-    }
-  }
-
-  modal.classList.add("active", "show");
-  modal.style.display = "flex";
-  modal.setAttribute("aria-hidden", "false");
+  const sec = (sectionData && (sectionData.section || sectionData.name)) || "Tenor";
+  openSectionBreakdownModal(sec);
 }
 
 function closeSectionDetailsModal() {
-  const modal = document.getElementById("sectionDetailsModal");
+  currentOpenSection = null;
+  const modal = document.getElementById("sectionBreakdownModal") || document.getElementById("sectionDetailsModal");
   if (modal) {
     modal.classList.remove("active", "show");
     modal.style.display = "none";
     modal.setAttribute("aria-hidden", "true");
   }
+}
+
+function closeSectionBreakdownModal() {
+  closeSectionDetailsModal();
 }
 
 function closeSectionDetailsModalOnBackdrop(event) {
@@ -6164,15 +6285,12 @@ function loadLeaderboard() {
   const topSingersEl = document.getElementById("topSingersList");
   const sectionEl = document.getElementById("sectionList");
 
-  // Always render zero-PII local section standings
+  // Always render real local section standings based on logged practice sessions
   renderSectionStandingsUI();
 
   if (!navigator.onLine) {
     if (topSingersEl && (!cachedLeaderboardSingers || cachedLeaderboardSingers.length === 0)) {
       topSingersEl.innerHTML = `<div style="text-align:center; padding:12px; font-size:0.85rem; color:var(--text-muted);">📡 Offline: Leaderboard syncs when reconnected.</div>`;
-    }
-    if (sectionEl) {
-      sectionEl.innerHTML = `<div style="text-align:center; padding:12px; font-size:0.85rem; color:var(--text-muted);">📡 Offline: Standings sync when reconnected.</div>`;
     }
     return;
   }
@@ -6184,27 +6302,21 @@ function loadLeaderboard() {
         if (topSingersEl) {
           topSingersEl.innerHTML = `<div style="text-align:center; padding:8px; font-size:0.85rem; color:var(--text-muted);">No practice sessions logged yet. Be the first!</div>`;
         }
-        if (sectionEl) {
-          sectionEl.innerHTML = `<div style="text-align:center; padding:8px; font-size:0.85rem; color:var(--text-muted);">No section data yet.</div>`;
-        }
         return;
       }
 
       const singerTotals = {};
-      const sectionTotals = { "Soprano": 0, "Alto": 0, "Tenor": 0, "Bass": 0, "Primary": 0 };
-      const sectionSingers = { "Soprano": [], "Alto": [], "Tenor": [], "Bass": [], "Primary": [] };
 
       data.forEach(entry => {
         const trimmedName = (entry.name || "Unknown").trim();
         const rawSec = (entry.section || "Choir").trim();
-        const matchedKey = Object.keys(sectionTotals).find(k => k.toLowerCase() === rawSec.toLowerCase()) || rawSec;
         const mins = Number(entry.minutes) || 0;
         const av = (entry.avatar || "").trim();
 
         if (!singerTotals[trimmedName]) {
           singerTotals[trimmedName] = {
             name: trimmedName,
-            section: matchedKey,
+            section: rawSec,
             avatar: av,
             totalMins: 0
           };
@@ -6212,84 +6324,19 @@ function loadLeaderboard() {
           if (av) {
             singerTotals[trimmedName].avatar = av;
           }
-          if (matchedKey && sectionTotals[matchedKey] !== undefined) {
-            singerTotals[trimmedName].section = matchedKey;
+          if (rawSec) {
+            singerTotals[trimmedName].section = rawSec;
           }
         }
         singerTotals[trimmedName].totalMins += mins;
-
-        if (sectionTotals[matchedKey] !== undefined) {
-          sectionTotals[matchedKey] += mins;
-        }
       });
 
       cachedLeaderboardSingers = Object.values(singerTotals).sort((a, b) => b.totalMins - a.totalMins);
       updateKnownSingersFromRoster(cachedLeaderboardSingers);
       renderLeaderboardSingers();
-
-      cachedLeaderboardSingers.forEach(s => {
-        const sSec = (s.section || "").trim();
-        const key = Object.keys(sectionSingers).find(k => k.toLowerCase() === sSec.toLowerCase()) || sSec;
-        if (sectionSingers[key]) {
-          sectionSingers[key].push(s);
-        }
-      });
-
-      const sortedSections = Object.entries(sectionTotals).sort((a, b) => b[1] - a[1]);
-      cachedSectionStandings = sortedSections.map(([sec, mins], idx) => {
-        return {
-          section: sec,
-          rank: idx + 1,
-          totalSections: sortedSections.length,
-          totalMins: mins,
-          hours: (mins / 60).toFixed(1),
-          singers: sectionSingers[sec] || []
-        };
-      });
-
-      let sectionHtml = "";
-      sortedSections.forEach(([sec, mins], idx) => {
-        const isTop3 = idx < 3 ? "rank-top3" : "";
-        const medal = idx === 0 ? "🥇 " : idx === 1 ? "🥈 " : idx === 2 ? "🥉 " : "";
-        const hours = (mins / 60).toFixed(1);
-        const safeSec = escapeLeaderboardHtml(sec);
-        const safeEncodedSec = encodeURIComponent(sec);
-        sectionHtml += `
-            <div class="board-row section-standings-row section-item clickable-section leaderboard-row"
-                 onclick="if(event){event.stopPropagation();}showSectionDetails('${safeEncodedSec}', ${idx + 1}, event)"
-                 data-section-name="${safeSec}"
-                 data-section-rank="${idx + 1}"
-                 role="button" tabindex="0"
-                 title="Click to view full breakdown for ${safeSec}"
-                 aria-label="View rehearsal breakdown for ${safeSec}"
-                 onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();event.stopPropagation();showSectionDetails('${safeEncodedSec}', ${idx + 1}, event);}">
-              <span class="rank ${isTop3}">${medal}#${idx + 1}</span>
-              <div class="section-name-wrap">
-                <span class="section-name">${safeSec}</span>
-              </div>
-              <span class="mins-badge">${mins}m <span class="mins-sub">(${hours}h)</span></span>
-            </div>
-          `;
-      });
-      if (sectionEl) {
-        sectionEl.innerHTML = sectionHtml;
-        if (!sectionEl.dataset.detailsBound) {
-          sectionEl.dataset.detailsBound = "true";
-          sectionEl.addEventListener("click", function (e) {
-            const row = e.target.closest(".board-row.clickable-section, .section-standings-row, .section-item, .leaderboard-row");
-            if (!row) return;
-            e.stopPropagation();
-            const name = row.getAttribute("data-section-name");
-            const r = row.getAttribute("data-section-rank");
-            if (name) {
-              showSectionDetails(name, r ? Number(r) : 1, e);
-            }
-          });
-        }
-      }
-
     })
-    .catch(() => {
+    .catch(err => {
+      console.warn("[Kantimes] Error fetching leaderboard from Apps Script:", err);
       if (topSingersEl && (!cachedLeaderboardSingers || cachedLeaderboardSingers.length === 0)) {
         topSingersEl.innerHTML = `<div style="text-align:center; color:var(--text-muted); font-size:0.85rem;">Could not load standings.</div>`;
       }
@@ -11407,7 +11454,7 @@ function isTypingInInput(e) {
   const tag = (target.tagName || "").toLowerCase();
   if (tag === "input" || tag === "textarea" || tag === "select") return true;
   if (target.isContentEditable) return true;
-  if (target.closest && target.closest(".modal-backdrop.active, #settingsModal, #duplicateConfirmModal, #singerDetailsModal, #sectionDetailsModal, #vocalTipsModal")) return true;
+  if (target.closest && target.closest(".modal-backdrop.active, #settingsModal, #duplicateConfirmModal, #singerDetailsModal, #sectionBreakdownModal, #sectionDetailsModal, #vocalTipsModal")) return true;
   return false;
 }
 
@@ -11656,7 +11703,7 @@ document.addEventListener("keydown", function (e) {
     if (singerModal && singerModal.classList.contains("active")) {
       closeSingerDetailsModal();
     }
-    const sectionModal = document.getElementById("sectionDetailsModal");
+    const sectionModal = document.getElementById("sectionBreakdownModal") || document.getElementById("sectionDetailsModal");
     if (sectionModal && sectionModal.classList.contains("active")) {
       closeSectionDetailsModal();
     }
@@ -11754,9 +11801,15 @@ window.closeProfileModalOnBackdrop = closeProfileModalOnBackdrop;
 window.initIdentityAndPracticeTracking = initIdentityAndPracticeTracking;
 window.renderPracticeMilestonesUI = renderPracticeMilestonesUI;
 window.getSectionStandings = getSectionStandings;
+window.getSectionStandingsData = getSectionStandingsData;
 window.recordSectionPracticeMinutes = recordSectionPracticeMinutes;
 window.initFreshStakeSectionStandings = initFreshStakeSectionStandings;
 window.renderSectionStandingsUI = renderSectionStandingsUI;
+window.renderSectionStandings = renderSectionStandings;
+window.renderSectionBreakdown = renderSectionBreakdown;
+window.openSectionBreakdownModal = openSectionBreakdownModal;
+window.closeSectionBreakdownModal = closeSectionBreakdownModal;
+window.recordCompletedPracticeSession = recordCompletedPracticeSession;
 window.initPhStakesDatalist = initPhStakesDatalist;
 window.openVocalTipsModal = openVocalTipsModal;
 window.closeVocalTipsModal = closeVocalTipsModal;
