@@ -1083,20 +1083,49 @@ function openStakeSheetModal() {
   document.body.style.overflow = "hidden";
 }
 
+// Track where the mouse down started so dragging text across the edge doesn't trigger a backdrop close
+let modalMouseDownTarget = null;
+
+// Global mousedown listener in capture phase to reliably track initial target for all clicks/drags
+document.addEventListener("mousedown", (e) => {
+  modalMouseDownTarget = e.target;
+}, true);
+
 function closeStakeSheetModal() {
   const modal = document.getElementById("stakeSheetModal");
   if (modal) modal.classList.remove("active");
   document.body.style.overflow = "";
 }
 
-function closeStakeSheetOnBackdrop(e) {
-  if (e.target && e.target.id === "stakeSheetModal") {
-    closeStakeSheetModal();
-  }
+function closeStakeSheetOnBackdrop(event) {
+  // Ensure click was strictly on the outer dark backdrop, not bubbled from inside
+  if (event.target !== event.currentTarget) return;
+  // Track where the mouse down started so dragging text across the edge doesn't trigger a backdrop close
+  if (modalMouseDownTarget && modalMouseDownTarget !== event.currentTarget) return;
+  // Prevent closing if user was selecting/dragging text
+  if (window.getSelection && window.getSelection().toString().length > 0) return;
+  closeStakeSheetModal();
 }
 
 function initStakeRepertoireSync() {
   wireCopyTemplateButton();
+
+  // Protect Stake / Repertoire Source modal from drag-selection accidental closure
+  const stakeModal = document.getElementById('stakeSheetModal');
+  if (stakeModal && !stakeModal._backdropGuarded) {
+    stakeModal._backdropGuarded = true;
+    stakeModal.addEventListener('mousedown', (e) => {
+      modalMouseDownTarget = e.target;
+    });
+
+    stakeModal.addEventListener('click', (e) => {
+      // Only close if BOTH mousedown and click originated directly on the backdrop container, NOT inside .modal-box
+      if (e.target === stakeModal && modalMouseDownTarget === stakeModal) {
+        if (window.getSelection && window.getSelection().toString().length > 0) return;
+        closeStakeSheetModal();
+      }
+    });
+  }
 
   // Check for 1-click choir onboarding URL parameter: ?sheet=...
   try {
@@ -1839,7 +1868,10 @@ function closeProfileModal() {
   closeSettingsModal();
 }
 
-function closeProfileModalOnBackdrop(e) {
+function closeProfileModalOnBackdrop(event) {
+  if (event.target !== event.currentTarget) return;
+  if (modalMouseDownTarget && modalMouseDownTarget !== event.currentTarget) return;
+  if (window.getSelection && window.getSelection().toString().length > 0) return;
   closeSettingsModal();
 }
 
@@ -4458,10 +4490,11 @@ function closeDuplicateConfirmModal() {
 /**
  * Closes the duplicate singer confirmation modal when clicking on the frosted backdrop.
  */
-function closeDuplicateModalOnBackdrop(e) {
-  if (e.target && e.target.id === "duplicateConfirmModal") {
-    closeDuplicateConfirmModal();
-  }
+function closeDuplicateModalOnBackdrop(event) {
+  if (event.target !== event.currentTarget) return;
+  if (modalMouseDownTarget && modalMouseDownTarget !== event.currentTarget) return;
+  if (window.getSelection && window.getSelection().toString().length > 0) return;
+  closeDuplicateConfirmModal();
 }
 
 /**
@@ -4824,10 +4857,11 @@ function dismissInactivityModal(resumeSession) {
   }
 }
 
-function closeInactivityOnBackdrop(e) {
-  if (e.target.id === "inactivityModal") {
-    dismissInactivityModal(false);
-  }
+function closeInactivityOnBackdrop(event) {
+  if (event.target !== event.currentTarget) return;
+  if (modalMouseDownTarget && modalMouseDownTarget !== event.currentTarget) return;
+  if (window.getSelection && window.getSelection().toString().length > 0) return;
+  dismissInactivityModal(false);
 }
 
 function checkInactivityOnRestore() {
@@ -5013,10 +5047,11 @@ function closeCompletionModal() {
   document.body.style.overflow = "";
 }
 
-function closeCompletionModalOnBackdrop(e) {
-  if (e.target.id === "completionModal") {
-    closeCompletionModal();
-  }
+function closeCompletionModalOnBackdrop(event) {
+  if (event.target !== event.currentTarget) return;
+  if (modalMouseDownTarget && modalMouseDownTarget !== event.currentTarget) return;
+  if (window.getSelection && window.getSelection().toString().length > 0) return;
+  closeCompletionModal();
 }
 
 function updateTimerTick() {
@@ -5459,10 +5494,11 @@ function closeSingerDetailsModal() {
   }
 }
 
-function closeSingerDetailsModalOnBackdrop(e) {
-  if (e.target && (e.target.id === "singerDetailsModal" || e.target.classList.contains("modal-backdrop"))) {
-    closeSingerDetailsModal();
-  }
+function closeSingerDetailsModalOnBackdrop(event) {
+  if (event.target !== event.currentTarget) return;
+  if (modalMouseDownTarget && modalMouseDownTarget !== event.currentTarget) return;
+  if (window.getSelection && window.getSelection().toString().length > 0) return;
+  closeSingerDetailsModal();
 }
 
 // --- SECTION DETAILS MODAL CONTROLLER ---
@@ -5633,10 +5669,11 @@ function closeSectionDetailsModal() {
   }
 }
 
-function closeSectionDetailsModalOnBackdrop(e) {
-  if (e.target && (e.target.id === "sectionDetailsModal" || e.target.classList.contains("modal-backdrop"))) {
-    closeSectionDetailsModal();
-  }
+function closeSectionDetailsModalOnBackdrop(event) {
+  if (event.target !== event.currentTarget) return;
+  if (modalMouseDownTarget && modalMouseDownTarget !== event.currentTarget) return;
+  if (window.getSelection && window.getSelection().toString().length > 0) return;
+  closeSectionDetailsModal();
 }
 
 function renderLeaderboardSingers() {
@@ -6523,10 +6560,11 @@ function closeResourceModal() {
   document.body.style.overflow = "";
 }
 
-function closeModalOnBackdrop(e) {
-  if (e.target.id === "resourceModal") {
-    closeResourceModal();
-  }
+function closeModalOnBackdrop(event) {
+  if (event.target !== event.currentTarget) return;
+  if (modalMouseDownTarget && modalMouseDownTarget !== event.currentTarget) return;
+  if (window.getSelection && window.getSelection().toString().length > 0) return;
+  closeResourceModal();
 }
 
 // --- PERSONAL SETTINGS & REPERTOIRE EDITOR MODAL ---
@@ -6614,10 +6652,14 @@ function closeSettingsModal() {
   document.body.style.overflow = "";
 }
 
-function closeSettingsOnBackdrop(e) {
-  if (e.target.id === "settingsModal") {
-    closeSettingsModal();
-  }
+function closeSettingsOnBackdrop(event) {
+  // Ensure click was strictly on the outer dark backdrop, not bubbled from inside
+  if (event.target !== event.currentTarget) return;
+  // Track where the mouse down started so dragging text across the edge doesn't trigger a backdrop close
+  if (modalMouseDownTarget && modalMouseDownTarget !== event.currentTarget) return;
+  // Prevent closing if user was selecting/dragging text
+  if (window.getSelection && window.getSelection().toString().length > 0) return;
+  closeSettingsModal();
 }
 
 function switchSettingsTab(tabName) {
@@ -8829,11 +8871,11 @@ function closeVocalTipsModal() {
   document.body.style.overflow = "";
 }
 
-function closeVocalTipsOnBackdrop(e) {
-  const modalVocalTips = document.getElementById("vocalTipsModal") || document.getElementById("tipsModal");
-  if (e && (e.target === modalVocalTips || (e.target && (e.target.id === "vocalTipsModal" || e.target.classList.contains("modal-backdrop"))))) {
-    closeVocalTipsModal();
-  }
+function closeVocalTipsOnBackdrop(event) {
+  if (event.target !== event.currentTarget) return;
+  if (modalMouseDownTarget && modalMouseDownTarget !== event.currentTarget) return;
+  if (window.getSelection && window.getSelection().toString().length > 0) return;
+  closeVocalTipsModal();
 }
 
 function handleVocalTipsClick(e) {
@@ -10898,6 +10940,22 @@ window.addEventListener("DOMContentLoaded", function () {
   if (btnStats && !btnStats.onclick) {
     btnStats.onclick = () => openStakeSheetModal();
   }
+
+  // Guard settings modal against accidental drag-selection closure
+  const settingsModal = document.getElementById('settingsModal');
+  if (settingsModal && !settingsModal._backdropGuarded) {
+    settingsModal._backdropGuarded = true;
+    settingsModal.addEventListener('mousedown', (e) => {
+      modalMouseDownTarget = e.target;
+    });
+    settingsModal.addEventListener('click', (e) => {
+      if (e.target === settingsModal && modalMouseDownTarget === settingsModal) {
+        if (window.getSelection && window.getSelection().toString().length > 0) return;
+        closeSettingsModal();
+      }
+    });
+  }
+
   initStakeRepertoireSync();
   initIdentityAndPracticeTracking();
 });
