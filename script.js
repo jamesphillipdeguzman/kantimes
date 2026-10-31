@@ -777,8 +777,8 @@ function parseRepertoireCsv(csvText) {
     if (accompanimentRaw) {
       const cleanAcc = accompanimentRaw.toLowerCase().trim();
       accompanimentLabel = cleanAcc === 'piano' ? 'Piano Accompaniment' :
-                           cleanAcc === 'organ' ? 'Organ Accompaniment' :
-                           cleanAcc.charAt(0).toUpperCase() + cleanAcc.slice(1) + ' Accompaniment';
+        cleanAcc === 'organ' ? 'Organ Accompaniment' :
+          cleanAcc.charAt(0).toUpperCase() + cleanAcc.slice(1) + ' Accompaniment';
     }
 
     const audioUrl = formatDriveAudioUrl(rawAudio);
@@ -1540,7 +1540,7 @@ function recordCompletedPracticeSession(durationMinutes, songTitle, part) {
   try {
     const rawProfile = localStorage.getItem("kantimes_user_identity");
     if (rawProfile) Object.assign(userProfile, JSON.parse(rawProfile));
-  } catch (e) {}
+  } catch (e) { }
 
   const currentHandle = userProfile.handle || (typeof getDisplayHandle === "function" ? getDisplayHandle(userProfile) : `${userProfile.nickname || "CHOIR"}#${userProfile.tag || "USR1"}`);
   const currentVoice = part || userProfile.voice || userProfile.part || userProfile.section || "Tenor";
@@ -2391,7 +2391,7 @@ async function loadAndPopulateStakesDatalist() {
 
   try {
     // 1. Fetch the structured JSON file
-    let response = await fetch('./ph-stakes.json').catch(() => null);
+    let response = await fetch('./data/ph-stakes.json').catch(() => null);
     if (!response || !response.ok) {
       response = await fetch('./data/ph-stakes.json').catch(() => null);
     }
@@ -2485,7 +2485,7 @@ function updateStandingsStakeDropdown() {
     if (profile.stake && profile.stake.trim()) {
       stakesSet.add(profile.stake.trim());
     }
-  } catch (e) {}
+  } catch (e) { }
 
   const stakesList = Array.from(stakesSet).sort();
   if (stakesList.length <= 1) {
@@ -2567,7 +2567,7 @@ function getAggregatedStandings(filterMode = currentStandingsFilter, selectedSta
   try {
     const profile = JSON.parse(localStorage.getItem('kantimes_user_identity') || '{}');
     userStake = profile.stake || (typeof getUserIdentity === 'function' ? getUserIdentity().stake : '') || 'Iloilo Philippines Stake';
-  } catch (e) {}
+  } catch (e) { }
 
   // 1. Filter logs according to the selected view
   let filteredLogs = logs;
@@ -7304,8 +7304,8 @@ function renderArchivedRepertoireSection(customArchivedSongs) {
 
   const settings = getUserSettings();
   const songs = (typeof getMasterRepertoireList === "function") ? getMasterRepertoireList() : (settings.songs || []);
-  const archivedSongs = Array.isArray(customArchivedSongs) 
-    ? customArchivedSongs 
+  const archivedSongs = Array.isArray(customArchivedSongs)
+    ? customArchivedSongs
     : songs.filter(s => Boolean(s.isArchived || s.archived));
 
   const countPill = document.querySelector("#archivedAccordionCount, #archivedCountPill, .archived-count-badge");
@@ -7436,9 +7436,9 @@ window.getMasterRepertoireList = getMasterRepertoireList;
 
 function toggleSongArchiveStatus(songId) {
   // 1. Retrieve the master repertoire list (and any local additions)
-  let songs = getMasterRepertoireList(); 
+  let songs = getMasterRepertoireList();
   const targetIndex = songs.findIndex(s => String(s.id) === String(songId) || s.title === songId);
-  
+
   if (targetIndex === -1) return;
 
   // 2. Toggle both boolean variants to prevent property-mismatch bugs
@@ -7449,7 +7449,7 @@ function toggleSongArchiveStatus(songId) {
   // 3. Persist an archived ID list to scoped storage so sheet re-syncs do not undo local archives
   let archivedIds = getArchivedSongIds();
   const identifier = songs[targetIndex].id || songs[targetIndex].title;
-  
+
   if (willBeArchived) {
     if (!archivedIds.includes(identifier)) archivedIds.push(identifier);
     if (songs[targetIndex].title && !archivedIds.includes(songs[targetIndex].title)) archivedIds.push(songs[targetIndex].title);
@@ -8831,7 +8831,7 @@ async function performDynamicCacheInvalidation(newVersion) {
         const songs = getMasterRepertoireList();
         if (typeof updateRepertoireUI === "function") updateRepertoireUI(songs);
         if (typeof populateSongSelectDropdown === "function") populateSongSelectDropdown();
-      } catch (err) {}
+      } catch (err) { }
       showToast("✨ A new update with fresh songs is ready! Tap the KanTimes logo when you finish practicing.");
       return;
     }
@@ -10977,7 +10977,7 @@ function getAudioContext() {
     }
   }
   if (sharedAudioCtx && sharedAudioCtx.state === 'suspended') {
-    sharedAudioCtx.resume().catch(() => {});
+    sharedAudioCtx.resume().catch(() => { });
   }
   return sharedAudioCtx;
 }
@@ -10985,13 +10985,13 @@ function getAudioContext() {
 // Wire a one-time touch/click handler to unlock Web Audio cleanly
 window.addEventListener('click', () => {
   if (sharedAudioCtx && sharedAudioCtx.state === 'suspended') {
-    sharedAudioCtx.resume().catch(() => {});
+    sharedAudioCtx.resume().catch(() => { });
   }
 }, { once: true });
 
 function unlockPianoAudioContext() {
   if (sharedAudioCtx && sharedAudioCtx.state === 'suspended') {
-    sharedAudioCtx.resume().catch(() => {});
+    sharedAudioCtx.resume().catch(() => { });
   }
 }
 
