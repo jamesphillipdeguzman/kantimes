@@ -754,21 +754,22 @@
 
           <div class="settings-section" style="margin-top: 14px;">
             <label for="stakeSheetUrlInput">Google Sheet URL or ID</label>
-            <div class="input-clearable-wrapper">
-              <input 
-                type="text" 
+            <div class="stake-sheet-input-wrapper">
+              <textarea 
                 id="stakeSheetUrlInput" 
                 data-alt-id="googleSheetInput,stakeSheetInput" 
-                class="form-control stake-sheet-input" 
+                class="form-control stake-sheet-textarea" 
+                rows="3" 
                 placeholder="https://docs.google.com/spreadsheets/d/..." 
                 autocomplete="off" 
                 spellcheck="false"
-                onkeydown="if(event.key==='Enter')handleStakeSheetConnect()"
-              />
+                wrap="soft"
+                onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();handleStakeSheetConnect();}"
+              ></textarea>
               <button 
                 type="button" 
                 id="btnClearSheetUrl" 
-                class="btn-clear-input" 
+                class="btn-clear-sheet-url" 
                 title="Clear input" 
                 aria-label="Clear Google Sheet link"
               >✕</button>

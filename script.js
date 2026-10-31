@@ -1049,15 +1049,12 @@ function updateStakeSheetStatusUI() {
   }
 
   if (input) {
-    if (!input.value && isConnected) {
-      input.value = fullSourceUrl;
-    }
-    const val = input.value.trim();
+    const val = input.value ? input.value.trim() : "";
     input.setAttribute("title", val ? `Current: ${val}` : "Enter your Google Sheet URL or ID");
     if (!input.dataset.tooltipBound) {
       input.dataset.tooltipBound = "true";
       input.addEventListener("input", () => {
-        const currentVal = input.value.trim();
+        const currentVal = input.value ? input.value.trim() : "";
         input.setAttribute("title", currentVal ? `Current: ${currentVal}` : "Enter your Google Sheet URL or ID");
       });
     }
@@ -1107,7 +1104,7 @@ function updateClearBtnVisibility() {
   const sheetInput = document.getElementById('stakeSheetUrlInput') || document.getElementById('googleSheetInput') || document.getElementById('stakeSheetInput');
   const clearBtn = document.getElementById('btnClearSheetUrl');
   if (clearBtn && sheetInput) {
-    clearBtn.style.display = sheetInput.value.trim().length > 0 ? 'block' : 'none';
+    clearBtn.style.display = sheetInput.value.trim().length > 0 ? 'flex' : 'none';
   }
 }
 window.updateClearBtnVisibility = updateClearBtnVisibility;
@@ -1122,16 +1119,37 @@ function initClearSheetUrlButton() {
       updateClearBtnVisibility();
       updateStakeSheetStatusUI();
     });
+    sheetInput.addEventListener('change', () => {
+      updateClearBtnVisibility();
+      updateStakeSheetStatusUI();
+    });
   }
 
   if (clearBtn && !clearBtn._clearBound) {
     clearBtn._clearBound = true;
-    clearBtn.addEventListener('click', () => {
+    clearBtn.addEventListener('click', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+
+      // 1. Wipe the textarea value
       if (sheetInput) {
         sheetInput.value = '';
+      }
+
+      // 2. Remove any cached draft inputs in storage
+      localStorage.removeItem('kantimes_temp_sheet_input');
+
+      // 3. Dispatch native input and change events so bound listeners stay synced
+      if (sheetInput) {
+        sheetInput.dispatchEvent(new Event('input', { bubbles: true }));
+        sheetInput.dispatchEvent(new Event('change', { bubbles: true }));
+      }
+
+      // 4. Hide clear button and focus field
+      clearBtn.style.display = 'none';
+      if (sheetInput) {
         sheetInput.focus();
       }
-      updateClearBtnVisibility();
       updateStakeSheetStatusUI();
     });
   }

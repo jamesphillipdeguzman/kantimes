@@ -9932,35 +9932,56 @@ body.piano-fullscreen-active {
 }
 
 
-/* Clearable Input Wrapper & Button */
+/* Stake Sheet Clearable Textarea Wrapper & Button */
+.stake-sheet-input-wrapper,
 .input-clearable-wrapper {
   position: relative;
+  width: 100%;
   display: flex;
-  align-items: center;
-  width: 100%;
 }
 
-.input-clearable-wrapper input {
+.stake-sheet-textarea {
   width: 100%;
-  padding-right: 36px; /* space for clear button */
+  min-height: 78px;
+  max-height: 140px;
+  resize: vertical;
+  word-break: break-all;
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+  padding: 10px 38px 10px 12px !important; /* Right padding keeps text clear of the ✕ */
+  font-family: monospace, ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 0.82rem;
+  line-height: 1.45;
+  box-sizing: border-box;
+  border-radius: 8px;
 }
 
+.btn-clear-sheet-url,
 .btn-clear-input {
   position: absolute;
+  top: 10px;
   right: 10px;
-  background: transparent;
-  border: none;
-  color: #94a3b8;
-  font-size: 14px;
-  font-weight: 600;
-  cursor: pointer;
-  padding: 4px 6px;
-  border-radius: 4px;
+  width: 24px;
+  height: 24px;
   display: none; /* toggle via JS when input has text */
-  transition: color 0.15s ease, background 0.15s ease;
+  align-items: center;
+  justify-content: center;
+  background: rgba(239, 68, 68, 0.15);
+  border: 1px solid rgba(239, 68, 68, 0.35);
+  border-radius: 50%;
+  color: #ef4444;
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 1;
+  cursor: pointer;
+  padding: 0;
+  z-index: 10;
+  transition: background 0.15s ease, transform 0.15s ease, color 0.15s ease;
 }
 
+.btn-clear-sheet-url:hover,
 .btn-clear-input:hover {
-  color: #ef4444;
-  background: rgba(239, 68, 68, 0.1);
+  background: rgba(239, 68, 68, 0.3);
+  color: #f87171;
+  transform: scale(1.08);
 }
