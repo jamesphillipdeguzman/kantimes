@@ -10842,34 +10842,42 @@ function getPianoFrequency(noteName) {
   return 440 * Math.pow(2, (midi - 69) / 12);
 }
 
+let sharedAudioCtx = null;
+
+function getAudioContext() {
+  if (!sharedAudioCtx) {
+    const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+    if (AudioContextClass) {
+      try {
+        sharedAudioCtx = new AudioContextClass();
+        pianoAudioCtx = sharedAudioCtx;
+      } catch (err) {
+        console.warn("Failed to initialize AudioContext:", err);
+      }
+    }
+  }
+  if (sharedAudioCtx && sharedAudioCtx.state === 'suspended') {
+    sharedAudioCtx.resume().catch(() => {});
+  }
+  return sharedAudioCtx;
+}
+
+// Wire a one-time touch/click handler to unlock Web Audio cleanly
+window.addEventListener('click', () => {
+  if (sharedAudioCtx && sharedAudioCtx.state === 'suspended') {
+    sharedAudioCtx.resume().catch(() => {});
+  }
+}, { once: true });
+
 function unlockPianoAudioContext() {
-  const audioCtx = getPianoAudioContext();
-  if (audioCtx && audioCtx.state !== "running") {
-    audioCtx.resume().catch(() => { });
+  if (sharedAudioCtx && sharedAudioCtx.state === 'suspended') {
+    sharedAudioCtx.resume().catch(() => {});
   }
 }
 
 function getPianoAudioContext() {
-  if (!pianoAudioCtx) {
-    const AudioCtxClass = window.AudioContext || window.webkitAudioContext;
-    if (AudioCtxClass) {
-      try {
-        pianoAudioCtx = new AudioCtxClass();
-      } catch (err) {
-        console.error("Failed to initialize piano AudioContext:", err);
-      }
-    }
-  }
-  if (pianoAudioCtx && pianoAudioCtx.state === "suspended") {
-    pianoAudioCtx.resume().catch(() => { });
-  }
-  return pianoAudioCtx;
+  return getAudioContext();
 }
-
-// Unlock audio context on initial user interaction anywhere on the window
-["pointerdown", "touchstart", "mousedown", "keydown"].forEach((evtName) => {
-  window.addEventListener(evtName, unlockPianoAudioContext, { once: true, passive: true });
-});
 
 function highlightPianoKey(noteName, isPressed) {
   const keyEl = document.querySelector(`.piano-keyboard [data-note="${noteName}"]`);
@@ -11778,31 +11786,41 @@ window.setActiveRepertoire = setActiveRepertoire;
  * Live Footer Presence Counter:
  * Keeps active rehearsal sessions count live without relying on retro hit counters.
  */
+function setFallbackCount(el) {
+  const hour = new Date().getHours();
+  const base = (hour >= 17 && hour <= 21) ? 4 : 2;
+  el.textContent = `${base} active rehearsers online`;
+}
+
 async function updateLiveCount() {
   const badgeText = document.getElementById('liveVisitorCount');
   if (!badgeText) return;
 
+  // If offline or blocked, immediately use local fallback
+  if (!navigator.onLine) {
+    setFallbackCount(badgeText);
+    return;
+  }
+
   try {
-    // Attempt fetch with an AbortController timeout of 3s
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 3000);
+    const timer = setTimeout(() => controller.abort(), 5000);
 
     const res = await fetch('https://api.counterapi.dev/v1/kantimes/online?up=true', {
       cache: 'no-store',
       signal: controller.signal
-    });
-    clearTimeout(timeoutId);
+    }).catch(() => null); // Catch at fetch level to avoid throwing unhandled aborts
 
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    const data = await res.json();
-    const count = data.count || 1;
-    badgeText.textContent = `${count} active rehearsers online`;
-  } catch (err) {
-    // Ad-blockers (ERR_BLOCKED_BY_CLIENT), timeouts, or network failures fall back quietly
-    const hour = new Date().getHours();
-    const base = (hour >= 17 && hour <= 21) ? 4 : 2;
-    const simulated = base + (Math.floor(Date.now() / 60000) % 3);
-    badgeText.textContent = `${simulated} active rehearsers online`;
+    clearTimeout(timer);
+
+    if (res && res.ok) {
+      const data = await res.json();
+      badgeText.textContent = `${data.count || 2} active rehearsers online`;
+    } else {
+      setFallbackCount(badgeText);
+    }
+  } catch {
+    setFallbackCount(badgeText);
   }
 }
 
