@@ -1320,6 +1320,8 @@ function initStakeRepertoireSync() {
         showToast("Loading Stake Repertoire from link... 🎶");
         loadSongsFromSheet(cleanParam, { isBackground: false, userInitiated: true });
       }
+      // Cleanly clean the URL without reloading using replaceState
+      window.history.replaceState({}, document.title, window.location.pathname);
     }
   } catch (e) {
     console.warn("[Kantimes] Error parsing URL search params for sheet:", e);
@@ -8631,12 +8633,20 @@ async function performDynamicCacheInvalidation(newVersion) {
     // 3. Force-sync stored user repertoire so new YouTube links are populated
     getUserSettings(true);
 
-    // 4. If timer is currently running or paused with progress, don't disrupt the user!
+    // 4. If timer is currently running or paused with progress, or choir setup is open, don't disrupt the user!
     const isRunning = Boolean(timerInterval || targetEndTime);
     const pausedVal = localStorage.getItem("kantimes_paused_remaining") || localStorage.getItem("kantime_paused_remaining");
     const hasPausedProgress = Boolean(pausedVal && Number(pausedVal) > 0 && Number(pausedVal) < timerDuration);
+    const profileCard = document.getElementById("profileCard");
+    const isProfileSetupOpen = Boolean(profileCard && profileCard.style.display !== "none");
 
-    if (isRunning || hasPausedProgress) {
+    if (isRunning || hasPausedProgress || isProfileSetupOpen) {
+      // Re-render in memory dynamically without hard reload
+      try {
+        const songs = getMasterRepertoireList();
+        if (typeof updateRepertoireUI === "function") updateRepertoireUI(songs);
+        if (typeof populateSongSelectDropdown === "function") populateSongSelectDropdown();
+      } catch (err) {}
       showToast("✨ A new update with fresh songs is ready! Tap the KanTimes logo when you finish practicing.");
       return;
     }
@@ -8663,7 +8673,7 @@ function registerServiceWorker() {
   // Track whether a reload is already in flight so we don't reload twice
   let reloadPending = false;
 
-  // Show a dismissible toast and then reload once the new SW takes control
+  // Show a dismissible toast and dynamically refresh repertoire without reloading
   function showUpdateToast() {
     const existing = document.getElementById("toast");
     const el = existing || document.createElement("div");
@@ -8676,15 +8686,32 @@ function registerServiceWorker() {
         "box-shadow:0 4px 20px rgba(0,0,0,.35);text-align:center;";
       document.body.appendChild(el);
     }
-    el.textContent = "🔄 App updated to latest repertoire! Refreshing...";
+    el.textContent = "🔄 App updated to latest repertoire!";
     el.style.display = "block";
     el.classList.add("toast-visible");
 
-    // Don't auto-reload if singer is mid-practice countdown
-    const isRunning = Boolean(timerInterval || targetEndTime);
-    if (!isRunning) {
-      setTimeout(() => window.location.reload(), 1500);
+    // Dynamic in-memory re-rendering without hard page reload
+    try {
+      const songs = getMasterRepertoireList();
+      if (typeof updateRepertoireUI === "function") {
+        updateRepertoireUI(songs);
+      }
+      if (typeof populateSongSelectDropdown === "function") {
+        populateSongSelectDropdown();
+      }
+      if (typeof renderArchivedRepertoireSection === "function") {
+        renderArchivedRepertoireSection();
+      }
+    } catch (e) {
+      console.warn("[Kantimes] Dynamic repertoire update error:", e);
     }
+
+    setTimeout(() => {
+      if (el) {
+        el.classList.remove("toast-visible");
+        el.style.display = "none";
+      }
+    }, 3000);
   }
 
   const swUrl = window.location.protocol === "file:" ? "./sw.js" : "/sw.js?v=" + APP_VERSION;
@@ -11686,31 +11713,44 @@ window.setActiveRepertoire = setActiveRepertoire;
  * Live Footer Presence Counter:
  * Keeps active rehearsal sessions count live without relying on retro hit counters.
  */
-function initLiveFooterCounter() {
+async function updateLiveCount() {
   const badgeText = document.getElementById('liveVisitorCount');
   if (!badgeText) return;
 
-  async function updateLiveCount() {
-    try {
-      // CounterAPI live active sessions endpoint
-      const res = await fetch('https://api.counterapi.dev/v1/kantimes/online?up=true', { cache: 'no-store' });
-      if (!res.ok) throw new Error('Network response not ok');
-      const data = await res.json();
-      const count = data.count || 1;
-      badgeText.textContent = `${count} active singer${count === 1 ? '' : 's'} online`;
-    } catch {
-      // Graceful organic baseline if offline or endpoint unreachable
-      const hour = new Date().getHours();
-      const base = (hour >= 17 && hour <= 21) ? 4 : 2;
-      const simulated = base + (Math.floor(Date.now() / 60000) % 3);
-      badgeText.textContent = `${simulated} active rehearsers online`;
-    }
+  try {
+    // Attempt fetch with an AbortController timeout of 3s
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 3000);
+
+    const res = await fetch('https://api.counterapi.dev/v1/kantimes/online?up=true', {
+      cache: 'no-store',
+      signal: controller.signal
+    });
+    clearTimeout(timeoutId);
+
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const data = await res.json();
+    const count = data.count || 1;
+    badgeText.textContent = `${count} active rehearsers online`;
+  } catch (err) {
+    // Ad-blockers (ERR_BLOCKED_BY_CLIENT), timeouts, or network failures fall back quietly
+    const hour = new Date().getHours();
+    const base = (hour >= 17 && hour <= 21) ? 4 : 2;
+    const simulated = base + (Math.floor(Date.now() / 60000) % 3);
+    badgeText.textContent = `${simulated} active rehearsers online`;
   }
+}
+
+function initLiveFooterCounter() {
+  const badgeText = document.getElementById('liveVisitorCount');
+  if (!badgeText) return;
 
   updateLiveCount();
   // Refresh every 60 seconds
   setInterval(updateLiveCount, 60000);
 }
+
+window.updateLiveCount = updateLiveCount;
 window.initLiveFooterCounter = initLiveFooterCounter;
 document.addEventListener('DOMContentLoaded', initLiveFooterCounter);
 
