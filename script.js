@@ -7068,6 +7068,10 @@ function toggleArchivedRepertoireCollapse() {
 }
 
 function selectAndRehearseArchivedSong(songTitle) {
+  if (document.body.classList.contains('layout-horizontal')) {
+    switchHorizontalTab('practiceSection');
+  }
+
   const select = document.getElementById("targetSong");
   if (!select) return;
 
@@ -8747,6 +8751,110 @@ function updateThemeSegmentedControl(mode) {
   if (btnLight) btnLight.classList.toggle("active", mode === "light");
   if (btnDark) btnDark.classList.toggle("active", mode === "dark");
 }
+
+
+// ==========================================================================
+// DASHBOARD LAYOUT PREFERENCE (VERTICAL STACK VS HORIZONTAL TABS)
+// ==========================================================================
+const STORAGE_KEY_LAYOUT = 'kantimes_layout_mode';
+
+function getSavedLayoutMode() {
+  try {
+    const saved = localStorage.getItem(STORAGE_KEY_LAYOUT);
+    if (saved === 'horizontal' || saved === 'vertical') {
+      return saved;
+    }
+  } catch (e) {
+    console.warn('Could not read layout preference from localStorage:', e);
+  }
+  return 'vertical';
+}
+
+function applyLayoutMode(mode, save = true) {
+  const isHorizontal = mode === 'horizontal';
+  document.body.classList.toggle('layout-horizontal', isHorizontal);
+  document.body.classList.toggle('layout-vertical', !isHorizontal);
+
+  const tabBar = document.getElementById('horizontalTabBar');
+  if (tabBar) {
+    tabBar.style.display = isHorizontal ? 'flex' : 'none';
+  }
+
+  // Update Settings toggle buttons
+  const btnVertical = document.getElementById('layoutBtnVertical');
+  const btnHorizontal = document.getElementById('layoutBtnHorizontal');
+  if (btnVertical) {
+    btnVertical.classList.toggle('active', !isHorizontal);
+    btnVertical.setAttribute('aria-pressed', !isHorizontal ? 'true' : 'false');
+  }
+  if (btnHorizontal) {
+    btnHorizontal.classList.toggle('active', isHorizontal);
+    btnHorizontal.setAttribute('aria-pressed', isHorizontal ? 'true' : 'false');
+  }
+
+  if (isHorizontal) {
+    const activeSection = document.querySelector('.dashboard-section-tab.active');
+    if (!activeSection) {
+      switchHorizontalTab('practiceSection');
+    }
+  }
+
+  if (save) {
+    try {
+      localStorage.setItem(STORAGE_KEY_LAYOUT, mode);
+    } catch (e) {
+      console.warn('Could not save layout preference:', e);
+    }
+    showToast(`Layout switched to ${isHorizontal ? 'Horizontal (Tabs) ↔️' : 'Vertical (Stacked) ↕️'}!`);
+  }
+}
+
+function switchHorizontalTab(targetId) {
+  const sections = document.querySelectorAll('.dashboard-section-tab');
+  sections.forEach((sec) => {
+    if (sec.id === targetId) {
+      sec.classList.add('active');
+    } else {
+      sec.classList.remove('active');
+    }
+  });
+
+  const tabButtons = document.querySelectorAll('.horizontal-tab-bar .tab-btn');
+  tabButtons.forEach((btn) => {
+    const isTarget = btn.getAttribute('data-tab-target') === targetId;
+    btn.classList.toggle('active', isTarget);
+    btn.setAttribute('aria-selected', isTarget ? 'true' : 'false');
+  });
+}
+
+function initLayoutMode() {
+  const mode = getSavedLayoutMode();
+  applyLayoutMode(mode, false);
+
+  const btnVertical = document.getElementById('layoutBtnVertical');
+  const btnHorizontal = document.getElementById('layoutBtnHorizontal');
+
+  if (btnVertical) {
+    btnVertical.addEventListener('click', () => applyLayoutMode('vertical', true));
+  }
+  if (btnHorizontal) {
+    btnHorizontal.addEventListener('click', () => applyLayoutMode('horizontal', true));
+  }
+
+  const tabButtons = document.querySelectorAll('.horizontal-tab-bar .tab-btn');
+  tabButtons.forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const targetId = btn.getAttribute('data-tab-target');
+      if (targetId) {
+        switchHorizontalTab(targetId);
+      }
+    });
+  });
+}
+
+window.applyLayoutMode = applyLayoutMode;
+window.switchHorizontalTab = switchHorizontalTab;
+window.initLayoutMode = initLayoutMode;
 
 function setThemePreference(mode) {
   applyTheme(mode, true);
@@ -11247,6 +11355,7 @@ window.addEventListener("DOMContentLoaded", function () {
   initLiveFooterCounter();
   migrateLegacyStorage();
   initThemeSystem();
+  initLayoutMode();
   registerServiceWorker();
   checkAppVersionOnLaunch();
   updateOnlineStatus();

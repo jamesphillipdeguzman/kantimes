@@ -10135,3 +10135,154 @@ body.piano-fullscreen-active {
   color: #facc15;
   border-color: rgba(234, 179, 8, 0.4);
 }
+
+
+/* ==========================================================================
+   Dashboard Layout Mode (Vertical Stacked vs Horizontal Tabs)
+   ========================================================================== */
+.layout-toggle-group {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  background: var(--card-bg-subtle, rgba(0, 0, 0, 0.04));
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius-md, 8px);
+  padding: 4px;
+  gap: 4px;
+  margin-top: 6px;
+  margin-bottom: 12px;
+}
+
+[data-theme="dark"] .layout-toggle-group {
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.btn-layout-option {
+  background: transparent;
+  border: none;
+  border-radius: var(--radius-sm, 6px);
+  padding: 8px 12px;
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: var(--text-muted);
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  user-select: none;
+  touch-action: manipulation;
+}
+
+.btn-layout-option:hover {
+  color: var(--text);
+  background: rgba(29, 78, 216, 0.06);
+}
+
+[data-theme="dark"] .btn-layout-option:hover {
+  background: rgba(59, 130, 246, 0.12);
+}
+
+.btn-layout-option.active {
+  background: var(--primary);
+  color: #ffffff;
+  box-shadow: 0 2px 8px rgba(29, 78, 216, 0.3);
+}
+
+.btn-layout-option.active:hover {
+  background: var(--primary-hover, var(--primary));
+  color: #ffffff;
+}
+
+/* Horizontal Tab Navigation Bar */
+.horizontal-tab-bar {
+  display: none;
+  align-items: center;
+  gap: 8px;
+  background: var(--card-bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg, 12px);
+  padding: 6px;
+  margin-bottom: 18px;
+  box-shadow: var(--shadow-sm);
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: thin;
+}
+
+.horizontal-tab-bar::-webkit-scrollbar {
+  height: 4px;
+}
+
+.horizontal-tab-bar::-webkit-scrollbar-thumb {
+  background: var(--border);
+  border-radius: 4px;
+}
+
+.horizontal-tab-bar .tab-btn {
+  flex: 1 1 auto;
+  min-width: 105px;
+  background: transparent;
+  border: none;
+  border-radius: var(--radius-md, 8px);
+  padding: 10px 14px;
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: var(--text-muted);
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  white-space: nowrap;
+  transition: all 0.2s ease;
+  user-select: none;
+}
+
+.horizontal-tab-bar .tab-btn:hover {
+  color: var(--text);
+  background: rgba(29, 78, 216, 0.08);
+}
+
+[data-theme="dark"] .horizontal-tab-bar .tab-btn:hover {
+  background: rgba(59, 130, 246, 0.15);
+}
+
+.horizontal-tab-bar .tab-btn.active {
+  background: var(--primary);
+  color: #ffffff;
+  box-shadow: 0 2px 8px rgba(29, 78, 216, 0.3);
+}
+
+/* Tab display toggles according to Layout Mode */
+body.layout-vertical .horizontal-tab-bar {
+  display: none !important;
+}
+
+body.layout-vertical .dashboard-section-tab {
+  display: block !important;
+}
+
+body.layout-horizontal .horizontal-tab-bar {
+  display: flex !important;
+}
+
+body.layout-horizontal .dashboard-section-tab {
+  display: none;
+}
+
+body.layout-horizontal .dashboard-section-tab.active {
+  display: block;
+  animation: fadeInTab 0.22s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes fadeInTab {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}

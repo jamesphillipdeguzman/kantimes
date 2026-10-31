@@ -172,7 +172,24 @@
     <!-- Main Dashboard (Gated: Timer, Repertoire Resources, Leaderboards) -->
     <div id="mainDashboard" class="fade-in" style="display: none;">
 
+      <!-- Horizontal Tab Bar (Displayed in Horizontal Layout Mode) -->
+      <nav class="horizontal-tab-bar" id="horizontalTabBar" role="tablist" aria-label="Dashboard Sections" style="display: none;">
+        <button type="button" class="tab-btn active" role="tab" aria-selected="true" data-tab-target="practiceSection" id="tabNavPractice">
+          ⏱️ Rehearse
+        </button>
+        <button type="button" class="tab-btn" role="tab" aria-selected="false" data-tab-target="repertoireSection" id="tabNavRepertoire">
+          🎵 Repertoire
+        </button>
+        <button type="button" class="tab-btn" role="tab" aria-selected="false" data-tab-target="milestonesSection" id="tabNavMilestones">
+          📈 Milestones
+        </button>
+        <button type="button" class="tab-btn" role="tab" aria-selected="false" data-tab-target="standingsSection" id="tabNavStandings">
+          🏆 Standings
+        </button>
+      </nav>
+
       <!-- Practice Session & Dynamic Workspace -->
+      <div id="practiceSection" class="dashboard-section-tab active">
       <div class="card" id="practiceWorkspace">
         <div class="workspace-header-row">
           <h2>⏱️ <span id="practiceDurationTitle">15</span>-Minute Practice Session</h2>
@@ -429,6 +446,11 @@
         </div>
       </div>
 
+      </div>
+      <!-- /#practiceSection -->
+
+      <!-- Repertoire Section (Active + Archived) -->
+      <div id="repertoireSection" class="dashboard-section-tab">
       <!-- Active Song Resources (Dynamically Filtered) -->
       <div class="card" id="activeResourcesCard">
         <h2>🎵 Active Song Repertoire</h2>
@@ -458,7 +480,11 @@
         </div>
       </div>
 
+      </div>
+      <!-- /#repertoireSection -->
+
       <!-- My Practice Milestones & Weekly Pulse -->
+      <div id="milestonesSection" class="dashboard-section-tab">
       <div class="card practice-milestones-card" id="practiceMilestonesCard">
         <div class="milestones-header">
           <div class="milestones-title-group">
@@ -532,7 +558,11 @@
         </div>
       </div>
 
+      </div>
+      <!-- /#milestonesSection -->
+
       <!-- Section Standings -->
+      <div id="standingsSection" class="dashboard-section-tab">
       <div class="card" id="sectionStandings">
         <h2>📊 Section Standings</h2>
         <div id="sectionList">
@@ -540,6 +570,8 @@
             rankings...</div>
         </div>
       </div>
+      </div>
+      <!-- /#standingsSection -->
 
     </div>
 
@@ -1002,6 +1034,23 @@
               <p class="settings-hint">Choose your preferred appearance or automatically follow your device's system
                 dark mode.</p>
             </div>
+
+            <!-- Dashboard Layout Mode (Vertical Stack vs Horizontal Tabs) -->
+            <div class="settings-section setting-item layout-preference-setting">
+              <div class="setting-label-group">
+                <label class="setting-title" style="font-weight: 700;">Dashboard Layout</label>
+                <p class="setting-desc settings-hint" style="margin-top: 2px; margin-bottom: 8px;">Choose between a stacked continuous view or organized horizontal tabs.</p>
+              </div>
+              <div class="layout-toggle-group" role="radiogroup" aria-label="Dashboard Layout">
+                <button type="button" class="btn-layout-option active" data-layout="vertical" id="layoutBtnVertical">
+                  ↕️ Vertical (Stacked)
+                </button>
+                <button type="button" class="btn-layout-option" data-layout="horizontal" id="layoutBtnHorizontal">
+                  ↔️ Horizontal (Tabs)
+                </button>
+              </div>
+            </div>
+
 
             <!-- Rehearsal Tools Visibility Section -->
             <div class="settings-section">
