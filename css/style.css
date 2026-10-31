@@ -10503,3 +10503,108 @@ body.layout-horizontal .dashboard-section-tab.tab-active {
 .dark #sectionBreakdownModal .section-details-footer {
   background: var(--bg-modal, #131b2e);
 }
+
+/* ==========================================================================
+   STANDINGS HEADER CONTROLS & STAKE FILTERING
+   ========================================================================== */
+.standings-header-controls {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.standings-filter-pills {
+  display: inline-flex;
+  background: var(--bg-card, rgba(255, 255, 255, 0.05));
+  border: 1px solid var(--border-color, rgba(255, 255, 255, 0.1));
+  border-radius: 9999px;
+  padding: 3px;
+  gap: 4px;
+}
+
+.btn-standings-filter {
+  background: transparent;
+  border: none;
+  border-radius: 9999px;
+  padding: 5px 12px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--text-muted, #94a3b8);
+  cursor: pointer;
+  transition: all 0.15s ease;
+  user-select: none;
+}
+
+.btn-standings-filter:hover {
+  color: var(--text-main, #f8fafc);
+}
+
+.btn-standings-filter.active {
+  background: var(--primary, #3b82f6);
+  color: #ffffff;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+}
+
+.standings-stake-dropdown {
+  background: var(--bg-card, #ffffff);
+  color: var(--text-main, #0f172a);
+  border: 1px solid var(--border-color, #cbd5e1);
+  border-radius: 8px;
+  padding: 5px 10px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  outline: none;
+  cursor: pointer;
+  transition: border-color 0.15s ease;
+}
+
+[data-theme="dark"] .standings-stake-dropdown,
+.dark .standings-stake-dropdown {
+  background: #1e293b;
+  color: #f8fafc;
+  border-color: #334155;
+}
+
+/* Roster Singer Row & Stake Badge */
+.roster-singer-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 10px;
+  border-radius: 8px;
+  margin: 4px 0;
+  background: var(--bg-card, rgba(255, 255, 255, 0.04));
+  border: 1px solid var(--border-color, rgba(255, 255, 255, 0.08));
+  gap: 10px;
+  transition: background-color 0.15s ease;
+  box-sizing: border-box;
+}
+
+.roster-singer-row:hover {
+  background: rgba(59, 130, 246, 0.08);
+}
+
+.stake-badge-pill {
+  font-size: 0.68rem;
+  font-weight: 600;
+  padding: 2px 7px;
+  border-radius: 9999px;
+  background: rgba(59, 130, 246, 0.15);
+  color: #2563eb;
+  border: 1px solid rgba(59, 130, 246, 0.25);
+  white-space: nowrap;
+  max-width: 140px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: inline-block;
+}
+
+[data-theme="dark"] .stake-badge-pill,
+.dark .stake-badge-pill {
+  background: rgba(30, 58, 138, 0.5);
+  color: #93c5fd;
+  border-color: rgba(59, 130, 246, 0.4);
+}

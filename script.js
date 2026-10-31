@@ -959,7 +959,7 @@ async function loadSongsFromSheet(sheetIdOrUrl, options = {}) {
 
     // Re-append local extra songs added manually so syncs don't erase them
     try {
-      const localExtras = JSON.parse(localStorage.getItem("kantimes_local_extra_songs") || "[]");
+      const localExtras = getLocalExtraSongs();
       if (Array.isArray(localExtras) && localExtras.length > 0) {
         localExtras.forEach(extra => {
           if (!songs.some(s => s.id === extra.id || (s.title && s.title.toLowerCase() === extra.title.toLowerCase()))) {
@@ -973,7 +973,7 @@ async function loadSongsFromSheet(sheetIdOrUrl, options = {}) {
 
     // Apply persisted archived IDs so sheet re-syncs do not undo local archives
     try {
-      const archivedIds = JSON.parse(localStorage.getItem('kantimes_archived_song_ids') || '[]');
+      const archivedIds = getArchivedSongIds();
       if (Array.isArray(archivedIds) && archivedIds.length > 0) {
         songs.forEach(s => {
           const identifier = s.id || s.title;
@@ -4649,78 +4649,55 @@ let cachedKnownSingers = [];
 let pendingProfileSubmission = null;
 
 /**
- * Loads known choir singers from localStorage for instant offline deduplication.
+ * Loads known choir singers dynamically from the active sheet's practice logs.
+ * Strictly defaults to an empty list [] if no logs exist for that sheet.
  */
 function loadKnownSingersCache() {
-  try {
-    const raw = localStorage.getItem("kantime_known_singers");
-    if (raw) {
-      const parsed = JSON.parse(raw);
-      if (Array.isArray(parsed) && parsed.length > 0) {
-        cachedKnownSingers = parsed;
-      }
-    }
-  } catch (err) {
-    console.warn("Could not parse kantime_known_singers cache:", err);
+  const logs = getPracticeLogs();
+  if (!logs || !Array.isArray(logs) || logs.length === 0) {
+    cachedKnownSingers = [];
+    return [];
   }
+  const singersMap = new Map();
+  logs.forEach(log => {
+    const handle = log.handle || log.name;
+    if (handle && !singersMap.has(handle)) {
+      singersMap.set(handle, {
+        name: handle,
+        section: log.voice || log.part || "Choir",
+        avatar: "",
+        totalMins: Number(log.durationMinutes || log.duration || 0)
+      });
+    } else if (handle) {
+      singersMap.get(handle).totalMins += Number(log.durationMinutes || log.duration || 0);
+    }
+  });
+  cachedKnownSingers = Array.from(singersMap.values());
+  return cachedKnownSingers;
 }
 
 /**
- * Updates the known singers cache in memory and persists to localStorage.
+ * Updates the known singers cache in memory for the active sheet.
  */
 function updateKnownSingersFromRoster(singers) {
-  if (!singers || !Array.isArray(singers)) return;
+  if (!singers || !Array.isArray(singers)) {
+    cachedKnownSingers = [];
+    return;
+  }
   cachedKnownSingers = singers.map(s => ({
     name: (s.name || "").trim(),
     section: s.section || "Choir",
     avatar: s.avatar || "",
     totalMins: Number(s.totalMins) || 0
   })).filter(s => s.name.length > 0);
-
-  try {
-    localStorage.setItem("kantime_known_singers", JSON.stringify(cachedKnownSingers));
-  } catch (err) {
-    console.warn("Could not persist kantime_known_singers to localStorage:", err);
-  }
 }
 
 /**
- * Background fetch of the Google Sheets roster on startup to keep known singers up-to-date.
+ * Derives the active sheet roster strictly from local scoped practice logs.
+ * Defaults strictly to [] with zero external leakage.
  */
 function fetchKnownSingersRoster() {
-  if (!navigator.onLine) return;
-  fetch(APPS_SCRIPT_URL)
-    .then(res => res.json())
-    .then(data => {
-      if (!data || !Array.isArray(data) || data.length === 0) return;
-      const singerTotals = {};
-      data.forEach(entry => {
-        const trimmedName = (entry.name || "Unknown").trim();
-        const sec = entry.section || "Choir";
-        const mins = Number(entry.minutes) || 0;
-        const av = (entry.avatar || "").trim();
-
-        if (!singerTotals[trimmedName]) {
-          singerTotals[trimmedName] = {
-            name: trimmedName,
-            section: sec,
-            avatar: av,
-            totalMins: 0
-          };
-        } else if (av) {
-          singerTotals[trimmedName].avatar = av;
-        }
-        singerTotals[trimmedName].totalMins += mins;
-      });
-
-      const list = Object.values(singerTotals);
-      if (list.length > 0) {
-        updateKnownSingersFromRoster(list);
-      }
-    })
-    .catch(err => {
-      console.warn("Background fetch of known singers roster failed:", err);
-    });
+  loadKnownSingersCache();
 }
 
 /**
@@ -6288,59 +6265,36 @@ function loadLeaderboard() {
   // Always render real local section standings based on logged practice sessions
   renderSectionStandingsUI();
 
-  if (!navigator.onLine) {
-    if (topSingersEl && (!cachedLeaderboardSingers || cachedLeaderboardSingers.length === 0)) {
-      topSingersEl.innerHTML = `<div style="text-align:center; padding:12px; font-size:0.85rem; color:var(--text-muted);">📡 Offline: Leaderboard syncs when reconnected.</div>`;
+  // Populate leaderboard dynamically from scoped practice logs
+  const logs = getPracticeLogs();
+  if (!logs || !Array.isArray(logs) || logs.length === 0) {
+    cachedLeaderboardSingers = [];
+    if (topSingersEl) {
+      topSingersEl.innerHTML = `<div style="text-align:center; padding:16px; font-size:0.85rem; color:var(--text-muted);">No practice sessions logged yet. Be the first!</div>`;
     }
     return;
   }
 
-  fetch(APPS_SCRIPT_URL)
-    .then(res => res.json())
-    .then(data => {
-      if (!data || data.length === 0) {
-        if (topSingersEl) {
-          topSingersEl.innerHTML = `<div style="text-align:center; padding:8px; font-size:0.85rem; color:var(--text-muted);">No practice sessions logged yet. Be the first!</div>`;
-        }
-        return;
-      }
+  const singerTotals = {};
+  logs.forEach(log => {
+    const handle = log.handle || "Choir Member";
+    const sec = log.voice || log.part || "Choir";
+    const mins = Number(log.durationMinutes || log.duration || 0);
 
-      const singerTotals = {};
+    if (!singerTotals[handle]) {
+      singerTotals[handle] = {
+        name: handle,
+        section: sec,
+        avatar: "",
+        totalMins: 0
+      };
+    }
+    singerTotals[handle].totalMins += mins;
+  });
 
-      data.forEach(entry => {
-        const trimmedName = (entry.name || "Unknown").trim();
-        const rawSec = (entry.section || "Choir").trim();
-        const mins = Number(entry.minutes) || 0;
-        const av = (entry.avatar || "").trim();
-
-        if (!singerTotals[trimmedName]) {
-          singerTotals[trimmedName] = {
-            name: trimmedName,
-            section: rawSec,
-            avatar: av,
-            totalMins: 0
-          };
-        } else {
-          if (av) {
-            singerTotals[trimmedName].avatar = av;
-          }
-          if (rawSec) {
-            singerTotals[trimmedName].section = rawSec;
-          }
-        }
-        singerTotals[trimmedName].totalMins += mins;
-      });
-
-      cachedLeaderboardSingers = Object.values(singerTotals).sort((a, b) => b.totalMins - a.totalMins);
-      updateKnownSingersFromRoster(cachedLeaderboardSingers);
-      renderLeaderboardSingers();
-    })
-    .catch(err => {
-      console.warn("[Kantimes] Error fetching leaderboard from Apps Script:", err);
-      if (topSingersEl && (!cachedLeaderboardSingers || cachedLeaderboardSingers.length === 0)) {
-        topSingersEl.innerHTML = `<div style="text-align:center; color:var(--text-muted); font-size:0.85rem;">Could not load standings.</div>`;
-      }
-    });
+  cachedLeaderboardSingers = Object.values(singerTotals).sort((a, b) => b.totalMins - a.totalMins);
+  updateKnownSingersFromRoster(cachedLeaderboardSingers);
+  renderLeaderboardSingers();
 }
 window.loadLeaderboard = loadLeaderboard;
 
@@ -7369,14 +7323,8 @@ function toggleSongArchiveStatus(songId) {
   songs[targetIndex].isArchived = willBeArchived;
   songs[targetIndex].archived = willBeArchived;
 
-  // 3. Persist an archived ID list to localStorage so sheet re-syncs do not undo local archives
-  let archivedIds = [];
-  try {
-    archivedIds = JSON.parse(localStorage.getItem('kantimes_archived_song_ids') || '[]');
-    if (!Array.isArray(archivedIds)) archivedIds = [];
-  } catch (e) {
-    archivedIds = [];
-  }
+  // 3. Persist an archived ID list to scoped storage so sheet re-syncs do not undo local archives
+  let archivedIds = getArchivedSongIds();
   const identifier = songs[targetIndex].id || songs[targetIndex].title;
   
   if (willBeArchived) {
@@ -7385,7 +7333,7 @@ function toggleSongArchiveStatus(songId) {
   } else {
     archivedIds = archivedIds.filter(id => id !== identifier && id !== songs[targetIndex].title && id !== songs[targetIndex].id);
   }
-  localStorage.setItem('kantimes_archived_song_ids', JSON.stringify(archivedIds));
+  saveArchivedSongIds(archivedIds);
 
   // 4. Update the active repertoire cache
   localStorage.setItem('kantimes_repertoire_cache', JSON.stringify(songs));
@@ -7405,9 +7353,9 @@ window.toggleSongArchiveState = toggleSongArchiveStatus;
 function updateRepertoireUI(songsList) {
   let songs = songsList || getMasterRepertoireList();
 
-  // Apply kantimes_archived_song_ids
+  // Apply scoped archived song IDs
   try {
-    const archivedIds = JSON.parse(localStorage.getItem('kantimes_archived_song_ids') || '[]');
+    const archivedIds = getArchivedSongIds();
     if (Array.isArray(archivedIds) && archivedIds.length > 0) {
       songs.forEach(song => {
         const identifier = song.id || song.title;
@@ -7652,13 +7600,7 @@ function handleAddNewSongFromModal() {
 
   // 1. If Google Sheet is active: save to local extras and update cache
   if (isSheetActive) {
-    let localExtras = [];
-    try {
-      localExtras = JSON.parse(localStorage.getItem("kantimes_local_extra_songs") || "[]");
-      if (!Array.isArray(localExtras)) localExtras = [];
-    } catch (e) {
-      localExtras = [];
-    }
+    let localExtras = getLocalExtraSongs();
 
     if (songId) {
       const extraIdx = localExtras.findIndex(s => s.id === songId);
@@ -7670,7 +7612,7 @@ function handleAddNewSongFromModal() {
     } else {
       localExtras.push(newSong);
     }
-    localStorage.setItem("kantimes_local_extra_songs", JSON.stringify(localExtras));
+    saveLocalExtraSongs(localExtras);
 
     // Update active cache
     let cached = getCachedSongs() || [];
@@ -7729,18 +7671,18 @@ function deleteSong(songId) {
   saveUserSettings(settings);
 
   try {
-    const localExtras = JSON.parse(localStorage.getItem("kantimes_local_extra_songs") || "[]");
+    const localExtras = getLocalExtraSongs();
     if (Array.isArray(localExtras) && localExtras.length > 0) {
       const filtered = localExtras.filter(s => s.id !== songId);
-      localStorage.setItem("kantimes_local_extra_songs", JSON.stringify(filtered));
+      saveLocalExtraSongs(filtered);
     }
   } catch (e) { }
 
   try {
-    let archivedIds = JSON.parse(localStorage.getItem('kantimes_archived_song_ids') || '[]');
+    let archivedIds = getArchivedSongIds();
     if (Array.isArray(archivedIds) && archivedIds.length > 0) {
       archivedIds = archivedIds.filter(id => id !== songId);
-      localStorage.setItem('kantimes_archived_song_ids', JSON.stringify(archivedIds));
+      saveArchivedSongIds(archivedIds);
     }
   } catch (e) { }
 

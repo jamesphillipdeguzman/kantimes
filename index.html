@@ -620,6 +620,19 @@
       <div id="standingsSection" class="dashboard-section-tab">
       <div class="card" id="sectionStandings">
         <h2>📊 Section Standings</h2>
+        <div class="standings-header-controls">
+          <div class="standings-filter-pills" role="tablist">
+            <button type="button" class="btn-standings-filter active" data-filter="current-stake" id="btnFilterCurrentStake">
+              📍 Current Stake
+            </button>
+            <button type="button" class="btn-standings-filter" data-filter="all-stakes" id="btnFilterAllStakes">
+              🌐 All Stakes
+            </button>
+          </div>
+          <select id="selectStandingsStake" class="standings-stake-dropdown" style="display: none;">
+            <!-- Populated with stakes present in logs -->
+          </select>
+        </div>
         <div id="sectionList">
           <div style="text-align: center; color: var(--text-muted); font-size: 0.85rem; padding: 12px;">Loading section
             rankings...</div>
