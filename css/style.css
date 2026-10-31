@@ -9937,23 +9937,66 @@ body.piano-fullscreen-active {
 .input-clearable-wrapper {
   position: relative;
   width: 100%;
-  display: flex;
+  display: block; /* ensure block level stacking */
+  margin-bottom: 12px; /* creates safe separation from helper text below */
+  box-sizing: border-box;
 }
 
 .stake-sheet-textarea {
+  display: block;
   width: 100%;
-  min-height: 78px;
+  min-height: 84px;
   max-height: 140px;
   resize: vertical;
+  box-sizing: border-box;
+  margin: 0;
+  padding: 10px 40px 10px 12px !important; /* right padding leaves clear room for the ✕ */
   word-break: break-all;
   overflow-wrap: anywhere;
   white-space: pre-wrap;
-  padding: 10px 38px 10px 12px !important; /* Right padding keeps text clear of the ✕ */
-  font-family: monospace, ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-  font-size: 0.82rem;
   line-height: 1.45;
-  box-sizing: border-box;
+  font-family: monospace, ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 0.8rem;
   border-radius: 8px;
+}
+
+/* Ensure the helper text container clears previous elements */
+.stake-sheet-helper-note,
+.stake-sheet-modal-box p.note,
+.stake-modal-field-hint,
+.settings-hint {
+  display: block;
+  clear: both;
+  margin-top: 6px;
+  margin-bottom: 16px;
+  font-size: 0.78rem;
+  line-height: 1.4;
+}
+
+.active-source-url-display,
+.stake-sheet-active-tag,
+#activeStakeSheetDisplay {
+  display: block;
+  margin-top: 6px;
+  padding: 8px 10px;
+  border-radius: 6px;
+  background: rgba(0, 0, 0, 0.25);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  font-family: monospace, ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 0.75rem;
+  line-height: 1.4;
+  word-break: break-all;
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+  color: #93c5fd;
+  max-height: 100px;
+  overflow-y: auto;
+  user-select: all; /* allows singers to easily double-click and copy the whole string */
+}
+
+[data-theme="dark"] .active-source-url-display {
+  background: rgba(15, 23, 42, 0.6);
+  border-color: rgba(59, 130, 246, 0.3);
 }
 
 .btn-clear-sheet-url,

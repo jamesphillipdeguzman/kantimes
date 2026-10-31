@@ -1041,10 +1041,9 @@ function updateStakeSheetStatusUI() {
 
   if (details) {
     if (isConnected) {
-      const displayId = fullSourceUrl.length > 32 ? `${fullSourceUrl.slice(0, 29)}...` : fullSourceUrl;
-      details.innerHTML = `Connected to custom stake sheet: <strong class="code-font active-sheet-link" id="activeStakeSheetBadge" title="${escapeHtml(fullSourceUrl)}">${escapeHtml(displayId)}</strong>`;
+      details.innerHTML = `Connected stake sheet:<code class="active-source-url-display stake-sheet-active-tag" id="activeStakeSheetDisplay" title="${escapeHtml(fullSourceUrl)}">${escapeHtml(fullSourceUrl)}</code>`;
     } else {
-      details.innerHTML = `No sheet connected. Connect your published CSV link or <a href="${REPERTOIRE_CONFIG.TEMPLATE_COPY_URL}" target="_blank" rel="noopener noreferrer">copy the template ↗</a>.`;
+      details.innerHTML = `No sheet connected (using default starter repertoire)`;
     }
   }
 
@@ -11190,6 +11189,7 @@ window.openStakeSheetModal = openStakeSheetModal;
 window.closeStakeSheetModal = closeStakeSheetModal;
 window.closeStakeSheetOnBackdrop = closeStakeSheetOnBackdrop;
 window.updateStakeSheetStatusUI = updateStakeSheetStatusUI;
+window.updateActiveSourceUI = updateStakeSheetStatusUI;
 window.handleStakeSheetConnect = handleStakeSheetConnect;
 window.disconnectRepertoireSheet = disconnectRepertoireSheet;
 window.resetToDefaultRepertoire = disconnectRepertoireSheet;
