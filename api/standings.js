@@ -1,27 +1,5 @@
 import { neon } from '@neondatabase/serverless';
 
-let schemaEnsured = false;
-async function ensureSchema(sql) {
-  if (schemaEnsured) return;
-  try {
-    await sql`
-      CREATE TABLE IF NOT EXISTS practice_sessions (
-        id SERIAL PRIMARY KEY,
-        handle TEXT NOT NULL,
-        stake TEXT,
-        voice_part TEXT,
-        song_title TEXT,
-        duration_minutes NUMERIC DEFAULT 0,
-        sheet_hash TEXT,
-        created_at TIMESTAMPTZ DEFAULT NOW()
-      );
-    `;
-    schemaEnsured = true;
-  } catch (e) {
-    console.warn('Could not auto-create schema:', e.message);
-  }
-}
-
 export default async function handler(req, res) {
   // CORS configuration
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -42,51 +20,71 @@ export default async function handler(req, res) {
   }
 
   const sql = neon(dbUrl);
-  await ensureSchema(sql);
 
-  const { sheet_hash, stake } = req.query || {};
-  const sheetHash = (sheet_hash || 'default').trim();
-  const filterStake = (stake && stake !== 'ALL' && stake.trim() !== '') ? stake.trim() : null;
+  const { sheet_hash, stake, scope } = req.query || {};
+  const sheetHash = (sheet_hash || '').trim();
+  const filterStake = (stake && stake !== 'ALL' && stake.trim() !== '' && scope !== 'all') ? stake.trim() : null;
 
   try {
     let sectionTotals;
     let topRoster;
 
     if (filterStake) {
+      // Case-insensitive, trimmed stake comparison
       sectionTotals = await sql`
-        SELECT voice_part, SUM(duration_minutes)::int AS total_minutes, COUNT(DISTINCT handle)::int AS active_singers
+        SELECT 
+          voice_part, 
+          COALESCE(SUM(duration_minutes), 0)::int AS total_minutes, 
+          COUNT(DISTINCT handle)::int AS active_singers
         FROM practice_sessions
-        WHERE sheet_hash = ${sheetHash} AND stake = ${filterStake}
+        WHERE (${sheetHash} = '' OR sheet_hash = ${sheetHash} OR sheet_hash = 'default')
+          AND LOWER(TRIM(stake)) = LOWER(TRIM(${filterStake}))
         GROUP BY voice_part
       `;
 
       topRoster = await sql`
-        SELECT handle, voice_part, stake, SUM(duration_minutes)::int AS total_minutes
+        SELECT 
+          handle, 
+          voice_part, 
+          stake, 
+          COALESCE(SUM(duration_minutes), 0)::int AS total_minutes
         FROM practice_sessions
-        WHERE sheet_hash = ${sheetHash} AND stake = ${filterStake}
+        WHERE (${sheetHash} = '' OR sheet_hash = ${sheetHash} OR sheet_hash = 'default')
+          AND LOWER(TRIM(stake)) = LOWER(TRIM(${filterStake}))
         GROUP BY handle, voice_part, stake
         ORDER BY total_minutes DESC
         LIMIT 50
       `;
     } else {
+      // All Stakes scope
       sectionTotals = await sql`
-        SELECT voice_part, SUM(duration_minutes)::int AS total_minutes, COUNT(DISTINCT handle)::int AS active_singers
+        SELECT 
+          voice_part, 
+          COALESCE(SUM(duration_minutes), 0)::int AS total_minutes, 
+          COUNT(DISTINCT handle)::int AS active_singers
         FROM practice_sessions
-        WHERE sheet_hash = ${sheetHash}
+        WHERE (${sheetHash} = '' OR sheet_hash = ${sheetHash} OR sheet_hash = 'default')
         GROUP BY voice_part
       `;
 
       topRoster = await sql`
-        SELECT handle, voice_part, stake, SUM(duration_minutes)::int AS total_minutes
+        SELECT 
+          handle, 
+          voice_part, 
+          stake, 
+          COALESCE(SUM(duration_minutes), 0)::int AS total_minutes
         FROM practice_sessions
-        WHERE sheet_hash = ${sheetHash}
+        WHERE (${sheetHash} = '' OR sheet_hash = ${sheetHash} OR sheet_hash = 'default')
         GROUP BY handle, voice_part, stake
         ORDER BY total_minutes DESC
         LIMIT 50
       `;
     }
 
-    return res.status(200).json({ sectionTotals, topRoster });
+    return res.status(200).json({
+      sectionTotals: sectionTotals || [],
+      topRoster: topRoster || []
+    });
   } catch (err) {
     console.error('Failed to query standings:', err);
     return res.status(500).json({ error: 'Failed to retrieve standings', details: err.message });
