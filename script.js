@@ -1732,6 +1732,32 @@ async function pullUserHistoryFromNeon() {
 }
 
 /**
+ * Registers or updates a user's handle and profile details in the Neon PostgreSQL database.
+ */
+async function registerHandleToNeon(payload) {
+  if (typeof navigator !== "undefined" && !navigator.onLine) return;
+  if (!payload || !payload.handle) return;
+
+  try {
+    const res = await fetch('/api/register-handle', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        handle: payload.handle,
+        primary_voice: payload.primary_voice || payload.voice || payload.part || 'Tenor',
+        stake: payload.stake || 'Default Stake',
+        avatar_id: payload.avatar_id || payload.avatar || 'default'
+      })
+    });
+    if (!res.ok) {
+      console.warn('Neon handle registration failed with status:', res.status);
+    }
+  } catch (err) {
+    console.warn('Neon handle registration deferred (offline):', err);
+  }
+}
+
+/**
  * Converts Neon database query results (sectionTotals & topRoster) to ranked standings objects.
  */
 function convertNeonStandingsToRanked(sectionTotals, topRoster) {
@@ -2082,6 +2108,10 @@ function saveProfileVoiceSettings(e) {
   // 2. Persist to localStorage
   try {
     localStorage.setItem("kantimes_user_identity", JSON.stringify(identity));
+    localStorage.setItem("kantimes_onboarding_completed", "true");
+    if (identity.handle) {
+      localStorage.setItem("kantimes_user_handle", identity.handle);
+    }
   } catch (err) {
     console.error("[Kantimes] Error writing identity to localStorage:", err);
   }
@@ -2090,15 +2120,29 @@ function saveProfileVoiceSettings(e) {
   try {
     localStorage.setItem("choir_name", fullName);
     localStorage.setItem("choir_nickname", rawNickname);
-    if (part && part !== "All") {
-      localStorage.setItem("choir_voice", part);
-      localStorage.setItem("choir_section", part);
+    localStorage.setItem("choir_voice", part);
+    localStorage.setItem("choir_section", part);
+    if (stake) {
+      localStorage.setItem("choir_stake", stake);
     }
     if (avatar) {
       localStorage.setItem("choir_avatar", avatar);
     }
   } catch (err) {
     console.warn("[Kantimes] Error syncing choir keys:", err);
+  }
+
+  // 3b. Register handle to Neon PostgreSQL database
+  try {
+    const handleToRegister = identity.handle || (typeof getDisplayHandle === 'function' ? getDisplayHandle(identity) : `${rawNickname}#${identity.tag || '8K2P'}`);
+    registerHandleToNeon({
+      handle: handleToRegister,
+      primary_voice: part,
+      stake: stake,
+      avatar_id: avatar || 'default'
+    });
+  } catch (err) {
+    console.warn("[Kantimes] Error registering handle to Neon:", err);
   }
 
   // 4. Downstream UI refreshes safely wrapped in try-catches
@@ -5001,6 +5045,7 @@ function loadProfile() {
   const savedNickname = localStorage.getItem("choir_nickname") || identity.nickname || identity.initials || "";
   const savedSection = localStorage.getItem("choir_voice") || localStorage.getItem("choir_section") || identity.part || "";
   const savedAvatar = localStorage.getItem("choir_avatar") || identity.avatar || "";
+  const savedStake = localStorage.getItem("choir_stake") || identity.stake || "";
   const profileCard = document.getElementById("profileCard");
   const activeBanner = document.getElementById("activeProfileBanner");
   const mainDashboard = document.getElementById("mainDashboard");
@@ -5008,10 +5053,19 @@ function loadProfile() {
 
   renderAvatarPicker(savedAvatar);
 
-  const hasValidProfile = (savedFullName && savedFullName.trim().length >= 2) || (savedNickname && savedNickname.trim().length >= 2);
+  const isOnboardingCompleted = localStorage.getItem("kantimes_onboarding_completed") === "true";
+  const hasSavedHandle = Boolean(
+    localStorage.getItem("kantimes_user_handle") ||
+    (identity && (identity.handle || identity.isConfigured || (identity.nickname && identity.nickname.trim().length >= 2))) ||
+    (savedNickname && savedNickname.trim().length >= 2) ||
+    (savedFullName && savedFullName.trim().length >= 2)
+  );
 
-  if (hasValidProfile && savedSection) {
-    const displayName = formatDisplayName(savedFullName || savedNickname);
+  const hasValidProfile = isOnboardingCompleted || hasSavedHandle;
+
+  if (hasValidProfile) {
+    const finalSection = savedSection || identity.part || "All";
+    const displayName = formatDisplayName(savedFullName || savedNickname || identity.nickname || "Choir Singer");
 
     const memFullNameInput = document.getElementById("onboardingFullName");
     if (memFullNameInput) memFullNameInput.value = savedFullName;
@@ -5020,17 +5074,24 @@ function loadProfile() {
     const legacyMemName = document.getElementById("memberName");
     if (legacyMemName && legacyMemName !== memNameInput) legacyMemName.value = savedNickname || savedFullName;
     const memSecInput = document.getElementById("onboardingVoicePart") || document.getElementById("memberSection");
-    if (memSecInput) memSecInput.value = savedSection;
+    if (memSecInput) memSecInput.value = finalSection;
     const legacyMemSec = document.getElementById("memberSection");
-    if (legacyMemSec && legacyMemSec !== memSecInput) legacyMemSec.value = savedSection;
+    if (legacyMemSec && legacyMemSec !== memSecInput) legacyMemSec.value = finalSection;
     const stakeInput = document.getElementById("onboardingStake");
-    if (stakeInput) stakeInput.value = identity.stake || "";
+    if (stakeInput) stakeInput.value = savedStake;
 
-    updateActiveProfileDisplay(displayName, savedSection, savedAvatar);
+    updateActiveProfileDisplay(displayName, finalSection, savedAvatar);
 
     if (profileCard) profileCard.style.display = "none";
     if (activeBanner) activeBanner.style.display = "flex";
     if (mainDashboard) mainDashboard.style.display = "block";
+
+    // Ensure settings modal is never opened or left open on boot
+    const settingsModal = document.getElementById("settingsModal");
+    if (settingsModal) {
+      settingsModal.classList.remove("active", "open", "show");
+      settingsModal.style.display = "none";
+    }
 
     if (cancelBtn) cancelBtn.style.display = "inline-flex";
 
@@ -5051,6 +5112,37 @@ function loadProfile() {
 
     const pitchWidget = document.getElementById("pitchCheckerWidget");
     if (pitchWidget) pitchWidget.style.display = "none";
+  }
+}
+
+/**
+ * App startup check to guarantee onboarding double-prompt never recurs.
+ */
+function checkFirstTimeUser() {
+  const isOnboardingCompleted = localStorage.getItem("kantimes_onboarding_completed") === "true";
+  const identity = typeof getUserIdentity === "function" ? getUserIdentity() : {};
+  const hasSavedHandle = Boolean(
+    localStorage.getItem("kantimes_user_handle") ||
+    identity?.handle ||
+    identity?.isConfigured ||
+    (identity?.nickname && identity.nickname.trim().length >= 2) ||
+    localStorage.getItem("choir_nickname") ||
+    localStorage.getItem("choir_name")
+  );
+
+  if (isOnboardingCompleted || hasSavedHandle) {
+    const profileCard = document.getElementById("profileCard");
+    if (profileCard) profileCard.style.display = "none";
+    const activeBanner = document.getElementById("activeProfileBanner");
+    if (activeBanner) activeBanner.style.display = "flex";
+    const mainDashboard = document.getElementById("mainDashboard");
+    if (mainDashboard) mainDashboard.style.display = "block";
+
+    const settingsModal = document.getElementById("settingsModal");
+    if (settingsModal) {
+      settingsModal.classList.remove("active", "open", "show");
+      settingsModal.style.display = "none";
+    }
   }
 }
 
@@ -5490,26 +5582,48 @@ function saveOnboardingProfile() {
     isConfigured: true
   };
 
+  const userHandle = `${profile.nickname.toUpperCase()}#${currentTag}`;
   localStorage.setItem('kantimes_user_identity', JSON.stringify({
     ...profile,
     tag: currentTag,
+    handle: userHandle,
     part: profile.voice,
     section: profile.voice,
     name: profile.fullName || profile.nickname,
     avatar: avatar
   }));
+  localStorage.setItem('kantimes_onboarding_completed', 'true');
+  localStorage.setItem('kantimes_user_handle', userHandle);
   localStorage.setItem('choir_name', profile.fullName);
   localStorage.setItem('choir_nickname', profile.nickname);
-  if (profile.voice && profile.voice !== 'All') {
-    localStorage.setItem('choir_voice', profile.voice);
-    localStorage.setItem('choir_section', profile.voice);
+  localStorage.setItem('choir_voice', profile.voice);
+  localStorage.setItem('choir_section', profile.voice);
+  if (profile.stake) {
+    localStorage.setItem('choir_stake', profile.stake);
   }
   if (avatar) {
     localStorage.setItem('choir_avatar', avatar);
   }
 
+  // Register handle to Neon backend
+  registerHandleToNeon({
+    handle: userHandle,
+    primary_voice: profile.voice,
+    stake: profile.stake,
+    avatar_id: avatar || 'default'
+  });
+
   applyProfileData(profile.fullName || profile.nickname, profile.voice, avatar);
   showToast('Welcome to Kantimes! Profile configured 🎶');
+
+  // Dismiss onboarding modal cleanly and ensure practice settings modal does not open
+  const profileCard = document.getElementById('profileCard');
+  if (profileCard) profileCard.style.display = 'none';
+  const settingsModal = document.getElementById('settingsModal');
+  if (settingsModal) {
+    settingsModal.classList.remove('active', 'open', 'show');
+    settingsModal.style.display = 'none';
+  }
 
   // Pull remote practice history for restored handle
   if (typeof pullUserHistoryFromNeon === "function") {
@@ -12011,6 +12125,7 @@ window.addEventListener("DOMContentLoaded", function () {
   renderArchivedRepertoireSection();
   initKnownSingers();
   loadProfile();
+  checkFirstTimeUser();
   loadAndPopulateStakesDatalist();
   initOnboardingInputs();
   initNameValidation();
@@ -12183,6 +12298,8 @@ window.openSectionBreakdownModal = openSectionBreakdownModal;
 window.closeSectionBreakdownModal = closeSectionBreakdownModal;
 window.recordCompletedPracticeSession = recordCompletedPracticeSession;
 window.getActiveSheetHash = getActiveSheetHash;
+window.checkFirstTimeUser = checkFirstTimeUser;
+window.registerHandleToNeon = registerHandleToNeon;
 window.syncPracticeToNeon = syncPracticeToNeon;
 window.syncLogsToNeon = syncPracticeToNeon;
 window.pullUserHistoryFromNeon = pullUserHistoryFromNeon;
