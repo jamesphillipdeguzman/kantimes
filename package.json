@@ -3,8 +3,8 @@
   "version": "1.0.0",
   "description": "LDS Choir Rehearsal Companion",
   "private": true,
+  "type": "module",
   "dependencies": {
     "@neondatabase/serverless": "^0.10.4"
   }
 }
-
