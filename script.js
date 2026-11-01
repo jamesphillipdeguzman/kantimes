@@ -3118,7 +3118,7 @@ function initIdentityAndPracticeTracking() {
   updateIdentityUI();
   updatePracticeSummaryUI();
   renderPracticeMilestonesUI();
-  renderSectionStandingsUI();
+  renderMainStandingsCards();
 }
 
 function initProfileModalListeners() {
@@ -3489,6 +3489,7 @@ function initStandingsFilterControls() {
       if (btnCurrent) btnCurrent.classList.add('active');
       if (btnAll) btnAll.classList.remove('active');
       if (selectStake) selectStake.style.display = 'none';
+      renderMainStandingsCards();
       loadStandingsData();
     });
   }
@@ -3507,6 +3508,7 @@ function initStandingsFilterControls() {
         const optionsCount = selectStake.options ? selectStake.options.length : 0;
         selectStake.style.display = optionsCount > 1 ? 'inline-block' : 'none';
       }
+      renderMainStandingsCards();
       loadStandingsData();
     });
   }
@@ -3525,6 +3527,7 @@ function initStandingsFilterControls() {
         currentStandingsFilter = 'by-stake';
         currentSelectedStake = val;
       }
+      renderMainStandingsCards();
       loadStandingsData();
     });
   }
@@ -3653,135 +3656,114 @@ function recordSectionPracticeMinutes(part, minutes) {
 }
 
 /**
+ * Renders live Section Standings cards into the outer dashboard list.
+ * Connected directly to window.latestStandingsData.sectionTotals with fallback to local state.
+ */
+function renderMainStandingsCards() {
+  const data = (window.latestStandingsData && Array.isArray(window.latestStandingsData.sectionTotals))
+    ? window.latestStandingsData.sectionTotals
+    : [];
+
+  // Build lookup map: { Soprano: 0, Alto: 0, Tenor: 0, Bass: 0, Primary: 0 }
+  const sectionMap = {
+    'Soprano': 0,
+    'Alto': 0,
+    'Tenor': 0,
+    'Bass': 0,
+    'Primary': 0
+  };
+
+  data.forEach(item => {
+    const voice = (item.voice_part || item.name || item.voice || '').trim();
+    if (!voice) return;
+    const match = Object.keys(sectionMap).find(k => k.toLowerCase() === voice.toLowerCase() || voice.toLowerCase().includes(k.toLowerCase()));
+    if (match) {
+      sectionMap[match] = Number(item.total_minutes !== undefined ? item.total_minutes : (item.duration_minutes || item.minutes || 0));
+    }
+  });
+
+  // If live data had no entries, check if currentStandingsTotalsMap or local logs have minutes
+  if (data.length === 0) {
+    Object.keys(sectionMap).forEach(k => {
+      if (currentStandingsTotalsMap && currentStandingsTotalsMap[k]) {
+        sectionMap[k] = Number(currentStandingsTotalsMap[k]);
+      }
+    });
+  }
+
+  // Update currentStandingsTotalsMap
+  currentStandingsTotalsMap = {
+    ...currentStandingsTotalsMap,
+    ...sectionMap
+  };
+
+  // Sort sections by total minutes descending
+  const sorted = Object.entries(sectionMap).sort((a, b) => b[1] - a[1]);
+  const medals = ['🥇 #1', '🥈 #2', '🥉 #3', '#4', '#5'];
+
+  cachedSectionStandings = sorted.map(([voice, mins], idx) => ({
+    section: voice,
+    rank: idx + 1,
+    totalSections: sorted.length,
+    totalMins: mins,
+    hours: (mins / 60).toFixed(1),
+    singers: []
+  }));
+
+  // Target the outer container that holds the 5 section rows
+  const container = document.getElementById('sectionStandingsList') || 
+                    document.getElementById('sectionList') ||
+                    document.querySelector('.section-standings-container') ||
+                    document.querySelector('.section-standings-list') ||
+                    document.getElementById('sectionStandingsRows');
+
+  if (container) {
+    container.innerHTML = sorted.map(([voice, mins], idx) => {
+      const hours = (mins / 60).toFixed(1);
+      return `
+        <div class="standing-row standing-item d-flex align-items-center justify-content-between p-3 mb-2 rounded bg-dark" 
+             onclick="openSectionBreakdown('${voice}')" 
+             style="cursor: pointer;">
+          <div class="d-flex align-items-center gap-3">
+            <span class="badge text-warning fw-bold">${medals[idx] || `#${idx + 1}`}</span>
+            <span class="fw-semibold text-light">${voice}</span>
+          </div>
+          <div class="text-end">
+            <span class="badge bg-secondary bg-secondary-subtle text-light fw-bold px-3 py-2">
+              ${mins}m <small class="text-muted">(${hours}h)</small>
+            </span>
+          </div>
+        </div>
+      `;
+    }).join('');
+  } else {
+    // If container rows have static IDs like #standingTenorMins:
+    Object.entries(sectionMap).forEach(([voice, mins]) => {
+      const hours = (mins / 60).toFixed(1);
+      const badgeEl = document.querySelector(`[data-section="${voice}"] .minutes-badge`) ||
+                      document.getElementById(`standings-${voice.toLowerCase()}-minutes`);
+      if (badgeEl) {
+        badgeEl.textContent = `${mins}m (${hours}h)`;
+      }
+    });
+  }
+
+  // Also maintain Music Staff card
+  if (typeof renderMusicStaffUI === 'function') {
+    renderMusicStaffUI();
+  }
+}
+
+/**
  * Re-renders the Section Standings UI sorted descending by practice minutes,
  * complete with rank badges (🥇 #1, 🥈 #2, 🥉 #3, #4, #5) and hours display.
  */
 function renderSectionStandingsUI(sectionTotals) {
-  const sectionEl = document.getElementById("sectionStandingsList")
-    || document.getElementById("sectionList")
-    || document.querySelector(".section-standings-container");
-  if (!sectionEl) return;
-
-  initStandingsFilterControls();
-
-  const standardSections = {
-    Soprano: 0,
-    Alto: 0,
-    Tenor: 0,
-    Bass: 0,
-    Primary: 0
-  };
-
-  const singersMap = {
-    Soprano: 0,
-    Alto: 0,
-    Tenor: 0,
-    Bass: 0,
-    Primary: 0,
-    Accompanist: 0,
-    Director: 0
-  };
-
-  const staffTotals = {
-    Accompanist: 0,
-    Director: 0
-  };
-
-  let inputList = [];
   if (Array.isArray(sectionTotals)) {
-    inputList = sectionTotals;
-  } else if (window.latestStandingsData && Array.isArray(window.latestStandingsData.sectionTotals)) {
-    inputList = window.latestStandingsData.sectionTotals;
-  } else if (Array.isArray(cachedNeonStandings)) {
-    inputList = cachedNeonStandings;
+    if (!window.latestStandingsData) window.latestStandingsData = {};
+    window.latestStandingsData.sectionTotals = sectionTotals;
   }
-
-  inputList.forEach(item => {
-    const rawVoice = (item.voice_part || item.name || item.voice || '').trim();
-    if (!rawVoice) return;
-    const vLower = rawVoice.toLowerCase();
-    const minutes = Number(item.total_minutes !== undefined ? item.total_minutes : (item.minutes || 0));
-    const singers = Number(item.active_singers !== undefined ? item.active_singers : (item.singers || item.singerCount || 0));
-
-    if (vLower.includes('soprano')) {
-      standardSections.Soprano += minutes;
-      singersMap.Soprano += singers;
-    } else if (vLower.includes('alto')) {
-      standardSections.Alto += minutes;
-      singersMap.Alto += singers;
-    } else if (vLower.includes('tenor')) {
-      standardSections.Tenor += minutes;
-      singersMap.Tenor += singers;
-    } else if (vLower.includes('bass')) {
-      standardSections.Bass += minutes;
-      singersMap.Bass += singers;
-    } else if (vLower.includes('primary')) {
-      standardSections.Primary += minutes;
-      singersMap.Primary += singers;
-    } else if (vLower.includes('accompan')) {
-      staffTotals.Accompanist += minutes;
-      singersMap.Accompanist += singers;
-    } else if (vLower.includes('director') || vLower.includes('conduct')) {
-      staffTotals.Director += minutes;
-      singersMap.Director += singers;
-    }
-  });
-
-  currentStandingsTotalsMap = {
-    ...standardSections,
-    ...staffTotals
-  };
-  currentStandingsSingersMap = singersMap;
-
-  const sortedSections = Object.keys(standardSections).map(name => {
-    const mins = standardSections[name];
-    const hrs = (mins / 60).toFixed(1);
-    return {
-      name,
-      minutes: mins,
-      hours: hrs
-    };
-  }).sort((a, b) => b.minutes - a.minutes);
-
-  cachedSectionStandings = sortedSections.map((item, idx) => ({
-    section: item.name,
-    rank: idx + 1,
-    totalSections: sortedSections.length,
-    totalMins: item.minutes,
-    hours: item.hours,
-    singers: []
-  }));
-
-  const medals = ['🥇 #1', '🥈 #2', '🥉 #3', '#4', '#5'];
-
-  let html = '';
-  sortedSections.forEach((sec, idx) => {
-    const name = escapeLeaderboardHtml(sec.name);
-    const minutes = sec.minutes;
-    const hours = sec.hours;
-    const medalBadge = medals[idx] || `#${idx + 1}`;
-
-    html += `
-      <div class="standing-item d-flex align-items-center justify-content-between p-3 mb-2 rounded bg-dark-subtle" onclick="openSectionBreakdown('${name}')" style="cursor: pointer;">
-        <div class="d-flex align-items-center gap-3">
-          <span class="badge text-warning fw-bold">${medalBadge}</span>
-          <span class="fw-semibold text-light">${name}</span>
-        </div>
-        <div class="text-end">
-          <span class="badge bg-secondary-subtle text-light fw-bold px-3 py-2">
-            ${minutes}m <small class="text-muted">(${hours}h)</small>
-          </span>
-        </div>
-      </div>
-    `;
-  });
-
-  sectionEl.innerHTML = html;
-
-  // Render Music Staff & Leadership Spotlight card below section standings
-  if (typeof renderMusicStaffUI === 'function') {
-    renderMusicStaffUI(staffTotals, singersMap);
-  }
+  renderMainStandingsCards();
 }
 
 /**
@@ -3810,7 +3792,7 @@ function renderSectionStandingsFromLocal() {
     topRoster: local.topRoster
   };
 
-  renderSectionStandingsUI(sectionTotals);
+  renderMainStandingsCards();
 }
 
 /**
@@ -3866,7 +3848,7 @@ async function loadStandingsData() {
       }
     }
 
-    renderSectionStandingsUI(sectionTotals);
+    renderMainStandingsCards();
 
     if (currentOpenSection) {
       const modal = document.getElementById("sectionBreakdownModal") || document.getElementById("sectionDetailsModal");
@@ -7706,8 +7688,8 @@ function loadLeaderboard() {
   const topSingersEl = document.getElementById("topSingersList");
   const sectionEl = document.getElementById("sectionList");
 
-  // Always render real local section standings based on logged practice sessions
-  renderSectionStandingsUI();
+  // Always render live/local section standings based on logged practice sessions
+  renderMainStandingsCards();
 
   // If live Neon top roster is already cached, prefer it
   if (Array.isArray(currentStandingsTopRoster) && currentStandingsTopRoster.length > 0) {
@@ -10511,6 +10493,9 @@ function switchHorizontalTab(targetId) {
   });
 
   if (targetId === 'standingsSection') {
+    if (typeof renderMainStandingsCards === 'function') {
+      renderMainStandingsCards();
+    }
     if (typeof loadStandingsData === 'function') {
       loadStandingsData();
     }
@@ -10545,6 +10530,9 @@ function initLayoutMode() {
   if (tabStandings && !tabStandings.dataset.standingsBound) {
     tabStandings.dataset.standingsBound = "true";
     tabStandings.addEventListener('click', () => {
+      if (typeof renderMainStandingsCards === 'function') {
+        renderMainStandingsCards();
+      }
       if (typeof loadStandingsData === 'function') {
         loadStandingsData();
       }
@@ -13250,6 +13238,7 @@ window.getSectionStandingsData = getSectionStandingsData;
 window.recordSectionPracticeMinutes = recordSectionPracticeMinutes;
 window.initFreshStakeSectionStandings = initFreshStakeSectionStandings;
 window.renderSectionStandingsUI = renderSectionStandingsUI;
+window.renderMainStandingsCards = renderMainStandingsCards;
 window.renderSectionStandingsFromLocal = renderSectionStandingsFromLocal;
 window.loadStandingsData = loadStandingsData;
 window.renderMusicStaffUI = renderMusicStaffUI;
