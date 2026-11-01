@@ -1354,38 +1354,48 @@ function initClearSheetUrlButton() {
 window.initClearSheetUrlButton = initClearSheetUrlButton;
 
 /**
- * Checks if local storage has no custom sheet, but a linked profile has a saved sheet_url.
- * Shows a one-click badge: "Found choir sheet saved for <handle>. [Use This Sheet]"
+ * Checks if a linked profile has a saved sheet_url in Neon.
+ * Offers "Found choir sheet saved for <handle>. [Use This Sheet]" if it differs from current local sheet.
  */
 async function checkSavedSheetBanner() {
-  const currentHandle = localStorage.getItem('kantimes_user_handle') || 
-                        (typeof getUserIdentity === 'function' ? getUserIdentity()?.handle : '') || '';
+  const rawHandle = localStorage.getItem('kantimes_user_handle') ||
+    (typeof getUserIdentity === 'function' ? getUserIdentity()?.handle : '') || '';
+  const currentHandle = rawHandle.trim().toUpperCase();
   if (!currentHandle) return;
 
-  const currentSheet = localStorage.getItem('kantimes_sheet_url') || localStorage.getItem('kantimes_active_sheet_id');
-  if (currentSheet && currentSheet !== 'default_repertoire') {
-    hideSavedSheetBanners();
-    return;
+  // Ensure button clicks are attached
+  if (typeof wireUseThisSheetButtons === 'function') {
+    wireUseThisSheetButtons();
   }
 
-  // Ensure click listener is wired on all "Use This Sheet" buttons
-  wireUseThisSheetButtons();
-
   try {
-    const res = await fetch(`/api/register-handle?handle=${encodeURIComponent(currentHandle)}`);
+    // Add cache: 'no-store' and cache-buster to prevent mobile stale-cache hits
+    const res = await fetch(`/api/register-handle?handle=${encodeURIComponent(currentHandle)}&_t=${Date.now()}`, {
+      cache: 'no-store'
+    });
     if (!res.ok) return;
+
     const data = await res.json().catch(() => ({}));
     const profile = data.profile || data;
 
     if (profile && profile.sheet_url) {
-      // Cache remote profile in window
+      const currentLocalSheet = (localStorage.getItem('kantimes_sheet_url') || '').trim();
+      const remoteSheet = profile.sheet_url.trim();
+
+      // If the local device is already actively running this exact sheet, hide the banner
+      if (currentLocalSheet && currentLocalSheet === remoteSheet) {
+        if (typeof hideSavedSheetBanners === 'function') hideSavedSheetBanners();
+        return;
+      }
+
+      // Cache remote profile in window and staging keys
       window.syncedCloudProfile = profile;
-      localStorage.setItem('kantimes_saved_handle_sheet_url', profile.sheet_url);
+      localStorage.setItem('kantimes_saved_handle_sheet_url', remoteSheet);
       if (profile.sheet_id) {
         localStorage.setItem('kantimes_saved_handle_sheet_id', profile.sheet_id);
       }
 
-      // 1. Display the ACTUAL handle from the database (e.g. DIET#CWN4, never CHOIR#CWN4)
+      // 1. Display the verified handle from Neon (e.g. DIET#CWN4)
       const verifiedHandle = profile.handle || currentHandle;
       const handleEls = [
         document.getElementById('foundSheetHandleText'),
@@ -1413,12 +1423,13 @@ async function checkSavedSheetBanner() {
         el.style.display = 'block';
       });
     } else {
-      hideSavedSheetBanners();
+      if (typeof hideSavedSheetBanners === 'function') hideSavedSheetBanners();
     }
   } catch (err) {
     console.warn('Could not fetch cloud sheet for handle:', err);
   }
 }
+
 const checkAndRenderSavedSheetBanner = checkSavedSheetBanner;
 window.checkSavedSheetBanner = checkSavedSheetBanner;
 window.checkAndRenderSavedSheetBanner = checkAndRenderSavedSheetBanner;
@@ -2064,9 +2075,9 @@ async function linkExistingHandle(rawInput, statusEl) {
     const exists = Boolean(hasProfile || hasSessions || historyData.exists);
 
     // 3. Extract remote voice part and stake
-    let remoteVoice = (profileData && (profileData.primary_voice || profileData.voice)) || 
-                      (historyData.sessions && (historyData.sessions[0]?.voice || historyData.sessions[0]?.voice_part)) || 
-                      'Tenor';
+    let remoteVoice = (profileData && (profileData.primary_voice || profileData.voice)) ||
+      (historyData.sessions && (historyData.sessions[0]?.voice || historyData.sessions[0]?.voice_part)) ||
+      'Tenor';
     const validRoles = ['Soprano', 'Alto', 'Tenor', 'Bass', 'Accompanist', 'Director'];
     const matchedRole = validRoles.find(r => r.toLowerCase() === (remoteVoice || '').toLowerCase());
     if (matchedRole) remoteVoice = matchedRole;
@@ -3658,14 +3669,14 @@ async function loadStakesList() {
 async function populateStakeSelect(selectEl, selectedValue = '') {
   if (!selectEl) return;
   const stakes = await loadStakesList();
-  
+
   // Preserve current or stored value
   const currentValue = selectedValue || selectEl.value || localStorage.getItem('choir_stake') || '';
 
   if (selectEl.tagName === 'SELECT') {
     // Clear existing options except placeholder
     selectEl.innerHTML = '<option value="">Select or type your Stake / District</option>';
-    
+
     stakes.forEach(stake => {
       const opt = document.createElement('option');
       opt.value = stake;
@@ -4050,11 +4061,11 @@ function renderMainStandingsCards() {
   }));
 
   // Target the outer container that holds the 5 section rows
-  const container = document.getElementById('sectionStandingsList') || 
-                    document.getElementById('sectionList') ||
-                    document.querySelector('.section-standings-container') ||
-                    document.querySelector('.section-standings-list') ||
-                    document.getElementById('sectionStandingsRows');
+  const container = document.getElementById('sectionStandingsList') ||
+    document.getElementById('sectionList') ||
+    document.querySelector('.section-standings-container') ||
+    document.querySelector('.section-standings-list') ||
+    document.getElementById('sectionStandingsRows');
 
   if (container) {
     container.innerHTML = sorted.map(([voice, mins], idx) => {
@@ -4080,7 +4091,7 @@ function renderMainStandingsCards() {
     Object.entries(sectionMap).forEach(([voice, mins]) => {
       const hours = (mins / 60).toFixed(1);
       const badgeEl = document.querySelector(`[data-section="${voice}"] .minutes-badge`) ||
-                      document.getElementById(`standings-${voice.toLowerCase()}-minutes`);
+        document.getElementById(`standings-${voice.toLowerCase()}-minutes`);
       if (badgeEl) {
         badgeEl.textContent = `${mins}m (${hours}h)`;
       }
@@ -4151,7 +4162,7 @@ async function loadStandingsData() {
         const profile = JSON.parse(localStorage.getItem('kantimes_user_identity') || '{}');
         userStake = profile.stake;
       }
-    } catch (e) {}
+    } catch (e) { }
   }
   if (!userStake) userStake = 'Iloilo Philippines Stake';
   const sheetHash = typeof getActiveSheetHash === 'function' ? getActiveSheetHash() : '';
@@ -7790,7 +7801,7 @@ function renderSectionBreakdown(sectionName, overrideData) {
       if (localSingers.size > 0) {
         roster = Array.from(localSingers.values()).sort((a, b) => b.minutes - a.minutes);
       }
-    } catch (e) {}
+    } catch (e) { }
   }
 
   // Reconcile stats if roster has items but counters were 0
