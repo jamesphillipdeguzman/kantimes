@@ -1,5 +1,27 @@
 import { neon } from '@neondatabase/serverless';
 
+let schemaEnsured = false;
+async function ensureSchema(sql) {
+  if (schemaEnsured) return;
+  try {
+    await sql`
+      CREATE TABLE IF NOT EXISTS practice_sessions (
+        id SERIAL PRIMARY KEY,
+        handle TEXT NOT NULL,
+        stake TEXT,
+        voice_part TEXT,
+        song_title TEXT,
+        duration_minutes NUMERIC DEFAULT 0,
+        sheet_hash TEXT,
+        created_at TIMESTAMPTZ DEFAULT NOW()
+      );
+    `;
+    schemaEnsured = true;
+  } catch (e) {
+    console.warn('[standings.js] Could not auto-create schema:', e.message);
+  }
+}
+
 export default async function handler(req, res) {
   // CORS configuration
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -20,66 +42,88 @@ export default async function handler(req, res) {
   }
 
   const sql = neon(dbUrl);
+  await ensureSchema(sql);
 
   const { sheet_hash, stake, scope } = req.query || {};
-  const sheetHash = (sheet_hash || '').trim();
-  const filterStake = (stake && stake !== 'ALL' && stake.trim() !== '' && scope !== 'all') ? stake.trim() : null;
+  const rawSheet = (sheet_hash || '').trim();
+  const rawStake = (stake || '').trim();
+  const rawScope = (scope || 'stake').trim().toLowerCase();
+
+  const isAllStakes = rawScope === 'all' || rawStake.toUpperCase() === 'ALL' || !rawStake;
+  const filterStake = isAllStakes ? null : rawStake;
+
+  // Repertoire sheet matching:
+  // Default/general repertoire includes 'default', 'sh_wn0peb', empty string, or NULL.
+  // Never perform strict equality that drops valid records across default/custom sheet hashes.
+  const isDefaultOrEmptySheet = !rawSheet || rawSheet === 'default' || rawSheet === 'sh_wn0peb' || rawSheet === 'all';
 
   try {
     let sectionTotals;
     let topRoster;
 
     if (filterStake) {
-      // Case-insensitive, trimmed stake comparison
+      // Stake-scoped query with flexible, case-insensitive stake matching and relaxed sheet_hash matching
       sectionTotals = await sql`
         SELECT 
-          voice_part, 
+          INITCAP(TRIM(voice_part)) AS voice_part, 
           COALESCE(SUM(duration_minutes), 0)::int AS total_minutes, 
-          COUNT(DISTINCT handle)::int AS active_singers
+          COUNT(DISTINCT UPPER(TRIM(handle)))::int AS active_singers
         FROM practice_sessions
-        WHERE (${sheetHash} = '' OR sheet_hash = ${sheetHash} OR sheet_hash = 'default')
-          AND LOWER(TRIM(stake)) = LOWER(TRIM(${filterStake}))
-        GROUP BY voice_part
+        WHERE (${isDefaultOrEmptySheet} = true OR sheet_hash = ${rawSheet} OR sheet_hash = 'default' OR sheet_hash = 'sh_wn0peb' OR sheet_hash IS NULL OR sheet_hash = '')
+          AND (
+            LOWER(TRIM(COALESCE(stake, ''))) = LOWER(TRIM(${filterStake}))
+            OR LOWER(TRIM(COALESCE(stake, ''))) LIKE LOWER(CONCAT('%', TRIM(${filterStake}), '%'))
+            OR LOWER(TRIM(${filterStake})) LIKE LOWER(CONCAT('%', TRIM(COALESCE(stake, '')), '%'))
+            OR LOWER(TRIM(COALESCE(stake, ''))) IN ('default stake', 'unassigned stake', '')
+          )
+        GROUP BY INITCAP(TRIM(voice_part))
       `;
 
       topRoster = await sql`
         SELECT 
-          handle, 
-          voice_part, 
-          stake, 
+          UPPER(TRIM(handle)) AS handle, 
+          INITCAP(TRIM(voice_part)) AS voice_part, 
+          COALESCE(stake, 'Independent') AS stake, 
           COALESCE(SUM(duration_minutes), 0)::int AS total_minutes
         FROM practice_sessions
-        WHERE (${sheetHash} = '' OR sheet_hash = ${sheetHash} OR sheet_hash = 'default')
-          AND LOWER(TRIM(stake)) = LOWER(TRIM(${filterStake}))
-        GROUP BY handle, voice_part, stake
+        WHERE (${isDefaultOrEmptySheet} = true OR sheet_hash = ${rawSheet} OR sheet_hash = 'default' OR sheet_hash = 'sh_wn0peb' OR sheet_hash IS NULL OR sheet_hash = '')
+          AND (
+            LOWER(TRIM(COALESCE(stake, ''))) = LOWER(TRIM(${filterStake}))
+            OR LOWER(TRIM(COALESCE(stake, ''))) LIKE LOWER(CONCAT('%', TRIM(${filterStake}), '%'))
+            OR LOWER(TRIM(${filterStake})) LIKE LOWER(CONCAT('%', TRIM(COALESCE(stake, '')), '%'))
+            OR LOWER(TRIM(COALESCE(stake, ''))) IN ('default stake', 'unassigned stake', '')
+          )
+        GROUP BY UPPER(TRIM(handle)), INITCAP(TRIM(voice_part)), stake
         ORDER BY total_minutes DESC
         LIMIT 50
       `;
     } else {
-      // All Stakes scope
+      // All Stakes scope query: includes all stakes
       sectionTotals = await sql`
         SELECT 
-          voice_part, 
+          INITCAP(TRIM(voice_part)) AS voice_part, 
           COALESCE(SUM(duration_minutes), 0)::int AS total_minutes, 
-          COUNT(DISTINCT handle)::int AS active_singers
+          COUNT(DISTINCT UPPER(TRIM(handle)))::int AS active_singers
         FROM practice_sessions
-        WHERE (${sheetHash} = '' OR sheet_hash = ${sheetHash} OR sheet_hash = 'default')
-        GROUP BY voice_part
+        WHERE (${isDefaultOrEmptySheet} = true OR sheet_hash = ${rawSheet} OR sheet_hash = 'default' OR sheet_hash = 'sh_wn0peb' OR sheet_hash IS NULL OR sheet_hash = '')
+        GROUP BY INITCAP(TRIM(voice_part))
       `;
 
       topRoster = await sql`
         SELECT 
-          handle, 
-          voice_part, 
-          stake, 
+          UPPER(TRIM(handle)) AS handle, 
+          INITCAP(TRIM(voice_part)) AS voice_part, 
+          COALESCE(stake, 'Independent') AS stake, 
           COALESCE(SUM(duration_minutes), 0)::int AS total_minutes
         FROM practice_sessions
-        WHERE (${sheetHash} = '' OR sheet_hash = ${sheetHash} OR sheet_hash = 'default')
-        GROUP BY handle, voice_part, stake
+        WHERE (${isDefaultOrEmptySheet} = true OR sheet_hash = ${rawSheet} OR sheet_hash = 'default' OR sheet_hash = 'sh_wn0peb' OR sheet_hash IS NULL OR sheet_hash = '')
+        GROUP BY UPPER(TRIM(handle)), INITCAP(TRIM(voice_part)), stake
         ORDER BY total_minutes DESC
         LIMIT 50
       `;
     }
+
+    console.log('[DEBUG standings.js]', { query: req.query, totals: sectionTotals, roster: topRoster });
 
     return res.status(200).json({
       sectionTotals: sectionTotals || [],

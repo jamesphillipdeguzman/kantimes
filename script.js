@@ -3836,23 +3836,37 @@ async function loadStandingsData() {
   const sheetHash = typeof getActiveSheetHash === 'function' ? getActiveSheetHash() : '';
 
   try {
-    const res = await fetch(`/api/standings?scope=${scope}&stake=${encodeURIComponent(userStake)}&sheet_hash=${encodeURIComponent(sheetHash)}`);
-    if (!res.ok) throw new Error('Failed to fetch standings');
+    const queryUrl = `/api/standings?scope=${scope}&stake=${encodeURIComponent(userStake)}&sheet_hash=${encodeURIComponent(sheetHash)}`;
+    const res = await fetch(queryUrl);
+    if (!res.ok) throw new Error(`Failed to fetch standings: HTTP ${res.status}`);
     const data = await res.json();
-    window.latestStandingsData = data;
-    if (Array.isArray(data.topRoster)) {
-      currentStandingsTopRoster = data.topRoster;
-      cachedLeaderboardSingers = data.topRoster.map(r => ({
-        name: r.handle,
+
+    const sectionTotals = Array.isArray(data)
+      ? data
+      : (Array.isArray(data.sectionTotals) ? data.sectionTotals : (Array.isArray(data.standings) ? data.standings : []));
+    const topRoster = Array.isArray(data.topRoster)
+      ? data.topRoster
+      : (Array.isArray(data.roster) ? data.roster : []);
+
+    window.latestStandingsData = {
+      sectionTotals,
+      topRoster
+    };
+    currentStandingsTopRoster = topRoster;
+
+    if (topRoster.length > 0) {
+      cachedLeaderboardSingers = topRoster.map(r => ({
+        name: r.handle || 'Anonymous',
         section: r.voice_part || r.voice || 'Choir',
         avatar: r.avatar || '',
-        totalMins: Number(r.total_minutes || r.minutes || 0)
+        totalMins: Number(r.total_minutes !== undefined ? r.total_minutes : (r.minutes || 0))
       })).sort((a, b) => b.totalMins - a.totalMins);
       if (typeof renderLeaderboardSingers === 'function') {
         renderLeaderboardSingers();
       }
     }
-    renderSectionStandingsUI(data.sectionTotals || []);
+
+    renderSectionStandingsUI(sectionTotals);
 
     if (currentOpenSection) {
       const modal = document.getElementById("sectionBreakdownModal") || document.getElementById("sectionDetailsModal");
@@ -7368,22 +7382,95 @@ function renderSectionBreakdown(sectionName, overrideData) {
 
   // Standardize voice parts to capitalized case-insensitive lookup
   const normalizedSec = (sectionName || "").trim().toLowerCase();
-  const matchedKey = Object.keys(currentStandingsTotalsMap).find(k => k.toLowerCase() === normalizedSec) || sectionName || "Tenor";
+  const standardRoles = ['Soprano', 'Alto', 'Tenor', 'Bass', 'Primary', 'Accompanist', 'Director'];
+  let matchedKey = standardRoles.find(k => k.toLowerCase() === normalizedSec);
+  if (!matchedKey) {
+    if (normalizedSec.includes('soprano')) matchedKey = 'Soprano';
+    else if (normalizedSec.includes('alto')) matchedKey = 'Alto';
+    else if (normalizedSec.includes('tenor')) matchedKey = 'Tenor';
+    else if (normalizedSec.includes('bass')) matchedKey = 'Bass';
+    else if (normalizedSec.includes('primary')) matchedKey = 'Primary';
+    else if (normalizedSec.includes('accompan')) matchedKey = 'Accompanist';
+    else if (normalizedSec.includes('director') || normalizedSec.includes('conduct')) matchedKey = 'Director';
+    else matchedKey = sectionName || 'Tenor';
+  }
 
-  const standings = overrideData || cachedNeonStandings || buildRankedStandings(currentStandingsTotalsMap, currentStandingsSingersMap, currentStandingsTopRoster);
-  const rankIndex = standings.findIndex(s => s.name.trim().toLowerCase() === normalizedSec);
-  const isMusicStaff = normalizedSec === 'accompanist' || normalizedSec === 'director';
-  const rank = rankIndex !== -1 ? rankIndex + 1 : 1;
-  const sectionData = (rankIndex !== -1 ? standings[rankIndex] : null) || {
-    name: matchedKey,
-    minutes: currentStandingsTotalsMap[matchedKey] || 0,
-    hours: ((currentStandingsTotalsMap[matchedKey] || 0) / 60).toFixed(1),
-    singerCount: currentStandingsSingersMap[matchedKey] || 0,
-    roster: []
-  };
+  // 1. Resolve live remote sectionTotals from window.latestStandingsData or overrideData
+  let remoteItem = null;
+  const remoteTotals = (window.latestStandingsData && Array.isArray(window.latestStandingsData.sectionTotals))
+    ? window.latestStandingsData.sectionTotals
+    : (Array.isArray(overrideData) ? overrideData : null);
 
-  const totalMins = currentStandingsTotalsMap[matchedKey] !== undefined ? currentStandingsTotalsMap[matchedKey] : sectionData.minutes;
-  const activeSingers = currentStandingsSingersMap[matchedKey] !== undefined ? currentStandingsSingersMap[matchedKey] : sectionData.singerCount;
+  if (remoteTotals && remoteTotals.length > 0) {
+    remoteItem = remoteTotals.find(row => {
+      const vp = (row.voice_part || row.name || row.voice || '').trim().toLowerCase();
+      return vp === normalizedSec || vp === matchedKey.toLowerCase() || vp.includes(normalizedSec) || normalizedSec.includes(vp);
+    });
+  }
+
+  let totalMins = remoteItem ? Number(remoteItem.total_minutes !== undefined ? remoteItem.total_minutes : (remoteItem.minutes || 0)) : (currentStandingsTotalsMap[matchedKey] || 0);
+  let activeSingers = remoteItem ? Number(remoteItem.active_singers !== undefined ? remoteItem.active_singers : (remoteItem.singers || remoteItem.singerCount || 0)) : (currentStandingsSingersMap[matchedKey] || 0);
+
+  // 2. Rank calculation: find rank from cachedSectionStandings
+  const isMusicStaff = matchedKey === 'Accompanist' || matchedKey === 'Director';
+  let rank = 1;
+  if (Array.isArray(cachedSectionStandings) && cachedSectionStandings.length > 0) {
+    const rIdx = cachedSectionStandings.findIndex(s => {
+      const sn = (s.section || s.name || '').trim().toLowerCase();
+      return sn === normalizedSec || sn === matchedKey.toLowerCase();
+    });
+    if (rIdx !== -1) rank = rIdx + 1;
+  }
+
+  // 3. Populate roster directly from live remote topRoster
+  const rosterSource = (window.latestStandingsData && Array.isArray(window.latestStandingsData.topRoster) && window.latestStandingsData.topRoster.length > 0)
+    ? window.latestStandingsData.topRoster
+    : (Array.isArray(currentStandingsTopRoster) && currentStandingsTopRoster.length > 0 ? currentStandingsTopRoster : []);
+
+  let roster = [];
+  if (rosterSource.length > 0) {
+    roster = rosterSource.filter(r => {
+      const v = (r.voice_part || r.voice || r.part || '').trim().toLowerCase();
+      return v === normalizedSec || v === matchedKey.toLowerCase() || v.includes(normalizedSec) || normalizedSec.includes(v);
+    }).map(r => ({
+      handle: r.handle || 'Anonymous',
+      stake: r.stake || 'Independent',
+      minutes: Number(r.total_minutes !== undefined ? r.total_minutes : (r.minutes || 0))
+    })).sort((a, b) => b.minutes - a.minutes);
+  }
+
+  // 4. Fallback to local practice logs if remote roster is empty
+  if (roster.length === 0) {
+    try {
+      const logs = (typeof getPracticeLogs === 'function' ? getPracticeLogs() : []) || [];
+      const localSingers = new Map();
+      logs.forEach(log => {
+        const rawV = (log.voice_part || log.voice || log.part || '').trim().toLowerCase();
+        if (rawV === normalizedSec || rawV === matchedKey.toLowerCase() || rawV.includes(normalizedSec) || normalizedSec.includes(rawV)) {
+          const h = log.handle || 'Anonymous';
+          const m = Number(log.duration_minutes || log.durationMinutes || log.minutes || 0);
+          const st = log.stake || 'Independent';
+          const prev = localSingers.get(h) || { handle: h, stake: st, minutes: 0 };
+          prev.minutes += m;
+          localSingers.set(h, prev);
+        }
+      });
+      if (localSingers.size > 0) {
+        roster = Array.from(localSingers.values()).sort((a, b) => b.minutes - a.minutes);
+      }
+    } catch (e) {}
+  }
+
+  // Reconcile stats if roster has items but counters were 0
+  if (roster.length > 0) {
+    if (activeSingers === 0) {
+      activeSingers = roster.length;
+    }
+    if (totalMins === 0) {
+      totalMins = roster.reduce((sum, r) => sum + r.minutes, 0);
+    }
+  }
+
   const hours = (totalMins / 60).toFixed(1);
 
   // Update header values
@@ -7423,7 +7510,7 @@ function renderSectionBreakdown(sectionName, overrideData) {
   }
   const rankSub = document.getElementById('sectionDetailsRankSub');
   if (rankSub) {
-    rankSub.textContent = isMusicStaff ? `Music Staff` : `of ${standings.length || 5}`;
+    rankSub.textContent = isMusicStaff ? `Music Staff` : `of ${cachedSectionStandings.length || 5}`;
   }
 
   const voiceEl = document.getElementById('sectionDetailsVoicePart');
@@ -7437,22 +7524,6 @@ function renderSectionBreakdown(sectionName, overrideData) {
     const iconMap = { Soprano: '🌸', Alto: '💜', Tenor: '🌟', Bass: '⚓', Primary: '🧒', Accompanist: '🎹', Director: '🎼' };
     const icon = iconMap[matchedKey] || '🎶';
     avatarContainer.innerHTML = `<div class="section-avatar-icon" data-voice="${escapeLeaderboardHtml(matchedKey)}" title="${escapeLeaderboardHtml(matchedKey)}">${icon}</div>`;
-  }
-
-  // Filter topRoster for singers where voice_part.toLowerCase() === sectionName.toLowerCase() and render the roster items (Handle + Minutes)
-  let roster = [];
-  if (Array.isArray(currentStandingsTopRoster) && currentStandingsTopRoster.length > 0) {
-    roster = currentStandingsTopRoster.filter(r => {
-      const v = (r.voice_part || r.voice || r.part || '').trim().toLowerCase();
-      return v === normalizedSec || v === matchedKey.toLowerCase();
-    }).map(r => ({
-      handle: r.handle,
-      stake: r.stake || 'Independent',
-      minutes: Number(r.total_minutes || r.minutes || 0)
-    })).sort((a, b) => b.minutes - a.minutes);
-  }
-  if (roster.length === 0 && sectionData.roster && sectionData.roster.length > 0) {
-    roster = sectionData.roster;
   }
 
   const rosterContainer = document.getElementById('sectionRosterList') || document.getElementById('sectionContributorsList');
