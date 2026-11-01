@@ -1653,6 +1653,85 @@ async function syncPracticeToNeon() {
 const syncLogsToNeon = syncPracticeToNeon;
 
 /**
+ * Bidirectional Pull & Reconciliation:
+ * Fetches remote user practice sessions from Neon PostgreSQL (/api/user-history)
+ * and reconciles them with local practice logs to sync across all devices.
+ */
+let isPullingUserHistory = false;
+async function pullUserHistoryFromNeon() {
+  if (typeof navigator !== "undefined" && !navigator.onLine) return;
+  if (isPullingUserHistory) return;
+
+  const identity = typeof getUserIdentity === 'function' ? getUserIdentity() : null;
+  const handle = identity?.handle || (identity ? `${identity.nickname || "CHOIR"}#${identity.tag || "USR1"}` : null) || localStorage.getItem('kantimes_user_handle');
+  if (!handle) return;
+
+  isPullingUserHistory = true;
+  try {
+    const sheetHash = typeof getActiveSheetHash === 'function' ? getActiveSheetHash() : 'default';
+    const res = await fetch(`/api/user-history?handle=${encodeURIComponent(handle)}&sheet_hash=${encodeURIComponent(sheetHash)}`);
+    if (!res.ok) return;
+
+    const data = await res.json();
+    if (!Array.isArray(data.sessions)) return;
+
+    const localLogs = JSON.parse(localStorage.getItem('kantimes_practice_logs') || '[]');
+
+    // Merge server logs into local logs without duplicating existing timestamps/titles
+    const mergedMap = new Map();
+
+    // 1. Existing local logs take precedence
+    localLogs.forEach(log => {
+      const key = `${log.timestamp || log.created_at}_${log.songTitle || log.song_title}_${log.durationMinutes || log.duration_minutes}`;
+      mergedMap.set(key, log);
+    });
+
+    // 2. Add remote logs if missing locally
+    data.sessions.forEach(remote => {
+      const timestamp = new Date(remote.created_at).toISOString();
+      const key = `${timestamp}_${remote.song_title}_${remote.duration_minutes}`;
+      if (!mergedMap.has(key)) {
+        mergedMap.set(key, {
+          id: remote.id,
+          session_id: remote.id,
+          handle: remote.handle,
+          voice: remote.voice_part,
+          voice_part: remote.voice_part,
+          part: remote.voice_part,
+          stake: remote.stake,
+          songTitle: remote.song_title,
+          song_title: remote.song_title,
+          durationMinutes: Number(remote.duration_minutes),
+          duration_minutes: Number(remote.duration_minutes),
+          duration: Number(remote.duration_minutes),
+          timestamp: timestamp,
+          created_at: timestamp,
+          sheet_hash: remote.sheet_hash,
+          synced: true
+        });
+      }
+    });
+
+    const updatedLogs = Array.from(mergedMap.values()).sort((a, b) => new Date(b.timestamp || b.created_at) - new Date(a.timestamp || a.created_at));
+    localStorage.setItem('kantimes_practice_logs', JSON.stringify(updatedLogs));
+    if (typeof savePracticeLogs === 'function') {
+      savePracticeLogs(updatedLogs);
+    }
+
+    // Re-render Milestones and Practice Summary displays
+    if (typeof renderPracticeMilestonesUI === 'function') renderPracticeMilestonesUI();
+    if (typeof updatePracticeSummaryUI === 'function') updatePracticeSummaryUI();
+    if (typeof updateMilestonesUI === 'function') updateMilestonesUI();
+    if (typeof renderPracticeSummary === 'function') renderPracticeSummary();
+    if (typeof renderSectionStandings === 'function') renderSectionStandings();
+  } catch (err) {
+    console.warn('Could not pull user history from Neon:', err);
+  } finally {
+    isPullingUserHistory = false;
+  }
+}
+
+/**
  * Converts Neon database query results (sectionTotals & topRoster) to ranked standings objects.
  */
 function convertNeonStandingsToRanked(sectionTotals, topRoster) {
@@ -2067,6 +2146,11 @@ function saveProfileVoiceSettings(e) {
     showToast("Profile updated! 🎵");
   } catch (err) {
     console.log("Profile updated! 🎵");
+  }
+
+  // 7. Pull and reconcile practice history for the updated handle across devices
+  if (typeof pullUserHistoryFromNeon === "function") {
+    pullUserHistoryFromNeon();
   }
 
   return true;
@@ -5426,6 +5510,12 @@ function saveOnboardingProfile() {
 
   applyProfileData(profile.fullName || profile.nickname, profile.voice, avatar);
   showToast('Welcome to Kantimes! Profile configured 🎶');
+
+  // Pull remote practice history for restored handle
+  if (typeof pullUserHistoryFromNeon === "function") {
+    pullUserHistoryFromNeon();
+  }
+
   return true;
 }
 
@@ -8893,6 +8983,7 @@ function updateOnlineStatus() {
   if (!isOffline) {
     syncOfflinePracticeQueue();
     syncPracticeToNeon();
+    pullUserHistoryFromNeon();
     renderSectionStandings();
     loadLeaderboard();
   }
@@ -11931,7 +12022,11 @@ window.addEventListener("DOMContentLoaded", function () {
   initTutorialLang();
   syncOfflinePracticeQueue();
   syncPracticeToNeon();
-  window.addEventListener('online', syncPracticeToNeon);
+  pullUserHistoryFromNeon();
+  window.addEventListener('online', () => {
+    syncPracticeToNeon();
+    pullUserHistoryFromNeon();
+  });
   initPWAInstallBanner();
   wireCopyTemplateButton();
 
@@ -12090,6 +12185,7 @@ window.recordCompletedPracticeSession = recordCompletedPracticeSession;
 window.getActiveSheetHash = getActiveSheetHash;
 window.syncPracticeToNeon = syncPracticeToNeon;
 window.syncLogsToNeon = syncPracticeToNeon;
+window.pullUserHistoryFromNeon = pullUserHistoryFromNeon;
 window.fetchNeonStandings = fetchNeonStandings;
 window.initPhStakesDatalist = initPhStakesDatalist;
 window.openVocalTipsModal = openVocalTipsModal;
