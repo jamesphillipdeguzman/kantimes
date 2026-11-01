@@ -4964,7 +4964,7 @@ function updateRepertoireLockUI() {
   const isUnlocked = Boolean(window.isPracticeActive);
   if (lockedEl) {
     lockedEl.classList.toggle('d-none', isUnlocked);
-    lockedEl.style.display = isUnlocked ? 'none' : 'block';
+    lockedEl.style.display = isUnlocked ? 'none' : 'flex';
   }
   if (activeEl) {
     activeEl.classList.toggle('d-none', !isUnlocked);
