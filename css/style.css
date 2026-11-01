@@ -10625,3 +10625,11 @@ input::-webkit-calendar-picker-indicator {
   color: #93c5fd;
   border-color: rgba(59, 130, 246, 0.4);
 }
+
+.role-hint-text {
+  font-size: 0.8rem;
+  line-height: 1.4;
+  color: var(--text-muted, #94a3b8);
+  margin-top: 0.35rem;
+  display: block;
+}

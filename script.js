@@ -2074,6 +2074,55 @@ function validateNicknameInput(inputEl) {
   return true;
 }
 
+const CHORAL_ROLE_HINTS = {
+  'Soprano': 'Vocal section for higher treble voices.',
+  'Alto': 'Vocal section for lower treble voices.',
+  'Tenor': 'Vocal section for higher male/tenor voices.',
+  'Bass': 'Vocal section for lower male/bass voices.',
+  'Accompanist': 'For pianists, organists, and instrumentalists rehearsing the accompaniment.',
+  'Director': 'For choir directors and conductors studying scores and conducting rehearsals.'
+};
+
+/**
+ * Updates dynamic role description helper hint.
+ */
+function updateRoleDescription(selectEl, hintEl) {
+  if (!selectEl) return;
+  const targetHint = hintEl || document.getElementById('roleDescriptionHint') || document.getElementById('onboardingRoleDescriptionHint');
+  if (!targetHint) return;
+  const role = selectEl.value;
+  targetHint.textContent = CHORAL_ROLE_HINTS[role] || 'Select your voice part or musical role in the choir.';
+}
+
+/**
+ * Attaches change listeners to choral role dropdowns in both setup and settings modals.
+ */
+function initRoleDescriptionListeners() {
+  const onboardingSelect = document.getElementById('onboardingVoicePart') || document.getElementById('choirVoiceSelect');
+  const onboardingHint = document.getElementById('onboardingRoleDescriptionHint');
+  if (onboardingSelect) {
+    updateRoleDescription(onboardingSelect, onboardingHint);
+    if (!onboardingSelect.dataset.roleHintBound) {
+      onboardingSelect.dataset.roleHintBound = 'true';
+      onboardingSelect.addEventListener('change', () => {
+        updateRoleDescription(onboardingSelect, onboardingHint);
+      });
+    }
+  }
+
+  const settingsSelect = document.getElementById('profileVoicePart');
+  const settingsHint = document.getElementById('roleDescriptionHint');
+  if (settingsSelect) {
+    updateRoleDescription(settingsSelect, settingsHint);
+    if (!settingsSelect.dataset.roleHintBound) {
+      settingsSelect.dataset.roleHintBound = 'true';
+      settingsSelect.addEventListener('change', () => {
+        updateRoleDescription(settingsSelect, settingsHint);
+      });
+    }
+  }
+}
+
 /**
  * Real-time handle & icon update when voice part changes.
  */
@@ -2081,7 +2130,7 @@ function handleProfileVoicePartChange(selectEl) {
   const nicknameInput = document.getElementById("profileNickname") || document.getElementById("profileInitialsInput");
   const clean = nicknameInput ? nicknameInput.value.trim().toUpperCase() : "";
   const identity = getUserIdentity();
-  const part = selectEl ? selectEl.value : (identity.part || "All");
+  const part = selectEl ? selectEl.value : (identity.part || "Tenor");
   const name = clean ? clean : part;
   const handleEl = document.getElementById("profileModalDisplayHandle");
   if (handleEl) {
@@ -2101,6 +2150,10 @@ function handleProfileVoicePartChange(selectEl) {
     };
     avatarSymbolEl.textContent = partIcons[part] || "🎵";
   }
+
+  // Update dynamic role description hint in Settings modal
+  const hintEl = document.getElementById("roleDescriptionHint");
+  updateRoleDescription(selectEl, hintEl);
 }
 
 /**
@@ -2334,7 +2387,8 @@ function updateIdentityUI() {
 
   const partSelect = document.getElementById("profileVoicePart") || document.getElementById("profileVoicePartSelect");
   if (partSelect) {
-    partSelect.value = identity.part || "All";
+    partSelect.value = identity.part || "Tenor";
+    updateRoleDescription(partSelect, document.getElementById("roleDescriptionHint"));
   }
 
   const stakeInput = document.getElementById("profileStake") || document.getElementById("profileStakeInput");
@@ -5191,7 +5245,10 @@ function loadProfile() {
     const legacyMemName = document.getElementById("memberName");
     if (legacyMemName && legacyMemName !== memNameInput) legacyMemName.value = savedNickname || savedFullName;
     const memSecInput = document.getElementById("onboardingVoicePart") || document.getElementById("memberSection");
-    if (memSecInput) memSecInput.value = finalSection;
+    if (memSecInput) {
+      memSecInput.value = finalSection;
+      updateRoleDescription(memSecInput, document.getElementById("onboardingRoleDescriptionHint"));
+    }
     const legacyMemSec = document.getElementById("memberSection");
     if (legacyMemSec && legacyMemSec !== memSecInput) legacyMemSec.value = finalSection;
     const stakeInput = document.getElementById("onboardingStake");
@@ -5222,6 +5279,10 @@ function loadProfile() {
 
     loadLeaderboard();
   } else {
+    const memSecInput = document.getElementById("onboardingVoicePart") || document.getElementById("memberSection");
+    if (memSecInput) {
+      updateRoleDescription(memSecInput, document.getElementById("onboardingRoleDescriptionHint"));
+    }
     if (profileCard) profileCard.style.display = "block";
     if (activeBanner) activeBanner.style.display = "none";
     if (mainDashboard) mainDashboard.style.display = "none";
@@ -5797,12 +5858,17 @@ function initOnboardingInputs() {
   }
 
   const voiceSelect = document.getElementById('onboardingVoicePart');
+  const onboardingHint = document.getElementById('onboardingRoleDescriptionHint');
   if (voiceSelect) {
+    updateRoleDescription(voiceSelect, onboardingHint);
     voiceSelect.addEventListener('change', () => {
       const legacySec = document.getElementById('memberSection');
       if (legacySec && legacySec !== voiceSelect) legacySec.value = voiceSelect.value;
+      updateRoleDescription(voiceSelect, onboardingHint);
     });
   }
+
+  initRoleDescriptionListeners();
 }
 
 window.saveOnboardingProfile = saveOnboardingProfile;
@@ -7682,6 +7748,12 @@ function openSettingsModal(defaultTab = 'profile') {
   renderRepertoireList();
 
   switchSettingsTab(defaultTab || 'profile');
+
+  initRoleDescriptionListeners();
+  const partSelect = document.getElementById("profileVoicePart") || document.getElementById("choirVoiceSelect");
+  if (partSelect) {
+    updateRoleDescription(partSelect, document.getElementById("roleDescriptionHint"));
+  }
 
   const nickInput = document.getElementById("profileNickname");
   if (nickInput) {
@@ -12272,6 +12344,7 @@ window.addEventListener("DOMContentLoaded", function () {
   checkFirstTimeUser();
   loadAndPopulateStakesDatalist();
   initOnboardingInputs();
+  initRoleDescriptionListeners();
   initNameValidation();
   restoreTimerState();
   updateMetronomeBeatDots();
@@ -12425,6 +12498,9 @@ window.closeSettingsModal = closeSettingsModal;
 window.switchSettingsTab = switchSettingsTab;
 window.updateHeaderIdentityBadge = updateHeaderIdentityBadge;
 window.updateMilestonesCard = updateMilestonesCard;
+window.CHORAL_ROLE_HINTS = CHORAL_ROLE_HINTS;
+window.updateRoleDescription = updateRoleDescription;
+window.initRoleDescriptionListeners = initRoleDescriptionListeners;
 window.closeProfileModalOnBackdrop = closeProfileModalOnBackdrop;
 window.initIdentityAndPracticeTracking = initIdentityAndPracticeTracking;
 window.renderPracticeMilestonesUI = renderPracticeMilestonesUI;
