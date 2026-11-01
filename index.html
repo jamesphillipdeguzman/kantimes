@@ -131,6 +131,30 @@
     <div class="card fade-in" id="profileCard" data-modal="welcomeModal" data-alt-id="firstRunProfileModal,initialSetupModal,welcomeModal">
       <h2 id="profileCardTitle">👤 Choir Member Setup</h2>
 
+      <!-- Onboarding Anonymous Choir Handle Preview & Restore Link -->
+      <div class="profile-handle-card mb-2" id="onboardingHandleCard">
+        <div class="profile-handle-left">
+          <span class="profile-avatar-symbol" id="onboardingModalAvatarSymbol">🎵</span>
+          <div class="profile-handle-meta">
+            <span class="profile-handle-label">Your Anonymous Choir Handle</span>
+            <span class="profile-handle-tag" id="onboardingModalDisplayHandle">New Chorister</span>
+          </div>
+        </div>
+      </div>
+      <div class="d-flex align-items-center justify-content-between mt-1 mb-2">
+        <button type="button" id="toggleRestoreHandleBtnOnboarding" class="btn btn-link btn-sm p-0 text-decoration-none text-info">
+          🔗 Already have a handle from another device?
+        </button>
+      </div>
+      <div id="restoreHandleContainerOnboarding" class="d-none mb-3 p-2 rounded bg-dark border border-secondary">
+        <label class="form-label small text-muted mb-1">ENTER EXISTING HANDLE (e.g. DIET#CWN4)</label>
+        <div class="input-group input-group-sm">
+          <input type="text" id="existingHandleInputOnboarding" class="form-control text-uppercase" placeholder="DIET#CWN4">
+          <button type="button" id="applyExistingHandleBtnOnboarding" class="btn btn-outline-info">Link</button>
+        </div>
+        <small id="restoreHandleStatusOnboarding" class="form-text mt-1 d-block"></small>
+      </div>
+
       <!-- Full Name Field -->
       <div class="form-group mb-3">
         <label for="onboardingFullName" class="form-label font-semibold">
@@ -990,6 +1014,21 @@
                 <span class="profile-tag-fixed-label">Tag:</span>
                 <span class="profile-tag-fixed-val" id="profileModalFixedTag">#----</span>
               </div>
+            </div>
+
+            <!-- Restore Existing Handle from Another Device -->
+            <div class="d-flex align-items-center justify-content-between mt-1 mb-2">
+              <button type="button" id="toggleRestoreHandleBtn" class="btn btn-link btn-sm p-0 text-decoration-none text-info">
+                🔗 Already have a handle from another device?
+              </button>
+            </div>
+            <div id="restoreHandleContainer" class="d-none mb-3 p-2 rounded bg-dark border border-secondary">
+              <label class="form-label small text-muted mb-1">ENTER EXISTING HANDLE (e.g. DIET#CWN4)</label>
+              <div class="input-group input-group-sm">
+                <input type="text" id="existingHandleInput" class="form-control text-uppercase" placeholder="DIET#CWN4">
+                <button type="button" id="applyExistingHandleBtn" class="btn btn-outline-info">Link</button>
+              </div>
+              <small id="restoreHandleStatus" class="form-text mt-1 d-block"></small>
             </div>
 
             <div class="settings-section" style="margin-top: 14px;">

@@ -54,6 +54,22 @@ export default async function handler(req, res) {
     const sql = neon(dbUrl);
     await ensureSchema(sql);
 
+    // Query handle profile from user_handles if exists
+    let userProfile = null;
+    try {
+      const handleRows = await sql`
+        SELECT handle, primary_voice, stake, avatar_id, last_active
+        FROM user_handles
+        WHERE UPPER(handle) = UPPER(${cleanHandle})
+        LIMIT 1
+      `;
+      if (handleRows && handleRows.length > 0) {
+        userProfile = handleRows[0];
+      }
+    } catch (e) {
+      console.warn('Could not query user_handles:', e.message);
+    }
+
     // Query recent practice sessions for this handle
     const sessions = await sql`
       SELECT 
@@ -66,13 +82,19 @@ export default async function handler(req, res) {
         sheet_hash,
         created_at
       FROM practice_sessions
-      WHERE handle = ${cleanHandle}
+      WHERE UPPER(handle) = UPPER(${cleanHandle})
         AND (sheet_hash = ${cleanSheetHash} OR ${cleanSheetHash} = 'default')
       ORDER BY created_at DESC
       LIMIT 100
     `;
 
-    return res.status(200).json({ sessions });
+    const exists = Boolean(userProfile || (sessions && sessions.length > 0));
+
+    return res.status(200).json({ 
+      sessions,
+      profile: userProfile,
+      exists
+    });
   } catch (err) {
     console.error('Failed to query user history:', err);
     return res.status(500).json({ error: 'Failed to fetch user history', details: err.message });

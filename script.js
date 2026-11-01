@@ -1665,12 +1665,12 @@ const syncLogsToNeon = syncPracticeToNeon;
  * and reconciles them with local practice logs to sync across all devices.
  */
 let isPullingUserHistory = false;
-async function pullUserHistoryFromNeon() {
+async function pullUserHistoryFromNeon(targetHandle) {
   if (typeof navigator !== "undefined" && !navigator.onLine) return;
   if (isPullingUserHistory) return;
 
-  const identity = typeof getUserIdentity === 'function' ? getUserIdentity() : null;
-  const handle = identity?.handle || (identity ? `${identity.nickname || "CHOIR"}#${identity.tag || "USR1"}` : null) || localStorage.getItem('kantimes_user_handle');
+  const isOnboarded = localStorage.getItem('kantimes_onboarding_completed') === 'true';
+  const handle = targetHandle || localStorage.getItem('kantimes_user_handle') || (isOnboarded && typeof getUserIdentity === 'function' ? getUserIdentity()?.handle : null);
   if (!handle) return;
 
   isPullingUserHistory = true;
@@ -1735,6 +1735,279 @@ async function pullUserHistoryFromNeon() {
     console.warn('Could not pull user history from Neon:', err);
   } finally {
     isPullingUserHistory = false;
+  }
+}
+
+/**
+ * Links an existing handle from another device and restores practice history, voice part, stake, and avatar.
+ */
+async function linkExistingHandle(rawInput, statusEl) {
+  const clean = (rawInput || '').trim().toUpperCase();
+  if (!statusEl) statusEl = document.getElementById('restoreHandleStatus') || document.getElementById('restoreHandleStatusOnboarding');
+
+  if (!clean) {
+    if (statusEl) {
+      statusEl.textContent = '⚠️ Please enter your handle (e.g. DIET#CWN4).';
+      statusEl.className = 'form-text mt-1 d-block text-danger';
+    }
+    return false;
+  }
+
+  // Validate format: 2-12 uppercase characters, '#', 4-character tag
+  const match = clean.match(/^([A-Z0-9_\-\.]{2,12})#([A-Z0-9]{4})$/);
+  if (!match) {
+    if (statusEl) {
+      statusEl.textContent = '⚠️ Invalid handle format. Please use NICKNAME#TAG (e.g. DIET#CWN4).';
+      statusEl.className = 'form-text mt-1 d-block text-danger';
+    }
+    return false;
+  }
+
+  const nickname = match[1];
+  const tag = match[2];
+  const formattedHandle = `${nickname}#${tag}`;
+
+  if (statusEl) {
+    statusEl.textContent = `🔍 Linking ${formattedHandle} and syncing history...`;
+    statusEl.className = 'form-text mt-1 d-block text-info';
+  }
+
+  try {
+    const sheetHash = typeof getActiveSheetHash === 'function' ? getActiveSheetHash() : 'default';
+    const res = await fetch(`/api/user-history?handle=${encodeURIComponent(formattedHandle)}&sheet_hash=${encodeURIComponent(sheetHash)}`);
+    const data = res.ok ? await res.json().catch(() => ({})) : {};
+
+    const hasProfile = Boolean(data && data.profile);
+    const hasSessions = Boolean(data && Array.isArray(data.sessions) && data.sessions.length > 0);
+    const exists = Boolean(data && (data.exists || hasProfile || hasSessions));
+
+    let remoteVoice = (data.profile && data.profile.primary_voice) || (hasSessions && data.sessions[0].voice_part) || 'Tenor';
+    let remoteStake = (data.profile && data.profile.stake) || (hasSessions && data.sessions[0].stake) || '';
+    let remoteAvatar = (data.profile && data.profile.avatar_id && data.profile.avatar_id !== 'default') ? data.profile.avatar_id : '';
+
+    // Standardize voice part name
+    const validRoles = ['Soprano', 'Alto', 'Tenor', 'Bass', 'Accompanist', 'Director'];
+    const matchedRole = validRoles.find(r => r.toLowerCase() === (remoteVoice || '').toLowerCase());
+    if (matchedRole) remoteVoice = matchedRole;
+
+    // 1. Update localStorage identity and handle
+    localStorage.setItem('kantimes_user_handle', formattedHandle);
+    localStorage.setItem('kantimes_onboarding_completed', 'true');
+    localStorage.setItem('choir_nickname', nickname);
+    localStorage.setItem('choir_voice', remoteVoice);
+    localStorage.setItem('choir_section', remoteVoice);
+    if (remoteStake) localStorage.setItem('choir_stake', remoteStake);
+    if (remoteAvatar) localStorage.setItem('choir_avatar', remoteAvatar);
+
+    let identity;
+    try {
+      identity = getUserIdentity();
+    } catch (e) {
+      identity = {};
+    }
+    identity.nickname = nickname;
+    identity.initials = nickname;
+    identity.tag = tag;
+    identity.handle = formattedHandle;
+    identity.part = remoteVoice;
+    identity.voice = remoteVoice;
+    identity.section = remoteVoice;
+    if (remoteStake) identity.stake = remoteStake;
+    if (remoteAvatar) identity.avatar = remoteAvatar;
+    identity.isConfigured = true;
+    localStorage.setItem('kantimes_user_identity', JSON.stringify(identity));
+
+    // 2. Populate input fields across both modals
+    const nickInputs = [
+      document.getElementById('profileNickname'),
+      document.getElementById('onboardingNickname'),
+      document.getElementById('memberName')
+    ];
+    nickInputs.forEach(inp => { if (inp) inp.value = nickname; });
+
+    const voiceSelects = [
+      document.getElementById('profileVoicePart'),
+      document.getElementById('onboardingVoicePart'),
+      document.getElementById('memberSection')
+    ];
+    voiceSelects.forEach(sel => {
+      if (sel) {
+        sel.value = remoteVoice;
+        if (typeof updateRoleDescription === 'function') updateRoleDescription(sel);
+      }
+    });
+
+    const stakeInputs = [
+      document.getElementById('profileStake'),
+      document.getElementById('onboardingStake')
+    ];
+    stakeInputs.forEach(inp => { if (inp && remoteStake) inp.value = remoteStake; });
+
+    // 3. Update displays
+    const displayHandles = [
+      document.getElementById('profileModalDisplayHandle'),
+      document.getElementById('onboardingModalDisplayHandle'),
+      document.getElementById('milestonesHandleDisplay'),
+      document.getElementById('headerProfileHandle')
+    ];
+    displayHandles.forEach(el => { if (el) el.textContent = formattedHandle; });
+
+    const tagEl = document.getElementById('profileModalFixedTag');
+    if (tagEl) tagEl.textContent = `#${tag}`;
+
+    if (typeof updateIdentityUI === 'function') updateIdentityUI();
+    if (typeof updateHeaderIdentityBadge === 'function') updateHeaderIdentityBadge();
+    if (typeof updateActiveProfileDisplay === 'function') updateActiveProfileDisplay();
+
+    // 4. Merge server practice sessions into local logs
+    if (Array.isArray(data.sessions) && data.sessions.length > 0) {
+      const localLogs = JSON.parse(localStorage.getItem('kantimes_practice_logs') || '[]');
+      const mergedMap = new Map();
+
+      // Local logs take precedence to avoid overwriting newer offline sessions
+      localLogs.forEach(log => {
+        const normDate = (typeof getNormalizedLogDate === 'function' ? getNormalizedLogDate(log) : new Date(log.timestamp || log.created_at || Date.now())).toISOString();
+        const normSong = typeof getNormalizedLogSong === 'function' ? getNormalizedLogSong(log) : (log.songTitle || log.song_title || 'Rehearsal');
+        const normMins = typeof getNormalizedLogMinutes === 'function' ? getNormalizedLogMinutes(log) : Number(log.durationMinutes || log.duration_minutes || 0);
+        const key = `${normDate}_${normSong}_${normMins}`;
+        mergedMap.set(key, log);
+      });
+
+      data.sessions.forEach(remote => {
+        const timestamp = new Date(remote.created_at).toISOString();
+        const key = `${timestamp}_${remote.song_title}_${remote.duration_minutes}`;
+        if (!mergedMap.has(key)) {
+          mergedMap.set(key, {
+            id: remote.id,
+            session_id: remote.id,
+            handle: remote.handle || formattedHandle,
+            stake: remote.stake || remoteStake,
+            voice: remote.voice_part || remoteVoice,
+            voice_part: remote.voice_part || remoteVoice,
+            part: remote.voice_part || remoteVoice,
+            songTitle: remote.song_title,
+            song_title: remote.song_title,
+            durationMinutes: Number(remote.duration_minutes),
+            duration_minutes: Number(remote.duration_minutes),
+            minutes: Number(remote.duration_minutes),
+            timestamp: new Date(remote.created_at).getTime(),
+            created_at: timestamp,
+            synced: true
+          });
+        }
+      });
+
+      const updatedLogs = Array.from(mergedMap.values());
+      localStorage.setItem('kantimes_practice_logs', JSON.stringify(updatedLogs));
+      if (typeof savePracticeLogs === 'function') {
+        savePracticeLogs(updatedLogs);
+      }
+    }
+
+    // 5. Update UI feedback
+    if (statusEl) {
+      if (exists) {
+        statusEl.textContent = `✅ Device linked to ${formattedHandle}! Practice history synced.`;
+        statusEl.className = 'form-text mt-1 d-block text-success';
+      } else {
+        statusEl.textContent = `ℹ️ Linked ${formattedHandle} locally! New practices will record under this handle.`;
+        statusEl.className = 'form-text mt-1 d-block text-warning';
+      }
+    }
+
+    if (typeof showToast === 'function') {
+      showToast(`Device linked to ${formattedHandle}! 🎶`);
+    }
+
+    // 6. Refresh views immediately
+    if (typeof updateMilestonesUI === 'function') updateMilestonesUI();
+    if (typeof renderPracticeMilestonesUI === 'function') renderPracticeMilestonesUI();
+    if (typeof renderSectionStandings === 'function') renderSectionStandings();
+    if (typeof loadLeaderboard === 'function') loadLeaderboard();
+
+    // If linked from Onboarding modal, close onboarding and display main dashboard
+    const profileCard = document.getElementById('profileCard');
+    const mainDashboard = document.getElementById('mainDashboard');
+    const activeProfileBanner = document.getElementById('activeProfileBanner');
+    if (profileCard && profileCard.style.display !== 'none') {
+      profileCard.style.display = 'none';
+      if (mainDashboard) mainDashboard.style.display = 'block';
+      if (activeProfileBanner) activeProfileBanner.style.display = 'flex';
+    }
+
+    return true;
+  } catch (err) {
+    console.warn('[Kantimes] Error linking handle:', err);
+    if (statusEl) {
+      statusEl.textContent = `⚠️ Network error linking handle. Please try again.`;
+      statusEl.className = 'form-text mt-1 d-block text-danger';
+    }
+    return false;
+  }
+}
+
+/**
+ * Initializes click & keydown listeners for restore existing handle buttons in Onboarding & Settings.
+ */
+function initRestoreHandleListeners() {
+  // 1. Settings modal restore controls
+  const toggleBtnSettings = document.getElementById('toggleRestoreHandleBtn');
+  const containerSettings = document.getElementById('restoreHandleContainer');
+  const inputSettings = document.getElementById('existingHandleInput');
+  const applyBtnSettings = document.getElementById('applyExistingHandleBtn');
+  const statusSettings = document.getElementById('restoreHandleStatus');
+
+  if (toggleBtnSettings && containerSettings && !toggleBtnSettings.dataset.bound) {
+    toggleBtnSettings.dataset.bound = 'true';
+    toggleBtnSettings.addEventListener('click', () => {
+      containerSettings.classList.toggle('d-none');
+      if (!containerSettings.classList.contains('d-none') && inputSettings) {
+        inputSettings.focus();
+      }
+    });
+  }
+
+  if (applyBtnSettings && inputSettings && !applyBtnSettings.dataset.bound) {
+    applyBtnSettings.dataset.bound = 'true';
+    applyBtnSettings.addEventListener('click', () => {
+      linkExistingHandle(inputSettings.value, statusSettings);
+    });
+    inputSettings.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        linkExistingHandle(inputSettings.value, statusSettings);
+      }
+    });
+  }
+
+  // 2. Onboarding modal restore controls
+  const toggleBtnOnboarding = document.getElementById('toggleRestoreHandleBtnOnboarding');
+  const containerOnboarding = document.getElementById('restoreHandleContainerOnboarding');
+  const inputOnboarding = document.getElementById('existingHandleInputOnboarding');
+  const applyBtnOnboarding = document.getElementById('applyExistingHandleBtnOnboarding');
+  const statusOnboarding = document.getElementById('restoreHandleStatusOnboarding');
+
+  if (toggleBtnOnboarding && containerOnboarding && !toggleBtnOnboarding.dataset.bound) {
+    toggleBtnOnboarding.dataset.bound = 'true';
+    toggleBtnOnboarding.addEventListener('click', () => {
+      containerOnboarding.classList.toggle('d-none');
+      if (!containerOnboarding.classList.contains('d-none') && inputOnboarding) {
+        inputOnboarding.focus();
+      }
+    });
+  }
+
+  if (applyBtnOnboarding && inputOnboarding && !applyBtnOnboarding.dataset.bound) {
+    applyBtnOnboarding.dataset.bound = 'true';
+    applyBtnOnboarding.addEventListener('click', () => {
+      linkExistingHandle(inputOnboarding.value, statusOnboarding);
+    });
+    inputOnboarding.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        linkExistingHandle(inputOnboarding.value, statusOnboarding);
+      }
+    });
   }
 }
 
@@ -2797,6 +3070,7 @@ function initProfileModalListeners() {
   });
 
   initVocalTipsButton();
+  initRestoreHandleListeners();
 }
 
 function updateHeaderIdentityBadge() {
@@ -6013,6 +6287,7 @@ function initOnboardingInputs() {
   }
 
   initRoleDescriptionListeners();
+  initRestoreHandleListeners();
 }
 
 window.saveOnboardingProfile = saveOnboardingProfile;
@@ -7919,6 +8194,7 @@ function openSettingsModal(defaultTab = 'profile') {
   switchSettingsTab(defaultTab || 'profile');
 
   initRoleDescriptionListeners();
+  initRestoreHandleListeners();
   const partSelect = document.getElementById("profileVoicePart") || document.getElementById("choirVoiceSelect");
   if (partSelect) {
     updateRoleDescription(partSelect, document.getElementById("roleDescriptionHint"));
@@ -12514,6 +12790,7 @@ window.addEventListener("DOMContentLoaded", function () {
   loadAndPopulateStakesDatalist();
   initOnboardingInputs();
   initRoleDescriptionListeners();
+  initRestoreHandleListeners();
   initNameValidation();
   restoreTimerState();
   updateMetronomeBeatDots();
@@ -12700,6 +12977,8 @@ window.registerHandleToNeon = registerHandleToNeon;
 window.syncPracticeToNeon = syncPracticeToNeon;
 window.syncLogsToNeon = syncPracticeToNeon;
 window.pullUserHistoryFromNeon = pullUserHistoryFromNeon;
+window.linkExistingHandle = linkExistingHandle;
+window.initRestoreHandleListeners = initRestoreHandleListeners;
 window.fetchNeonStandings = fetchNeonStandings;
 window.initPhStakesDatalist = initPhStakesDatalist;
 window.openVocalTipsModal = openVocalTipsModal;
