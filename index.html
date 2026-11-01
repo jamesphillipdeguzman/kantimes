@@ -880,12 +880,12 @@
           </div>
 
           <!-- Found Saved Choir Sheet Badge / Restore Card inside Modal -->
-          <div id="foundSavedSheetModalContainer" class="d-none mt-2 mb-2 p-2 rounded bg-dark border border-secondary" style="border-color: rgba(56, 189, 248, 0.4) !important;">
+          <div id="foundSavedSheetModalContainer" data-alt-id="foundSheetBanner" class="found-sheet-banner d-none mt-2 mb-2 p-2 rounded bg-dark border border-secondary" style="border-color: rgba(56, 189, 248, 0.4) !important;">
             <div class="d-flex align-items-center justify-content-between flex-wrap gap-2">
               <span id="foundSavedSheetModalText" class="small text-light">
-                Found choir sheet saved for <strong id="foundSavedSheetModalHandle">CHOIR#CWN4</strong>.
+                Found choir sheet saved for <strong id="foundSavedSheetModalHandle" class="found-sheet-handle-text"></strong>.
               </span>
-              <button type="button" id="btnUseFoundSheetModal" class="btn btn-sm btn-info text-dark fw-semibold" style="font-size: 0.75rem; padding: 3px 8px;">
+              <button type="button" id="btnUseFoundSheetModal" data-alt-id="useThisSheetBtn" class="use-this-sheet-btn btn btn-sm btn-info text-dark fw-semibold" style="font-size: 0.75rem; padding: 3px 8px;">
                 Use This Sheet
               </button>
             </div>
@@ -1223,12 +1223,12 @@
                 Google Sheet.</p>
               
               <!-- Found Saved Choir Sheet Badge / Restore Card -->
-              <div id="foundSavedSheetContainer" class="d-none mt-2 p-2 rounded bg-dark border border-secondary" style="border-color: rgba(56, 189, 248, 0.4) !important; margin-bottom: 8px;">
+              <div id="foundSavedSheetContainer" data-alt-id="foundSheetBanner" class="found-sheet-banner d-none mt-2 p-2 rounded bg-dark border border-secondary" style="border-color: rgba(56, 189, 248, 0.4) !important; margin-bottom: 8px;">
                 <div class="d-flex align-items-center justify-content-between flex-wrap gap-2">
                   <span id="foundSavedSheetText" class="small text-light">
-                    Found choir sheet saved for <strong id="foundSavedSheetHandle">CHOIR#CWN4</strong>.
+                    Found choir sheet saved for <strong id="foundSavedSheetHandle" class="found-sheet-handle-text"></strong>.
                   </span>
-                  <button type="button" id="btnUseFoundSheet" class="btn btn-sm btn-info text-dark fw-semibold" style="font-size: 0.75rem; padding: 3px 8px;">
+                  <button type="button" id="btnUseFoundSheet" data-alt-id="useThisSheetBtn" class="use-this-sheet-btn btn btn-sm btn-info text-dark fw-semibold" style="font-size: 0.75rem; padding: 3px 8px;">
                     Use This Sheet
                   </button>
                 </div>

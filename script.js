@@ -1357,109 +1357,152 @@ window.initClearSheetUrlButton = initClearSheetUrlButton;
  * Checks if local storage has no custom sheet, but a linked profile has a saved sheet_url.
  * Shows a one-click badge: "Found choir sheet saved for <handle>. [Use This Sheet]"
  */
-async function checkAndRenderSavedSheetBanner() {
+async function checkSavedSheetBanner() {
+  const currentHandle = localStorage.getItem('kantimes_user_handle') || 
+                        (typeof getUserIdentity === 'function' ? getUserIdentity()?.handle : '') || '';
+  if (!currentHandle) return;
+
   const currentSheet = localStorage.getItem('kantimes_sheet_url') || localStorage.getItem('kantimes_active_sheet_id');
-  const userHandle = localStorage.getItem('kantimes_user_handle');
-
-  const container = document.getElementById('foundSavedSheetContainer');
-  const modalContainer = document.getElementById('foundSavedSheetModalContainer');
-  const handleEl = document.getElementById('foundSavedSheetHandle');
-  const modalHandleEl = document.getElementById('foundSavedSheetModalHandle');
-
-  // Wire buttons if not yet wired
-  const btnUse = document.getElementById('btnUseFoundSheet');
-  if (btnUse && !btnUse._bound) {
-    btnUse._bound = true;
-    btnUse.addEventListener('click', applySavedHandleSheet);
-  }
-  const btnModalUse = document.getElementById('btnUseFoundSheetModal');
-  if (btnModalUse && !btnModalUse._bound) {
-    btnModalUse._bound = true;
-    btnModalUse.addEventListener('click', applySavedHandleSheet);
-  }
-
-  if (!userHandle) {
-    if (container) container.classList.add('d-none');
-    if (modalContainer) modalContainer.classList.add('d-none');
-    return;
-  }
-
-  // If already connected to a custom sheet, do not show the banner
   if (currentSheet && currentSheet !== 'default_repertoire') {
-    if (container) container.classList.add('d-none');
-    if (modalContainer) modalContainer.classList.add('d-none');
+    hideSavedSheetBanners();
     return;
   }
 
-  let savedSheetUrl = localStorage.getItem('kantimes_saved_handle_sheet_url') || '';
-  let savedSheetId = localStorage.getItem('kantimes_saved_handle_sheet_id') || '';
+  // Ensure click listener is wired on all "Use This Sheet" buttons
+  wireUseThisSheetButtons();
 
-  if (!savedSheetUrl && typeof navigator !== 'undefined' && navigator.onLine) {
-    try {
-      const res = await fetch(`/api/register-handle?handle=${encodeURIComponent(userHandle)}`).catch(() => null);
-      if (res && res.ok) {
-        const data = await res.json().catch(() => ({}));
-        const prof = data.profile || data;
-        if (prof && prof.sheet_url) {
-          savedSheetUrl = prof.sheet_url;
-          savedSheetId = prof.sheet_id || '';
-          localStorage.setItem('kantimes_saved_handle_sheet_url', savedSheetUrl);
-          if (savedSheetId) localStorage.setItem('kantimes_saved_handle_sheet_id', savedSheetId);
-        }
+  try {
+    const res = await fetch(`/api/register-handle?handle=${encodeURIComponent(currentHandle)}`);
+    if (!res.ok) return;
+    const data = await res.json().catch(() => ({}));
+    const profile = data.profile || data;
+
+    if (profile && profile.sheet_url) {
+      // Cache remote profile in window
+      window.syncedCloudProfile = profile;
+      localStorage.setItem('kantimes_saved_handle_sheet_url', profile.sheet_url);
+      if (profile.sheet_id) {
+        localStorage.setItem('kantimes_saved_handle_sheet_id', profile.sheet_id);
       }
-    } catch (e) {
-      console.warn('Could not check saved sheet for handle:', e);
-    }
-  }
 
-  if (savedSheetUrl) {
-    if (container) {
-      container.classList.remove('d-none');
-      if (handleEl) handleEl.textContent = userHandle;
+      // 1. Display the ACTUAL handle from the database (e.g. DIET#CWN4, never CHOIR#CWN4)
+      const verifiedHandle = profile.handle || currentHandle;
+      const handleEls = [
+        document.getElementById('foundSheetHandleText'),
+        document.getElementById('foundSavedSheetHandle'),
+        document.getElementById('foundSavedSheetModalHandle'),
+        ...document.querySelectorAll('.found-sheet-handle-text'),
+        document.querySelector('#foundSheetBanner strong'),
+        ...document.querySelectorAll('.found-sheet-banner strong')
+      ].filter(Boolean);
+
+      handleEls.forEach(el => {
+        el.textContent = verifiedHandle;
+      });
+
+      // 2. Reveal the banner
+      const bannerEls = [
+        document.getElementById('foundSheetBanner'),
+        document.getElementById('foundSavedSheetContainer'),
+        document.getElementById('foundSavedSheetModalContainer'),
+        ...document.querySelectorAll('.found-sheet-banner')
+      ].filter(Boolean);
+
+      bannerEls.forEach(el => {
+        el.classList.remove('d-none');
+        el.style.display = 'block';
+      });
+    } else {
+      hideSavedSheetBanners();
     }
-    if (modalContainer) {
-      modalContainer.classList.remove('d-none');
-      if (modalHandleEl) modalHandleEl.textContent = userHandle;
-    }
-  } else {
-    if (container) container.classList.add('d-none');
-    if (modalContainer) modalContainer.classList.add('d-none');
+  } catch (err) {
+    console.warn('Could not fetch cloud sheet for handle:', err);
   }
 }
+const checkAndRenderSavedSheetBanner = checkSavedSheetBanner;
+window.checkSavedSheetBanner = checkSavedSheetBanner;
 window.checkAndRenderSavedSheetBanner = checkAndRenderSavedSheetBanner;
+
+function hideSavedSheetBanners() {
+  const bannerEls = [
+    document.getElementById('foundSheetBanner'),
+    document.getElementById('foundSavedSheetContainer'),
+    document.getElementById('foundSavedSheetModalContainer'),
+    ...document.querySelectorAll('.found-sheet-banner')
+  ].filter(Boolean);
+
+  bannerEls.forEach(el => {
+    el.classList.add('d-none');
+    el.style.display = 'none';
+  });
+}
+window.hideSavedSheetBanners = hideSavedSheetBanners;
+
+function wireUseThisSheetButtons() {
+  const buttons = [
+    document.getElementById('useThisSheetBtn'),
+    document.getElementById('btnUseFoundSheet'),
+    document.getElementById('btnUseFoundSheetModal'),
+    ...document.querySelectorAll('.use-this-sheet-btn'),
+    ...document.querySelectorAll('[data-alt-id="useThisSheetBtn"]')
+  ].filter(Boolean);
+
+  buttons.forEach(btn => {
+    if (!btn._bound) {
+      btn._bound = true;
+      btn.addEventListener('click', () => {
+        applySavedHandleSheet();
+      });
+    }
+  });
+}
+window.wireUseThisSheetButtons = wireUseThisSheetButtons;
 
 /**
  * Connects to the saved choir Google Sheet associated with the user's handle.
  */
 async function applySavedHandleSheet() {
-  const savedSheetUrl = localStorage.getItem('kantimes_saved_handle_sheet_url');
-  const savedSheetId = localStorage.getItem('kantimes_saved_handle_sheet_id');
-  if (!savedSheetUrl) return;
+  const profile = window.syncedCloudProfile;
+  const sheetUrl = profile?.sheet_url || localStorage.getItem('kantimes_saved_handle_sheet_url');
+  if (!sheetUrl) return;
 
-  localStorage.setItem('kantimes_sheet_url', savedSheetUrl);
-  if (savedSheetId) localStorage.setItem('kantimes_sheet_id', savedSheetId);
-  localStorage.setItem('kantimes_active_sheet_id', savedSheetUrl);
-
-  const sheetInputs = [
+  // Target the textarea/input element in the modal
+  const textareas = [
     document.getElementById('customSheetInput'),
-    document.getElementById('sheetUrlInput'),
+    document.getElementById('repertoireSheetUrl'),
     document.getElementById('stakeSheetUrlInput'),
     document.getElementById('googleSheetInput'),
-    document.getElementById('stakeSheetInput')
+    document.getElementById('stakeSheetInput'),
+    document.querySelector('textarea[placeholder*="docs.google.com"]')
   ].filter(Boolean);
-  sheetInputs.forEach(inp => { inp.value = savedSheetUrl; });
 
-  const container = document.getElementById('foundSavedSheetContainer');
-  if (container) container.classList.add('d-none');
-  const modalContainer = document.getElementById('foundSavedSheetModalContainer');
-  if (modalContainer) modalContainer.classList.add('d-none');
+  textareas.forEach(textarea => {
+    textarea.value = sheetUrl;
+    textarea.dispatchEvent(new Event('input', { bubbles: true }));
+    textarea.dispatchEvent(new Event('change', { bubbles: true }));
+  });
 
-  if (typeof syncRepertoireFromGoogleSheet === 'function') {
-    await syncRepertoireFromGoogleSheet(savedSheetUrl);
+  // Save to local storage so subsequent sessions remember it
+  localStorage.setItem('kantimes_sheet_url', sheetUrl);
+  localStorage.setItem('kantimes_active_sheet_id', sheetUrl);
+  if (profile?.sheet_id) {
+    localStorage.setItem('kantimes_sheet_id', profile.sheet_id);
+  }
+
+  // Hide banners
+  hideSavedSheetBanners();
+
+  // Trigger sync
+  if (typeof connectAndSyncSheet === 'function') {
+    await connectAndSyncSheet(sheetUrl);
+  } else if (typeof syncRepertoireFromGoogleSheet === 'function') {
+    await syncRepertoireFromGoogleSheet(sheetUrl);
   } else if (typeof loadRepertoire === 'function') {
-    await loadRepertoire(savedSheetUrl);
+    await loadRepertoire(sheetUrl);
+  } else if (typeof handleStakeSheetConnect === 'function') {
+    await handleStakeSheetConnect();
   } else if (typeof syncRepertoire === 'function') {
-    await syncRepertoire({ force: true, rawUrl: savedSheetUrl, silent: false });
+    await syncRepertoire({ force: true, rawUrl: sheetUrl, silent: false });
   }
 
   if (typeof updateStakeSheetStatusUI === 'function') updateStakeSheetStatusUI();
@@ -1468,12 +1511,22 @@ async function applySavedHandleSheet() {
 }
 window.applySavedHandleSheet = applySavedHandleSheet;
 
+async function connectAndSyncSheet(sheetUrl) {
+  if (typeof handleStakeSheetConnect === 'function') {
+    return await handleStakeSheetConnect();
+  } else if (typeof syncRepertoire === 'function') {
+    return await syncRepertoire({ force: true, rawUrl: sheetUrl, silent: false });
+  }
+}
+window.connectAndSyncSheet = connectAndSyncSheet;
+
 function openStakeSheetModal() {
   const modal = document.getElementById("stakeSheetModal");
   if (!modal) return;
   wireCopyTemplateButton();
   initClearSheetUrlButton();
   initSheetEditButton();
+  wireUseThisSheetButtons();
   const errEl = document.getElementById("stakeSheetError");
   if (errEl) {
     errEl.style.display = "none";

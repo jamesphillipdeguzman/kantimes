@@ -34,11 +34,13 @@ export default async function handler(req, res) {
   }
 
   if (req.method === 'GET') {
-    const handle = req.query?.handle;
-    if (!handle || typeof handle !== 'string' || !handle.trim()) {
-      return res.status(400).json({ error: 'Handle parameter is required' });
+    const { handle, tag } = req.query || {};
+    const queryHandle = (typeof handle === 'string') ? handle.trim() : '';
+    const cleanTag = (typeof tag === 'string') ? tag.trim().replace(/^#/, '') : '';
+
+    if (!queryHandle && !cleanTag) {
+      return res.status(400).json({ error: 'Handle or tag parameter is required' });
     }
-    const cleanHandle = handle.trim();
     const dbUrl = process.env.DATABASE_URL || process.env.POSTGRES_URL;
     if (!dbUrl) {
       return res.status(503).json({ error: 'DATABASE_URL or POSTGRES_URL not configured' });
@@ -46,12 +48,35 @@ export default async function handler(req, res) {
     try {
       const sql = neon(dbUrl);
       await ensureSchema(sql);
-      const rows = await sql`
-        SELECT handle, primary_voice, stake, avatar_id, sheet_url, sheet_id, last_active
-        FROM user_handles
-        WHERE LOWER(TRIM(handle)) = LOWER(TRIM(${cleanHandle}))
-        LIMIT 1
-      `;
+
+      let rows = [];
+      if (queryHandle && cleanTag) {
+        rows = await sql`
+          SELECT handle, primary_voice, stake, avatar_id, sheet_url, sheet_id, last_active
+          FROM user_handles
+          WHERE LOWER(TRIM(handle)) = LOWER(TRIM(${queryHandle}))
+             OR handle LIKE ${'%' + cleanTag}
+          ORDER BY last_active DESC
+          LIMIT 1
+        `;
+      } else if (queryHandle) {
+        rows = await sql`
+          SELECT handle, primary_voice, stake, avatar_id, sheet_url, sheet_id, last_active
+          FROM user_handles
+          WHERE LOWER(TRIM(handle)) = LOWER(TRIM(${queryHandle}))
+          ORDER BY last_active DESC
+          LIMIT 1
+        `;
+      } else {
+        rows = await sql`
+          SELECT handle, primary_voice, stake, avatar_id, sheet_url, sheet_id, last_active
+          FROM user_handles
+          WHERE handle LIKE ${'%' + cleanTag}
+          ORDER BY last_active DESC
+          LIMIT 1
+        `;
+      }
+
       if (rows && rows.length > 0) {
         return res.status(200).json({ exists: true, profile: rows[0], ...rows[0] });
       }
