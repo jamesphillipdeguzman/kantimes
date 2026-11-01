@@ -2682,6 +2682,7 @@ function initStandingsFilterControls() {
     btnCurrent.addEventListener('click', () => {
       currentStandingsFilter = 'current-stake';
       currentSelectedStake = '';
+      cachedNeonStandings = null;
       if (btnCurrent) btnCurrent.classList.add('active');
       if (btnAll) btnAll.classList.remove('active');
       if (selectStake) selectStake.style.display = 'none';
@@ -2694,6 +2695,7 @@ function initStandingsFilterControls() {
     btnAll.addEventListener('click', () => {
       currentStandingsFilter = 'all-stakes';
       currentSelectedStake = '';
+      cachedNeonStandings = null;
       if (btnAll) btnAll.classList.add('active');
       if (btnCurrent) btnCurrent.classList.remove('active');
       if (selectStake) {
@@ -2708,6 +2710,7 @@ function initStandingsFilterControls() {
   if (selectStake && !selectStake.dataset.filterBound) {
     selectStake.dataset.filterBound = "true";
     selectStake.addEventListener('change', () => {
+      cachedNeonStandings = null;
       const val = selectStake.value;
       if (val === 'ALL') {
         currentStandingsFilter = 'all-stakes';
@@ -2833,13 +2836,13 @@ function recordSectionPracticeMinutes(part, minutes) {
  * Re-renders the Section Standings UI sorted descending by practice minutes,
  * complete with rank badges (#1, #2, #3, etc.) and hours display.
  */
-function renderSectionStandingsUI() {
+function renderSectionStandingsUI(overrideData) {
   const sectionEl = document.getElementById("sectionList");
   if (!sectionEl) return;
 
   initStandingsFilterControls();
 
-  const ranked = getSectionStandingsData();
+  const ranked = overrideData || cachedNeonStandings || getSectionStandingsData();
 
   // Update cachedSectionStandings for modal drilldown
   cachedSectionStandings = ranked.map((item, idx) => {
@@ -2905,13 +2908,52 @@ function renderSectionStandingsUI() {
 /**
  * Standard trigger to refresh section standings board.
  * Refreshes breakdown modal as well if currently opened.
+ * When online, queries /api/standings to reflect collective live totals from Neon.
  */
-function renderSectionStandings() {
+async function renderSectionStandings() {
+  // 1. Immediately render local-first state (zero latency fallback)
   renderSectionStandingsUI();
   if (currentOpenSection) {
     const modal = document.getElementById("sectionBreakdownModal") || document.getElementById("sectionDetailsModal");
     if (modal && (modal.classList.contains("active") || modal.classList.contains("show") || modal.style.display === "flex")) {
       renderSectionBreakdown(currentOpenSection);
+    }
+  }
+
+  // 2. Query Neon PostgreSQL standings when online
+  if (typeof navigator !== "undefined" && navigator.onLine) {
+    try {
+      let currentStakeFilter = '';
+      if (currentStandingsFilter === 'current-stake') {
+        try {
+          const profile = JSON.parse(localStorage.getItem('kantimes_user_identity') || '{}');
+          currentStakeFilter = profile.stake || (typeof getUserIdentity === 'function' ? getUserIdentity().stake : '') || '';
+        } catch (e) { }
+      } else if (currentStandingsFilter === 'by-stake' && currentSelectedStake) {
+        currentStakeFilter = currentSelectedStake;
+      }
+
+      const res = await fetch(`/api/standings?sheet_hash=${getActiveSheetHash()}&stake=${encodeURIComponent(currentStakeFilter || '')}`);
+      if (res.ok) {
+        const data = await res.json().catch(() => ({}));
+        if (data && (Array.isArray(data.sectionTotals) || Array.isArray(data.standings))) {
+          if (Array.isArray(data.sectionTotals)) {
+            cachedNeonStandings = convertNeonStandingsToRanked(data.sectionTotals, data.topRoster);
+          } else if (Array.isArray(data.standings)) {
+            cachedNeonStandings = data.standings;
+          }
+          // Update live badges and roster in DOM
+          renderSectionStandingsUI(cachedNeonStandings);
+          if (currentOpenSection) {
+            const modal = document.getElementById("sectionBreakdownModal") || document.getElementById("sectionDetailsModal");
+            if (modal && (modal.classList.contains("active") || modal.classList.contains("show") || modal.style.display === "flex")) {
+              renderSectionBreakdown(currentOpenSection, cachedNeonStandings);
+            }
+          }
+        }
+      }
+    } catch (e) {
+      console.warn('Neon standings query deferred (offline or unreachable):', e);
     }
   }
 }
@@ -6315,9 +6357,9 @@ let currentOpenSection = null;
 /**
  * Renders the Section Breakdown modal with real logged minutes, rank, and public handles.
  */
-function renderSectionBreakdown(sectionName) {
+function renderSectionBreakdown(sectionName, overrideData) {
   currentOpenSection = sectionName;
-  const standings = getSectionStandingsData();
+  const standings = overrideData || cachedNeonStandings || getSectionStandingsData();
   const normalizedSec = (sectionName || "").trim().toLowerCase();
   const rankIndex = standings.findIndex(s => s.name.trim().toLowerCase() === normalizedSec);
   const rank = rankIndex !== -1 ? rankIndex + 1 : 1;
@@ -8850,7 +8892,8 @@ function updateOnlineStatus() {
 
   if (!isOffline) {
     syncOfflinePracticeQueue();
-    syncLogsToNeon();
+    syncPracticeToNeon();
+    renderSectionStandings();
     loadLeaderboard();
   }
 }
@@ -11887,8 +11930,8 @@ window.addEventListener("DOMContentLoaded", function () {
   initPianoVisibility();
   initTutorialLang();
   syncOfflinePracticeQueue();
-  syncLogsToNeon();
-  window.addEventListener('online', syncLogsToNeon);
+  syncPracticeToNeon();
+  window.addEventListener('online', syncPracticeToNeon);
   initPWAInstallBanner();
   wireCopyTemplateButton();
 
@@ -12044,7 +12087,9 @@ window.renderSectionBreakdown = renderSectionBreakdown;
 window.openSectionBreakdownModal = openSectionBreakdownModal;
 window.closeSectionBreakdownModal = closeSectionBreakdownModal;
 window.recordCompletedPracticeSession = recordCompletedPracticeSession;
-window.syncLogsToNeon = syncLogsToNeon;
+window.getActiveSheetHash = getActiveSheetHash;
+window.syncPracticeToNeon = syncPracticeToNeon;
+window.syncLogsToNeon = syncPracticeToNeon;
 window.fetchNeonStandings = fetchNeonStandings;
 window.initPhStakesDatalist = initPhStakesDatalist;
 window.openVocalTipsModal = openVocalTipsModal;
