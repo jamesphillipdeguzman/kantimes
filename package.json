@@ -1,0 +1,9 @@
+{
+  "name": "kantimes",
+  "version": "1.0.0",
+  "description": "LDS Choir Rehearsal Companion",
+  "private": true,
+  "dependencies": {
+    "@neondatabase/serverless": "^0.10.4"
+  }
+}

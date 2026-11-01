@@ -1549,16 +1549,28 @@ function recordCompletedPracticeSession(durationMinutes, songTitle, part) {
 
   let logs = getPracticeLogs();
 
+  const sheetHash = (typeof getStakeHash === 'function')
+    ? getStakeHash(localStorage.getItem('kantimes_active_sheet_id') || 'default_template')
+    : 'default';
+
+  const sessionUid = "session_" + Date.now() + "_" + Math.floor(Math.random() * 10000);
   const sessionEntry = {
-    id: "session_" + Date.now() + "_" + Math.floor(Math.random() * 10000),
+    id: sessionUid,
+    session_id: sessionUid,
     handle: currentHandle,
     voice: currentVoice,
     part: currentVoice,
+    voice_part: currentVoice,
     stake: currentStake,
     songTitle: currentSong,
+    song_title: currentSong,
     durationMinutes: mins,
+    duration_minutes: mins,
     duration: mins,
-    timestamp: new Date().toISOString()
+    sheet_hash: sheetHash,
+    timestamp: new Date().toISOString(),
+    created_at: new Date().toISOString(),
+    synced: false
   };
 
   logs.unshift(sessionEntry);
@@ -1577,7 +1589,111 @@ function recordCompletedPracticeSession(durationMinutes, songTitle, part) {
   if (typeof renderPracticeMilestonesUI === "function") {
     renderPracticeMilestonesUI();
   }
+
+  // Trigger silent Neon PostgreSQL background sync
+  syncLogsToNeon();
+
   return sessionEntry;
+}
+
+/**
+ * Silent background runner that syncs unsynced practice logs to Neon PostgreSQL (/api/sync-practice).
+ */
+let isNeonSyncing = false;
+async function syncLogsToNeon() {
+  if (typeof navigator !== "undefined" && !navigator.onLine) return;
+  if (isNeonSyncing) return;
+
+  const logs = getPracticeLogs();
+  const unsynced = logs.filter(l => !l.synced);
+  if (unsynced.length === 0) return;
+
+  isNeonSyncing = true;
+  try {
+    const sheetHash = (typeof getStakeHash === 'function')
+      ? getStakeHash(localStorage.getItem('kantimes_active_sheet_id') || 'default_template')
+      : 'default';
+
+    const formattedSessions = unsynced.map(l => ({
+      session_id: l.session_id || l.id || `sess_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`,
+      handle: l.handle || 'ANON#0000',
+      stake: l.stake || 'Unassigned Stake',
+      voice_part: l.voice_part || l.voice || l.part || 'Tenor',
+      song_title: l.song_title || l.songTitle || 'General Practice',
+      duration_minutes: Number(l.duration_minutes || l.durationMinutes || l.duration || 5),
+      sheet_hash: l.sheet_hash || sheetHash,
+      created_at: l.created_at || l.timestamp || new Date().toISOString()
+    }));
+
+    const res = await fetch('/api/sync-practice', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ sessions: formattedSessions })
+    });
+
+    if (res.ok) {
+      const data = await res.json().catch(() => ({}));
+      if (data && data.success) {
+        const currentLogs = getPracticeLogs();
+        const syncedIds = new Set(formattedSessions.map(s => s.session_id));
+        const updated = currentLogs.map(l => {
+          const id = l.session_id || l.id;
+          if (syncedIds.has(id) || !l.synced) {
+            return { ...l, synced: true };
+          }
+          return l;
+        });
+        savePracticeLogs(updated);
+
+        // Refresh live standings from Neon in background
+        if (typeof fetchNeonStandings === "function") {
+          fetchNeonStandings();
+        }
+      }
+    }
+  } catch (e) {
+    // Silently retry on next connection
+  } finally {
+    isNeonSyncing = false;
+  }
+}
+
+/**
+ * Fetches aggregated live section standings from Neon PostgreSQL (/api/standings)
+ * and updates UI if available. Falls back seamlessly to local storage standings.
+ */
+let cachedNeonStandings = null;
+async function fetchNeonStandings(filterMode = currentStandingsFilter, selectedStake = currentSelectedStake) {
+  if (typeof navigator !== "undefined" && !navigator.onLine) return null;
+
+  try {
+    const sheetHash = (typeof getStakeHash === 'function')
+      ? getStakeHash(localStorage.getItem('kantimes_active_sheet_id') || 'default_template')
+      : 'default';
+
+    let stakeParam = '';
+    if (filterMode === 'current-stake') {
+      try {
+        const profile = JSON.parse(localStorage.getItem('kantimes_user_identity') || '{}');
+        const userStake = profile.stake || (typeof getUserIdentity === 'function' ? getUserIdentity().stake : '');
+        if (userStake) stakeParam = `&stake=${encodeURIComponent(userStake)}`;
+      } catch (e) { }
+    } else if (filterMode === 'by-stake' && selectedStake) {
+      stakeParam = `&stake=${encodeURIComponent(selectedStake)}`;
+    }
+
+    const res = await fetch(`/api/standings?sheet_hash=${encodeURIComponent(sheetHash)}${stakeParam}`);
+    if (!res.ok) return null;
+
+    const data = await res.json().catch(() => ({}));
+    if (data && data.success && Array.isArray(data.standings)) {
+      cachedNeonStandings = data.standings;
+      return data.standings;
+    }
+  } catch (err) {
+    // Silently fail, local calculations continue uninterrupted
+  }
+  return null;
 }
 
 /**
@@ -8682,6 +8798,7 @@ function updateOnlineStatus() {
 
   if (!isOffline) {
     syncOfflinePracticeQueue();
+    syncLogsToNeon();
     loadLeaderboard();
   }
 }
@@ -11718,6 +11835,8 @@ window.addEventListener("DOMContentLoaded", function () {
   initPianoVisibility();
   initTutorialLang();
   syncOfflinePracticeQueue();
+  syncLogsToNeon();
+  window.addEventListener('online', syncLogsToNeon);
   initPWAInstallBanner();
   wireCopyTemplateButton();
 
@@ -11873,6 +11992,8 @@ window.renderSectionBreakdown = renderSectionBreakdown;
 window.openSectionBreakdownModal = openSectionBreakdownModal;
 window.closeSectionBreakdownModal = closeSectionBreakdownModal;
 window.recordCompletedPracticeSession = recordCompletedPracticeSession;
+window.syncLogsToNeon = syncLogsToNeon;
+window.fetchNeonStandings = fetchNeonStandings;
 window.initPhStakesDatalist = initPhStakesDatalist;
 window.openVocalTipsModal = openVocalTipsModal;
 window.closeVocalTipsModal = closeVocalTipsModal;
