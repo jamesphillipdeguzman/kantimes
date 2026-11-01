@@ -1765,18 +1765,16 @@ async function registerHandleToNeon(payload) {
   }
 }
 
-let currentStandingsTotalsMap = { Soprano: 0, Alto: 0, Tenor: 0, Bass: 0, Primary: 0, Accompanist: 0 };
-let currentStandingsSingersMap = { Soprano: 0, Alto: 0, Tenor: 0, Bass: 0, Primary: 0, Accompanist: 0 };
+let currentStandingsTotalsMap = { Soprano: 0, Alto: 0, Tenor: 0, Bass: 0, Primary: 0, Accompanist: 0, Director: 0 };
+let currentStandingsSingersMap = { Soprano: 0, Alto: 0, Tenor: 0, Bass: 0, Primary: 0, Accompanist: 0, Director: 0 };
 let currentStandingsTopRoster = [];
 
 /**
- * Builds ranked section items from totalsMap, singersMap, and topRoster.
+ * Builds ranked section items strictly for vocal sections (Soprano, Alto, Tenor, Bass, Primary).
+ * Music Staff (Accompanist & Director) are separated into their own dedicated leadership spotlight card.
  */
 function buildRankedStandings(totalsMap, singersMap, topRoster) {
   const visibleKeys = ['Soprano', 'Alto', 'Tenor', 'Bass', 'Primary'];
-  if (totalsMap && (Number(totalsMap['Accompanist']) > 0 || (singersMap && Number(singersMap['Accompanist']) > 0))) {
-    visibleKeys.push('Accompanist');
-  }
 
   return visibleKeys.map(name => {
     const mins = Number((totalsMap && totalsMap[name]) || 0);
@@ -1804,8 +1802,8 @@ function buildRankedStandings(totalsMap, singersMap, topRoster) {
  * Converts Neon database query results (sectionTotals & topRoster) to ranked standings objects.
  */
 function convertNeonStandingsToRanked(sectionTotals, topRoster) {
-  const totalsMap = { Soprano: 0, Alto: 0, Tenor: 0, Bass: 0, Primary: 0, Accompanist: 0 };
-  const singersMap = { Soprano: 0, Alto: 0, Tenor: 0, Bass: 0, Primary: 0, Accompanist: 0 };
+  const totalsMap = { Soprano: 0, Alto: 0, Tenor: 0, Bass: 0, Primary: 0, Accompanist: 0, Director: 0 };
+  const singersMap = { Soprano: 0, Alto: 0, Tenor: 0, Bass: 0, Primary: 0, Accompanist: 0, Director: 0 };
 
   if (Array.isArray(sectionTotals)) {
     sectionTotals.forEach(row => {
@@ -1819,6 +1817,7 @@ function convertNeonStandingsToRanked(sectionTotals, topRoster) {
         else if (pLower.includes('bass')) matchingKey = 'Bass';
         else if (pLower.includes('primary')) matchingKey = 'Primary';
         else if (pLower.includes('accompan')) matchingKey = 'Accompanist';
+        else if (pLower.includes('director') || pLower.includes('conduct')) matchingKey = 'Director';
       }
       if (matchingKey) {
         totalsMap[matchingKey] = (totalsMap[matchingKey] || 0) + Number(row.total_minutes || 0);
@@ -1832,6 +1831,79 @@ function convertNeonStandingsToRanked(sectionTotals, topRoster) {
   currentStandingsTopRoster = Array.isArray(topRoster) ? topRoster : [];
 
   return buildRankedStandings(totalsMap, singersMap, currentStandingsTopRoster);
+}
+
+/**
+ * Renders the Music Staff & Leadership Spotlight card below section standings.
+ * Displays Accompanist and Choir Director if practice minutes > 0.
+ * Clicking a row opens openSectionBreakdown(role).
+ */
+function renderMusicStaffUI(totalsMap = currentStandingsTotalsMap, singersMap = currentStandingsSingersMap) {
+  const staffCard = document.getElementById("musicStaffCard");
+  const staffList = document.getElementById("musicStaffList");
+  if (!staffCard || !staffList) return;
+
+  const staffRoles = [
+    {
+      key: "Accompanist",
+      title: "Accompanist",
+      icon: "🎹",
+      subtitle: "Piano / Organ / Instruments"
+    },
+    {
+      key: "Director",
+      title: "Choir Director",
+      icon: "🎼",
+      subtitle: "Conducting & Score Study"
+    }
+  ];
+
+  let hasVisibleStaff = false;
+  let rowsHtml = "";
+
+  staffRoles.forEach(role => {
+    const mins = Number((totalsMap && totalsMap[role.key]) || 0);
+    const count = Number((singersMap && singersMap[role.key]) || 0);
+
+    if (mins > 0 || count > 0) {
+      hasVisibleStaff = true;
+      const hours = (mins / 60).toFixed(1);
+      const safeKey = escapeLeaderboardHtml(role.key);
+      const safeTitle = escapeLeaderboardHtml(role.title);
+      const singerText = `${count} active · ${role.subtitle}`;
+
+      rowsHtml += `
+        <div class="music-staff-row d-flex align-items-center justify-content-between p-2 rounded clickable-staff-row"
+             onclick="openSectionBreakdown('${safeKey}')"
+             role="button" tabindex="0"
+             title="Click to view rehearsal breakdown for ${safeTitle}"
+             aria-label="View rehearsal breakdown for ${safeTitle}"
+             onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();openSectionBreakdown('${safeKey}');}">
+          <div class="d-flex align-items-center gap-2">
+            <span style="font-size: 1.25rem;">${role.icon}</span>
+            <div>
+              <div class="fw-medium text-light">${safeTitle}</div>
+              <small class="text-muted">${singerText}</small>
+            </div>
+          </div>
+          <div class="text-end">
+            <span class="staff-mins-badge">${mins}m</span>
+            <small class="text-muted d-block">(${hours}h)</small>
+          </div>
+        </div>
+      `;
+    }
+  });
+
+  if (hasVisibleStaff) {
+    staffList.innerHTML = rowsHtml;
+    staffCard.classList.remove("d-none");
+    staffCard.style.display = "block";
+  } else {
+    staffList.innerHTML = "";
+    staffCard.classList.add("d-none");
+    staffCard.style.display = "none";
+  }
 }
 
 /**
@@ -3037,15 +3109,16 @@ function initStandingsFilterControls() {
  * Uses normalized helpers to handle legacy and new log formats.
  */
 function getAggregatedStandings(filterMode = currentStandingsFilter, selectedStake = currentSelectedStake) {
-  const totalsMap = { Soprano: 0, Alto: 0, Tenor: 0, Bass: 0, Primary: 0, Accompanist: 0 };
-  const singersMap = { Soprano: 0, Alto: 0, Tenor: 0, Bass: 0, Primary: 0, Accompanist: 0 };
+  const totalsMap = { Soprano: 0, Alto: 0, Tenor: 0, Bass: 0, Primary: 0, Accompanist: 0, Director: 0 };
+  const singersMap = { Soprano: 0, Alto: 0, Tenor: 0, Bass: 0, Primary: 0, Accompanist: 0, Director: 0 };
   const rosterMap = {
     Soprano: new Map(),
     Alto: new Map(),
     Tenor: new Map(),
     Bass: new Map(),
     Primary: new Map(),
-    Accompanist: new Map()
+    Accompanist: new Map(),
+    Director: new Map()
   };
 
   const logs = getPracticeLogs();
@@ -3075,6 +3148,7 @@ function getAggregatedStandings(filterMode = currentStandingsFilter, selectedSta
       else if (vLower.includes('bass')) matchedVoice = 'Bass';
       else if (vLower.includes('primary')) matchedVoice = 'Primary';
       else if (vLower.includes('accompan')) matchedVoice = 'Accompanist';
+      else if (vLower.includes('director') || vLower.includes('conduct')) matchedVoice = 'Director';
     }
     const voice = matchedVoice || 'Tenor';
     const minutes = getNormalizedLogMinutes(entry);
@@ -3210,6 +3284,9 @@ function renderSectionStandingsUI(overrideData) {
 
   sectionEl.innerHTML = sectionHtml;
 
+  // Render Music Staff & Leadership Spotlight card below section standings
+  renderMusicStaffUI(currentStandingsTotalsMap, currentStandingsSingersMap);
+
   if (!sectionEl.dataset.detailsBound) {
     sectionEl.dataset.detailsBound = "true";
     sectionEl.addEventListener("click", function (e) {
@@ -3239,6 +3316,8 @@ async function renderSectionStandings() {
 
   const localRanked = buildRankedStandings(local.totalsMap, local.singersMap, local.topRoster);
   renderSectionStandingsUI(localRanked);
+  renderMusicStaffUI(local.totalsMap, local.singersMap);
+
   if (currentOpenSection) {
     const modal = document.getElementById("sectionBreakdownModal") || document.getElementById("sectionDetailsModal");
     if (modal && (modal.classList.contains("active") || modal.classList.contains("show") || modal.style.display === "flex")) {
@@ -3263,8 +3342,8 @@ async function renderSectionStandings() {
       if (res.ok) {
         const data = await res.json().catch(() => ({}));
         if (data && (Array.isArray(data.sectionTotals) || Array.isArray(data.standings))) {
-          const totalsMap = { Soprano: 0, Alto: 0, Tenor: 0, Bass: 0, Primary: 0, Accompanist: 0 };
-          const singersMap = { Soprano: 0, Alto: 0, Tenor: 0, Bass: 0, Primary: 0, Accompanist: 0 };
+          const totalsMap = { Soprano: 0, Alto: 0, Tenor: 0, Bass: 0, Primary: 0, Accompanist: 0, Director: 0 };
+          const singersMap = { Soprano: 0, Alto: 0, Tenor: 0, Bass: 0, Primary: 0, Accompanist: 0, Director: 0 };
 
           if (Array.isArray(data.sectionTotals)) {
             data.sectionTotals.forEach(row => {
@@ -3278,6 +3357,7 @@ async function renderSectionStandings() {
                 else if (pLower.includes('bass')) matchingKey = 'Bass';
                 else if (pLower.includes('primary')) matchingKey = 'Primary';
                 else if (pLower.includes('accompan')) matchingKey = 'Accompanist';
+                else if (pLower.includes('director') || pLower.includes('conduct')) matchingKey = 'Director';
               }
               if (matchingKey) {
                 totalsMap[matchingKey] = (totalsMap[matchingKey] || 0) + Number(row.total_minutes || 0);
@@ -3295,6 +3375,18 @@ async function renderSectionStandings() {
 
           // Update live badges and roster in DOM
           renderSectionStandingsUI(remoteRanked);
+          renderMusicStaffUI(totalsMap, singersMap);
+
+          if (Array.isArray(data.topRoster) && data.topRoster.length > 0) {
+            cachedLeaderboardSingers = data.topRoster.map(r => ({
+              name: r.handle,
+              section: r.voice_part || r.voice || 'Choir',
+              avatar: r.avatar || '',
+              totalMins: Number(r.total_minutes || r.minutes || 0)
+            })).sort((a, b) => b.totalMins - a.totalMins);
+            renderLeaderboardSingers();
+          }
+
           if (currentOpenSection) {
             const modal = document.getElementById("sectionBreakdownModal") || document.getElementById("sectionDetailsModal");
             if (modal && (modal.classList.contains("active") || modal.classList.contains("show") || modal.style.display === "flex")) {
@@ -6805,6 +6897,7 @@ function renderSectionBreakdown(sectionName, overrideData) {
 
   const standings = overrideData || cachedNeonStandings || buildRankedStandings(currentStandingsTotalsMap, currentStandingsSingersMap, currentStandingsTopRoster);
   const rankIndex = standings.findIndex(s => s.name.trim().toLowerCase() === normalizedSec);
+  const isMusicStaff = normalizedSec === 'accompanist' || normalizedSec === 'director';
   const rank = rankIndex !== -1 ? rankIndex + 1 : 1;
   const sectionData = (rankIndex !== -1 ? standings[rankIndex] : null) || {
     name: matchedKey,
@@ -6819,10 +6912,11 @@ function renderSectionBreakdown(sectionName, overrideData) {
   const hours = (totalMins / 60).toFixed(1);
 
   // Update header values
+  const displayTitle = matchedKey === 'Director' ? 'Choir Director / Conductor' : (matchedKey === 'Accompanist' ? 'Accompanist' : `${matchedKey} Section`);
   const nameEl = document.getElementById('breakdownSectionName');
-  if (nameEl) nameEl.textContent = `${matchedKey} Section`;
+  if (nameEl) nameEl.textContent = displayTitle;
   const secDetailsName = document.getElementById('sectionDetailsName');
-  if (secDetailsName && !nameEl) secDetailsName.textContent = `${matchedKey} Section`;
+  if (secDetailsName && !nameEl) secDetailsName.textContent = displayTitle;
 
   const totalMinEl = document.getElementById('breakdownTotalMinutes');
   if (totalMinEl) {
@@ -6840,15 +6934,22 @@ function renderSectionBreakdown(sectionName, overrideData) {
   const contribVal = document.getElementById('sectionDetailsContributorsValue');
   if (contribVal) contribVal.textContent = `${activeSingers}`;
   const countEl = document.getElementById('sectionContributorsCount');
-  if (countEl) countEl.textContent = `${activeSingers} ${activeSingers === 1 ? 'singer' : 'singers'}`;
+  const countNoun = isMusicStaff ? (activeSingers === 1 ? 'musician' : 'musicians') : (activeSingers === 1 ? 'singer' : 'singers');
+  if (countEl) countEl.textContent = `${activeSingers} ${countNoun}`;
 
   const rankPill = document.getElementById('sectionDetailsRankPill');
-  if (rankPill) rankPill.textContent = `#${rank} • ${totalMins}m (${hours}h)`;
+  if (rankPill) {
+    rankPill.textContent = isMusicStaff ? `Support • ${totalMins}m (${hours}h)` : `#${rank} • ${totalMins}m (${hours}h)`;
+  }
 
   const rankVal = document.getElementById('sectionDetailsRankValue');
-  if (rankVal) rankVal.textContent = `#${rank}`;
+  if (rankVal) {
+    rankVal.textContent = isMusicStaff ? `Staff` : `#${rank}`;
+  }
   const rankSub = document.getElementById('sectionDetailsRankSub');
-  if (rankSub) rankSub.textContent = `of ${standings.length || 5}`;
+  if (rankSub) {
+    rankSub.textContent = isMusicStaff ? `Music Staff` : `of ${standings.length || 5}`;
+  }
 
   const voiceEl = document.getElementById('sectionDetailsVoicePart');
   if (voiceEl) {
@@ -6858,7 +6959,7 @@ function renderSectionBreakdown(sectionName, overrideData) {
 
   const avatarContainer = document.getElementById('sectionDetailsAvatarContainer');
   if (avatarContainer) {
-    const iconMap = { Soprano: '🌸', Alto: '💜', Tenor: '🌟', Bass: '⚓', Primary: '🧒', Accompanist: '🎹' };
+    const iconMap = { Soprano: '🌸', Alto: '💜', Tenor: '🌟', Bass: '⚓', Primary: '🧒', Accompanist: '🎹', Director: '🎼' };
     const icon = iconMap[matchedKey] || '🎶';
     avatarContainer.innerHTML = `<div class="section-avatar-icon" data-voice="${escapeLeaderboardHtml(matchedKey)}" title="${escapeLeaderboardHtml(matchedKey)}">${icon}</div>`;
   }
@@ -7015,6 +7116,9 @@ function renderLeaderboardSingers() {
     const safeName = escapeLeaderboardHtml(s.name);
     const safeSec = escapeLeaderboardHtml(s.section);
     const safeEncodedName = encodeURIComponent(s.name);
+    const secLower = (s.section || '').trim().toLowerCase();
+    const isStaffRole = secLower === 'accompanist' || secLower === 'director';
+    const badgeLabel = isStaffRole ? `[${safeSec}]` : safeSec;
 
     singersHtml += `
         <div class="board-row clickable-singer"
@@ -7029,7 +7133,7 @@ function renderLeaderboardSingers() {
           ${avatarBadgeHtml}
           <div class="board-user-info">
             <span class="singer-name" title="${safeName}">${safeName}</span>
-            <span class="part-badge" data-voice="${safeSec}">${safeSec}</span>
+            <span class="part-badge" data-voice="${safeSec}">${badgeLabel}</span>
           </div>
           <span class="mins-badge">${s.totalMins}m <span class="mins-sub">(${hours}h)</span></span>
         </div>
@@ -7059,6 +7163,19 @@ function loadLeaderboard() {
   // Always render real local section standings based on logged practice sessions
   renderSectionStandingsUI();
 
+  // If live Neon top roster is already cached, prefer it
+  if (Array.isArray(currentStandingsTopRoster) && currentStandingsTopRoster.length > 0) {
+    cachedLeaderboardSingers = currentStandingsTopRoster.map(r => ({
+      name: r.handle,
+      section: r.voice_part || r.voice || 'Choir',
+      avatar: r.avatar || '',
+      totalMins: Number(r.total_minutes || r.minutes || 0)
+    })).sort((a, b) => b.totalMins - a.totalMins);
+    updateKnownSingersFromRoster(cachedLeaderboardSingers);
+    renderLeaderboardSingers();
+    return;
+  }
+
   // Populate leaderboard dynamically from scoped practice logs
   const logs = getPracticeLogs();
   if (!logs || !Array.isArray(logs) || logs.length === 0) {
@@ -7072,8 +7189,8 @@ function loadLeaderboard() {
   const singerTotals = {};
   logs.forEach(log => {
     const handle = log.handle || "Choir Member";
-    const sec = log.voice || log.part || "Choir";
-    const mins = Number(log.durationMinutes || log.duration || 0);
+    const sec = log.voice_part || log.voice || log.part || "Choir";
+    const mins = getNormalizedLogMinutes(log);
 
     if (!singerTotals[handle]) {
       singerTotals[handle] = {
@@ -12567,6 +12684,7 @@ window.getSectionStandingsData = getSectionStandingsData;
 window.recordSectionPracticeMinutes = recordSectionPracticeMinutes;
 window.initFreshStakeSectionStandings = initFreshStakeSectionStandings;
 window.renderSectionStandingsUI = renderSectionStandingsUI;
+window.renderMusicStaffUI = renderMusicStaffUI;
 window.renderSectionStandings = renderSectionStandings;
 window.getAggregatedStandings = getAggregatedStandings;
 window.initStandingsFilterControls = initStandingsFilterControls;

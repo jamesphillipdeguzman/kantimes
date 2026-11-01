@@ -2057,6 +2057,20 @@ input[type="text"].input-invalid {
   border-color: #fde68a;
 }
 
+.part-badge[data-voice="Accompanist"],
+.part-badge.accompanist {
+  background: #eef2ff;
+  color: #4338ca;
+  border-color: #c7d2fe;
+}
+
+.part-badge[data-voice="Director"],
+.part-badge.director {
+  background: #fff7ed;
+  color: #c2410c;
+  border-color: #fed7aa;
+}
+
 [data-theme="dark"] .part-badge[data-voice="Soprano"],
 [data-theme="dark"] .part-badge.soprano {
   background: rgba(244, 114, 182, 0.15);
@@ -2090,6 +2104,20 @@ input[type="text"].input-invalid {
   background: rgba(251, 191, 36, 0.15);
   color: #fcd34d;
   border-color: rgba(251, 191, 36, 0.3);
+}
+
+[data-theme="dark"] .part-badge[data-voice="Accompanist"],
+[data-theme="dark"] .part-badge.accompanist {
+  background: rgba(129, 140, 248, 0.15);
+  color: #a5b4fc;
+  border-color: rgba(129, 140, 248, 0.3);
+}
+
+[data-theme="dark"] .part-badge[data-voice="Director"],
+[data-theme="dark"] .part-badge.director {
+  background: rgba(251, 146, 60, 0.15);
+  color: #fdba74;
+  border-color: rgba(251, 146, 60, 0.3);
 }
 
 .part-badge:empty {
@@ -10632,4 +10660,42 @@ input::-webkit-calendar-picker-indicator {
   color: var(--text-muted, #94a3b8);
   margin-top: 0.35rem;
   display: block;
+}
+
+/* Music Staff & Leadership Spotlight Card */
+.music-staff-card {
+  margin-top: 14px;
+  padding: 14px;
+  border-radius: 12px;
+  background: var(--bg-card, rgba(255, 255, 255, 0.04));
+  border: 1px solid var(--border-color, rgba(255, 255, 255, 0.1));
+}
+
+.music-staff-card .clickable-staff-row {
+  cursor: pointer;
+  padding: 8px 10px;
+  border-radius: 8px;
+  transition: background-color 0.15s ease;
+}
+
+.music-staff-card .clickable-staff-row:hover {
+  background: rgba(59, 130, 246, 0.1);
+}
+
+.music-staff-card .staff-mins-badge {
+  background: rgba(59, 130, 246, 0.15);
+  color: #3b82f6;
+  border: 1px solid rgba(59, 130, 246, 0.25);
+  padding: 3px 9px;
+  border-radius: 9999px;
+  font-size: 0.78rem;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+[data-theme="dark"] .music-staff-card .staff-mins-badge,
+.dark .music-staff-card .staff-mins-badge {
+  background: rgba(30, 58, 138, 0.45);
+  color: #93c5fd;
+  border-color: rgba(59, 130, 246, 0.35);
 }
