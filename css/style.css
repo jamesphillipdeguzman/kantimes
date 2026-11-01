@@ -10807,3 +10807,23 @@ input::-webkit-calendar-picker-indicator {
   color: #93c5fd;
   border-color: rgba(59, 130, 246, 0.35);
 }
+
+
+/* Repertoire Practice Lock & Pulse Highlight */
+#repertoireLockedState {
+  background: var(--card-bg, #1e293b);
+  border: 1px solid var(--border, #334155);
+  border-radius: var(--radius-md, 12px);
+  margin: 1rem 0;
+  box-shadow: var(--shadow-card, 0 2px 6px -1px rgba(0, 0, 0, 0.1));
+}
+
+@keyframes startPulseHighlight {
+  0% { transform: scale(1); box-shadow: 0 0 0 0 rgba(56, 189, 248, 0.7); }
+  50% { transform: scale(1.04); box-shadow: 0 0 0 10px rgba(56, 189, 248, 0); }
+  100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(56, 189, 248, 0); }
+}
+
+.pulse-highlight {
+  animation: startPulseHighlight 0.8s ease-in-out 2 !important;
+}

@@ -4944,6 +4944,73 @@ let timeRemaining = timerDuration;
 let targetEndTime = null;
 let timerInterval = null;
 
+// --- PRACTICE SESSION ACTIVE STATE & REPERTOIRE LOCK ---
+window.isPracticeActive = false;
+
+function setPracticeActive(active) {
+  window.isPracticeActive = Boolean(active);
+  updateRepertoireLockUI();
+}
+window.setPracticeActive = setPracticeActive;
+
+function updateRepertoireLockUI() {
+  const lockedEl = document.getElementById('repertoireLockedState');
+  const activeEl = document.getElementById('repertoireActiveContent');
+
+  if (timerInterval || (typeof targetEndTime !== 'undefined' && targetEndTime && targetEndTime > Date.now())) {
+    window.isPracticeActive = true;
+  }
+
+  const isUnlocked = Boolean(window.isPracticeActive);
+  if (lockedEl) {
+    lockedEl.classList.toggle('d-none', isUnlocked);
+    lockedEl.style.display = isUnlocked ? 'none' : 'block';
+  }
+  if (activeEl) {
+    activeEl.classList.toggle('d-none', !isUnlocked);
+    activeEl.style.display = isUnlocked ? 'block' : 'none';
+  }
+}
+window.updateRepertoireLockUI = updateRepertoireLockUI;
+
+function handleUnlockViaStart() {
+  if (typeof switchHorizontalTab === 'function') {
+    switchHorizontalTab('practiceSection');
+  }
+  const startBtn = document.getElementById('timerBtn') || document.querySelector('[data-alt-id="startPracticeBtn"]') || document.getElementById('startPracticeBtn');
+  if (startBtn) {
+    if (!timerInterval && !targetEndTime) {
+      if (typeof toggleTimer === 'function') {
+        toggleTimer();
+      }
+    } else {
+      setPracticeActive(true);
+    }
+    startBtn.focus();
+    startBtn.classList.add('pulse-highlight');
+    setTimeout(() => startBtn.classList.remove('pulse-highlight'), 1600);
+  }
+}
+window.handleUnlockViaStart = handleUnlockViaStart;
+
+function wireUnlockViaStartButton() {
+  const btn = document.getElementById('unlockViaStartBtn');
+  if (btn && !btn._bound) {
+    btn._bound = true;
+    btn.addEventListener('click', handleUnlockViaStart);
+  }
+}
+window.wireUnlockViaStartButton = wireUnlockViaStartButton;
+
+function startPracticeSession() {
+  if (!timerInterval) {
+    toggleTimer();
+  } else {
+    setPracticeActive(true);
+  }
+}
+window.startPracticeSession = startPracticeSession;
+
 function formatTime(seconds) {
   const m = Math.floor(seconds / 60).toString().padStart(2, '0');
   const s = (seconds % 60).toString().padStart(2, '0');
@@ -4962,6 +5029,7 @@ function applyTimerDuration(minutes, resetReadyClock = true) {
   }
 
   if (!timerInterval && !targetEndTime) {
+    setPracticeActive(false);
     const savedPaused = localStorage.getItem("kantime_paused_remaining");
     const btn = document.getElementById("timerBtn");
 
@@ -7002,6 +7070,7 @@ function triggerInactivityTimeout() {
   }
 
   stopIdleTracking();
+  setPracticeActive(false);
   openInactivityModal();
 }
 
@@ -7060,10 +7129,12 @@ function dismissInactivityModal(resumeSession) {
 
       updateTimerTick();
       timerInterval = setInterval(updateTimerTick, 500);
+      setPracticeActive(true);
       startIdleTracking();
       showToast("Resumed! Keep going! 🎶");
     }
   } else {
+    setPracticeActive(false);
     stopIdleTracking();
     showToast("Session paused.");
   }
@@ -7097,6 +7168,7 @@ function checkInactivityOnRestore() {
       clearInterval(timerInterval);
       timerInterval = null;
     }
+    setPracticeActive(false);
 
     const timerDisp = document.getElementById("timerDisplay");
     if (timerDisp) timerDisp.innerText = formatTime(timeRemaining);
@@ -7291,6 +7363,7 @@ function updateTimerTick() {
 
 function completeTimerSession() {
   stopIdleTracking();
+  setPracticeActive(false);
   const modal = document.getElementById("inactivityModal");
   if (modal) modal.classList.remove("active");
   isIdleModalOpen = false;
@@ -7377,12 +7450,14 @@ function restoreTimerState() {
         timerInterval = setInterval(updateTimerTick, 500);
       }
 
+      setPracticeActive(true);
       startIdleTracking();
       updateDurationSelectorUI(currentDurationMins, true);
     } else {
       completeTimerSession();
     }
   } else {
+    setPracticeActive(false);
     stopIdleTracking();
     const savedPaused = localStorage.getItem("kantime_paused_remaining");
     if (savedPaused && Number(savedPaused) > 0 && Number(savedPaused) < timerDuration) {
@@ -7416,6 +7491,7 @@ function toggleTimer() {
   if (timerInterval) {
     clearInterval(timerInterval);
     timerInterval = null;
+    setPracticeActive(false);
     let elapsedSeconds = 0;
     if (targetEndTime) {
       const remainingSecs = Math.max(0, Math.ceil((targetEndTime - Date.now()) / 1000));
@@ -7447,6 +7523,8 @@ function toggleTimer() {
     localStorage.setItem("kantime_target_end", targetEndTime);
     const tSel = document.getElementById("targetSong"); if (tSel) localStorage.setItem("kantime_target_song", tSel.value);
     localStorage.removeItem("kantime_paused_remaining");
+
+    setPracticeActive(true);
 
     btn.innerText = "Pause Practice";
     btn.classList.remove("btn-primary");
@@ -10859,6 +10937,12 @@ function switchHorizontalTab(targetId) {
     btn.setAttribute('aria-selected', isTarget ? 'true' : 'false');
   });
 
+  if (targetId === 'repertoireSection') {
+    if (typeof updateRepertoireLockUI === 'function') {
+      updateRepertoireLockUI();
+    }
+  }
+
   if (targetId === 'standingsSection') {
     if (typeof renderMainStandingsCards === 'function') {
       renderMainStandingsCards();
@@ -13435,6 +13519,8 @@ window.addEventListener("DOMContentLoaded", function () {
   initRestoreHandleListeners();
   initNameValidation();
   restoreTimerState();
+  wireUnlockViaStartButton();
+  updateRepertoireLockUI();
   updateMetronomeBeatDots();
   updateMetronomeUI();
   initMetronomeVisibility();
