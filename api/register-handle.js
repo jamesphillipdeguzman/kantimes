@@ -22,11 +22,40 @@ async function ensureSchema(sql) {
 export default async function handler(req, res) {
   // CORS configuration
   res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
 
   if (req.method === 'OPTIONS') {
     return res.status(200).end();
+  }
+
+  if (req.method === 'GET') {
+    const handle = req.query?.handle;
+    if (!handle || typeof handle !== 'string' || !handle.trim()) {
+      return res.status(400).json({ error: 'Handle parameter is required' });
+    }
+    const cleanHandle = handle.trim();
+    const dbUrl = process.env.DATABASE_URL || process.env.POSTGRES_URL;
+    if (!dbUrl) {
+      return res.status(503).json({ error: 'DATABASE_URL or POSTGRES_URL not configured' });
+    }
+    try {
+      const sql = neon(dbUrl);
+      await ensureSchema(sql);
+      const rows = await sql`
+        SELECT handle, primary_voice, stake, avatar_id, last_active
+        FROM user_handles
+        WHERE UPPER(handle) = UPPER(${cleanHandle})
+        LIMIT 1
+      `;
+      if (rows && rows.length > 0) {
+        return res.status(200).json({ exists: true, profile: rows[0], ...rows[0] });
+      }
+      return res.status(200).json({ exists: false, profile: null });
+    } catch (err) {
+      console.error('Failed to query handle:', err);
+      return res.status(500).json({ error: 'Failed to query handle', details: err.message });
+    }
   }
 
   if (req.method !== 'POST') {

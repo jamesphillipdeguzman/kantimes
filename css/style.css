@@ -10385,9 +10385,18 @@ body.layout-horizontal .dashboard-section-tab.tab-active {
   align-items: center;
 }
 
+#choirStakeSelect, .form-select {
+  font-size: 16px !important; /* Prevents auto-zoom on iOS Safari */
+  min-height: 44px; /* Touch target accessibility */
+  cursor: pointer;
+  z-index: 10;
+}
+
 .stake-combobox-input {
   width: 100%;
   padding-right: 36px !important;
+  font-size: 16px !important;
+  min-height: 44px;
 }
 
 /* Suppress the default browser datalist indicator */

@@ -163,6 +163,7 @@
         <input 
           type="text" 
           id="onboardingFullName" 
+          data-alt-id="choirNameInput"
           class="form-control" 
           placeholder="e.g. James Phillip De Guzman"
           autocomplete="name"
@@ -218,6 +219,7 @@
           <input 
             type="text" 
             id="onboardingStake" 
+            data-alt-id="choirStakeSelect"
             list="stakeDistrictOptions" 
             class="form-control stake-combobox-input" 
             placeholder="Select or type your Stake (e.g. Iloilo Philippines Stake)"
@@ -244,7 +246,10 @@
 
       <!-- Hidden legacy fallbacks to prevent null references -->
       <input type="hidden" id="memberName" />
+      <input type="hidden" id="choirNameInput" />
       <select id="memberSection" style="display:none;" tabindex="-1" aria-hidden="true"></select>
+      <select id="choirVoiceSelect" style="display:none;" tabindex="-1" aria-hidden="true"></select>
+      <select id="choirStakeSelect" class="form-select" style="display:none;" tabindex="-1" aria-hidden="true"></select>
 
       <div class="avatar-picker-wrapper">
         <label class="avatar-picker-label">
@@ -1034,7 +1039,7 @@
             <div class="settings-section" style="margin-top: 14px;">
               <label for="profileFullName">Full Name <span class="label-hint">(Optional, Local in-app
                   only)</span></label>
-              <input type="text" id="profileFullName" placeholder="e.g. Juan dela Cruz" autocomplete="name"
+              <input type="text" id="profileFullName" data-alt-id="choirNameInput" placeholder="e.g. Juan dela Cruz" autocomplete="name"
                 onblur="if(typeof toTitleCase==='function')this.value=toTitleCase(this.value)">
               <p class="settings-hint">Used for local in-app greetings and personal dashboard.</p>
             </div>
@@ -1070,7 +1075,7 @@
               <label for="profileStake" class="profile-field-label">Stake / District <span
                   class="label-hint">(Optional)</span></label>
               <div class="stake-select-wrapper stake-input-combobox-wrapper">
-                <input type="text" id="profileStake" list="profileStakeOptions" class="form-control stake-combobox-input"
+                <input type="text" id="profileStake" data-alt-id="choirStakeSelect" list="profileStakeOptions" class="form-control stake-combobox-input"
                   placeholder="Select or type your Stake (e.g. Iloilo Philippines Stake)" autocomplete="off" />
                 <svg 
                   class="combobox-chevron-icon" 
