@@ -1471,8 +1471,16 @@ function getUserIdentity() {
       .padStart(4, "0");
 
     const existingPart = localStorage.getItem("choir_voice") || localStorage.getItem("choir_section") || "";
-    const existingName = localStorage.getItem("choir_name") || "";
-    const existingNickname = localStorage.getItem("choir_nickname") || "";
+    let existingName = localStorage.getItem("choir_name") || "";
+    if (existingName === "undefined" || existingName === "null") {
+      existingName = "";
+      localStorage.removeItem("choir_name");
+    }
+    let existingNickname = localStorage.getItem("choir_nickname") || "";
+    if (existingNickname === "undefined" || existingNickname === "null") {
+      existingNickname = "";
+      localStorage.removeItem("choir_nickname");
+    }
 
     identity = {
       ...DEFAULT_USER_IDENTITY,
@@ -1490,8 +1498,17 @@ function getUserIdentity() {
     };
     localStorage.setItem("kantimes_user_identity", JSON.stringify(identity));
   } else {
+    if (identity.fullName === "undefined" || identity.fullName === "null") {
+      identity.fullName = "";
+    }
+    if (identity.name === "undefined" || identity.name === "null") {
+      identity.name = "";
+    }
     if (!identity.nickname && identity.initials) identity.nickname = identity.initials;
     if (!identity.nickname && localStorage.getItem("choir_nickname")) identity.nickname = localStorage.getItem("choir_nickname");
+    if (identity.nickname === "undefined" || identity.nickname === "null") {
+      identity.nickname = "";
+    }
   }
   return identity;
 }
@@ -1675,51 +1692,79 @@ async function pullUserHistoryFromNeon(targetHandle) {
 
   isPullingUserHistory = true;
   try {
-    const sheetHash = typeof getActiveSheetHash === 'function' ? getActiveSheetHash() : 'default';
-    const res = await fetch(`/api/user-history?handle=${encodeURIComponent(handle)}&sheet_hash=${encodeURIComponent(sheetHash)}`);
+    const res = await fetch(`/api/user-history?handle=${encodeURIComponent(handle)}`);
     if (!res.ok) return;
 
     const data = await res.json();
     if (!Array.isArray(data.sessions)) return;
 
-    const localLogs = JSON.parse(localStorage.getItem('kantimes_practice_logs') || '[]');
+    let localLogs = [];
+    try {
+      localLogs = (typeof getPracticeLogs === 'function' ? getPracticeLogs() : []) || [];
+      if (!localLogs.length) {
+        localLogs = JSON.parse(localStorage.getItem('kantimes_practice_logs') || '[]');
+      }
+    } catch (e) {
+      localLogs = [];
+    }
 
     // Merge server logs into local logs without duplicating existing timestamps/titles
     const mergedMap = new Map();
+    const getLogKey = (log) => {
+      if (log.id) return `id_${log.id}`;
+      if (log.session_id) return `id_${log.session_id}`;
+      const title = log.title || log.song || log.songTitle || log.song_title || 'Rehearsal';
+      const time = log.timestamp || log.created_at || '';
+      return `${title}-${time}`;
+    };
 
     // 1. Existing local logs take precedence
     localLogs.forEach(log => {
-      const key = `${log.timestamp || log.created_at}_${log.songTitle || log.song_title}_${log.durationMinutes || log.duration_minutes}`;
-      mergedMap.set(key, log);
+      mergedMap.set(getLogKey(log), log);
     });
 
     // 2. Add remote logs if missing locally
     data.sessions.forEach(remote => {
-      const timestamp = new Date(remote.created_at).toISOString();
-      const key = `${timestamp}_${remote.song_title}_${remote.duration_minutes}`;
+      const dur = Number(remote.duration !== undefined ? remote.duration : (remote.duration_minutes !== undefined ? remote.duration_minutes : (remote.minutes || 0)));
+      const songTitle = remote.title || remote.song_title || remote.songTitle || remote.song || 'Rehearsal';
+      const voice = remote.voice || remote.voice_part || remote.part || 'Tenor';
+      const rawTime = remote.timestamp || remote.created_at || new Date().toISOString();
+      const timeNum = typeof rawTime === 'number' ? rawTime : (new Date(rawTime).getTime() || Date.now());
+      const timeIso = typeof rawTime === 'string' ? rawTime : new Date(timeNum).toISOString();
+
+      const rLog = {
+        id: remote.id,
+        session_id: remote.id,
+        handle: remote.handle,
+        voice: voice,
+        voice_part: voice,
+        part: voice,
+        stake: remote.stake,
+        song: songTitle,
+        title: songTitle,
+        songTitle: songTitle,
+        song_title: songTitle,
+        durationMinutes: dur,
+        duration_minutes: dur,
+        duration: dur,
+        minutes: dur,
+        timestamp: timeNum,
+        created_at: timeIso,
+        sheet_hash: remote.sheet_hash || 'default',
+        synced: true
+      };
+      const key = getLogKey(rLog);
       if (!mergedMap.has(key)) {
-        mergedMap.set(key, {
-          id: remote.id,
-          session_id: remote.id,
-          handle: remote.handle,
-          voice: remote.voice_part,
-          voice_part: remote.voice_part,
-          part: remote.voice_part,
-          stake: remote.stake,
-          songTitle: remote.song_title,
-          song_title: remote.song_title,
-          durationMinutes: Number(remote.duration_minutes),
-          duration_minutes: Number(remote.duration_minutes),
-          duration: Number(remote.duration_minutes),
-          timestamp: timestamp,
-          created_at: timestamp,
-          sheet_hash: remote.sheet_hash,
-          synced: true
-        });
+        mergedMap.set(key, rLog);
       }
     });
 
-    const updatedLogs = Array.from(mergedMap.values()).sort((a, b) => new Date(b.timestamp || b.created_at) - new Date(a.timestamp || a.created_at));
+    const updatedLogs = Array.from(mergedMap.values()).sort((a, b) => {
+      const tA = (typeof getNormalizedLogDate === 'function' ? getNormalizedLogDate(a) : new Date(a.timestamp || a.created_at)).getTime();
+      const tB = (typeof getNormalizedLogDate === 'function' ? getNormalizedLogDate(b) : new Date(b.timestamp || b.created_at)).getTime();
+      return tB - tA;
+    });
+
     localStorage.setItem('kantimes_practice_logs', JSON.stringify(updatedLogs));
     if (typeof savePracticeLogs === 'function') {
       savePracticeLogs(updatedLogs);
@@ -1731,6 +1776,7 @@ async function pullUserHistoryFromNeon(targetHandle) {
     if (typeof updateMilestonesUI === 'function') updateMilestonesUI();
     if (typeof renderPracticeSummary === 'function') renderPracticeSummary();
     if (typeof renderSectionStandings === 'function') renderSectionStandings();
+    if (typeof renderMainStandingsCards === 'function') renderMainStandingsCards();
   } catch (err) {
     console.warn('Could not pull user history from Neon:', err);
   } finally {
@@ -1767,9 +1813,22 @@ async function linkExistingHandle(rawInput, statusEl) {
   const tag = match[2];
   const formattedHandle = `${nickname}#${tag}`;
 
-  // Keep whatever the user may have already typed into choirNameInput intact
+  // Safe Fallback: Never assign remote profile data to Full Name input or choir_name
+  const currentFullName = localStorage.getItem('choir_name') || '';
+  if (currentFullName && currentFullName !== 'undefined' && currentFullName !== 'null') {
+    const nameEl = document.getElementById('choirNameInput');
+    if (nameEl) nameEl.value = currentFullName;
+  }
+
   const choirNameInput = document.getElementById('choirNameInput') || document.getElementById('profileFullName') || document.getElementById('onboardingFullName');
-  const existingTypedName = choirNameInput ? choirNameInput.value.trim() : '';
+  let existingTypedName = choirNameInput ? choirNameInput.value.trim() : '';
+  if (existingTypedName === 'undefined' || existingTypedName === 'null') {
+    existingTypedName = '';
+  }
+
+  const safeFullName = (currentFullName && currentFullName !== 'undefined' && currentFullName !== 'null')
+    ? currentFullName
+    : (existingTypedName && existingTypedName !== 'undefined' && existingTypedName !== 'null' ? existingTypedName : '');
 
   if (statusEl) {
     statusEl.textContent = `🔍 Linking ${formattedHandle} and syncing history...`;
@@ -1793,9 +1852,8 @@ async function linkExistingHandle(rawInput, statusEl) {
 
     // 2. Query user history for full practice history reconciliation
     let historyData = {};
-    const sheetHash = typeof getActiveSheetHash === 'function' ? getActiveSheetHash() : 'default';
     try {
-      const histRes = await fetch(`/api/user-history?handle=${encodeURIComponent(formattedHandle)}&sheet_hash=${encodeURIComponent(sheetHash)}`).catch(() => null);
+      const histRes = await fetch(`/api/user-history?handle=${encodeURIComponent(formattedHandle)}`).catch(() => null);
       if (histRes && histRes.ok) {
         historyData = await histRes.json().catch(() => ({}));
         if (!profileData && historyData.profile) {
@@ -1812,7 +1870,7 @@ async function linkExistingHandle(rawInput, statusEl) {
 
     // 3. Extract remote voice part and stake
     let remoteVoice = (profileData && (profileData.primary_voice || profileData.voice)) || 
-                      (historyData.sessions && historyData.sessions[0]?.voice_part) || 
+                      (historyData.sessions && (historyData.sessions[0]?.voice || historyData.sessions[0]?.voice_part)) || 
                       'Tenor';
     const validRoles = ['Soprano', 'Alto', 'Tenor', 'Bass', 'Accompanist', 'Director'];
     const matchedRole = validRoles.find(r => r.toLowerCase() === (remoteVoice || '').toLowerCase());
@@ -1867,7 +1925,7 @@ async function linkExistingHandle(rawInput, statusEl) {
     otherStakeEls.forEach(el => el.dispatchEvent && el.dispatchEvent(changeEvt));
     otherVoiceSelects.forEach(el => el.dispatchEvent && el.dispatchEvent(changeEvt));
 
-    // 7. Save keys uniformly to localStorage
+    // 7. Save keys uniformly to localStorage (Never write "undefined" to choir_name)
     localStorage.setItem('kantimes_user_handle', formattedHandle);
     localStorage.setItem('choir_nickname', nickname);
     if (remoteStake) {
@@ -1875,15 +1933,17 @@ async function linkExistingHandle(rawInput, statusEl) {
     }
     localStorage.setItem('choir_section', remoteVoice);
     localStorage.setItem('choir_voice', remoteVoice);
-    if (existingTypedName) {
-      localStorage.setItem('choir_name', existingTypedName);
+    if (safeFullName && safeFullName !== 'undefined' && safeFullName !== 'null') {
+      localStorage.setItem('choir_name', safeFullName);
+    } else {
+      localStorage.removeItem('choir_name');
     }
     if (remoteAvatar) {
       localStorage.setItem('choir_avatar', remoteAvatar);
     }
     localStorage.setItem('kantimes_onboarding_completed', 'true');
 
-    // 8. Update identity state
+    // 8. Update identity state (Never write "undefined" to identity.fullName)
     let identity;
     try {
       identity = getUserIdentity();
@@ -1897,13 +1957,13 @@ async function linkExistingHandle(rawInput, statusEl) {
     identity.part = remoteVoice;
     identity.voice = remoteVoice;
     identity.section = remoteVoice;
-    if (existingTypedName) identity.fullName = existingTypedName;
+    identity.fullName = (safeFullName && safeFullName !== 'undefined' && safeFullName !== 'null') ? safeFullName : '';
     if (remoteStake) identity.stake = remoteStake;
     if (remoteAvatar) identity.avatar = remoteAvatar;
     identity.isConfigured = true;
     localStorage.setItem('kantimes_user_identity', JSON.stringify(identity));
 
-    // 9. Update input fields across both modals (keeping user full name intact)
+    // 9. Update input fields across both modals (keeping user full name intact and clean)
     const nickInputs = [
       document.getElementById('profileNickname'),
       document.getElementById('onboardingNickname'),
@@ -1911,14 +1971,19 @@ async function linkExistingHandle(rawInput, statusEl) {
     ].filter(Boolean);
     nickInputs.forEach(inp => { inp.value = nickname; });
 
-    if (existingTypedName) {
-      const nameInputs = [
-        document.getElementById('profileFullName'),
-        document.getElementById('onboardingFullName'),
-        document.getElementById('choirNameInput'),
-        document.getElementById('settingMemberName')
-      ].filter(Boolean);
-      nameInputs.forEach(inp => { inp.value = existingTypedName; });
+    const nameInputs = [
+      document.getElementById('profileFullName'),
+      document.getElementById('onboardingFullName'),
+      document.getElementById('choirNameInput'),
+      document.getElementById('settingMemberName')
+    ].filter(Boolean);
+
+    if (safeFullName && safeFullName !== 'undefined' && safeFullName !== 'null') {
+      nameInputs.forEach(inp => { inp.value = safeFullName; });
+    } else {
+      nameInputs.forEach(inp => {
+        if (inp.value === 'undefined' || inp.value === 'null') inp.value = '';
+      });
     }
 
     // 10. Update handle displays
@@ -1937,45 +2002,77 @@ async function linkExistingHandle(rawInput, statusEl) {
     if (typeof updateHeaderIdentityBadge === 'function') updateHeaderIdentityBadge();
     if (typeof updateActiveProfileDisplay === 'function') updateActiveProfileDisplay();
 
-    // 11. Merge server practice sessions into local logs
+    // 11. Hydrate and merge server practice sessions into local logs
     if (Array.isArray(historyData.sessions) && historyData.sessions.length > 0) {
-      const localLogs = JSON.parse(localStorage.getItem('kantimes_practice_logs') || '[]');
+      const remoteLogs = historyData.sessions.map(s => {
+        const dur = Number(s.duration !== undefined ? s.duration : (s.duration_minutes !== undefined ? s.duration_minutes : (s.minutes || 0)));
+        const songTitle = s.title || s.song_title || s.songTitle || s.song || 'Rehearsal';
+        const voice = s.voice || s.voice_part || s.part || remoteVoice || 'Tenor';
+        const rawTime = s.timestamp || s.created_at || new Date().toISOString();
+        const timeNum = typeof rawTime === 'number' ? rawTime : (new Date(rawTime).getTime() || Date.now());
+        const timeIso = typeof rawTime === 'string' ? rawTime : new Date(timeNum).toISOString();
+
+        return {
+          id: s.id,
+          session_id: s.id,
+          handle: s.handle || formattedHandle,
+          stake: s.stake || remoteStake || '',
+          song: songTitle,
+          title: songTitle,
+          songTitle: songTitle,
+          song_title: songTitle,
+          voice: voice,
+          voice_part: voice,
+          part: voice,
+          duration: dur,
+          duration_minutes: dur,
+          durationMinutes: dur,
+          minutes: dur,
+          timestamp: timeNum,
+          created_at: timeIso,
+          sheet_hash: s.sheet_hash || 'default',
+          synced: true
+        };
+      });
+
+      let localLogs = [];
+      try {
+        localLogs = (typeof getPracticeLogs === 'function' ? getPracticeLogs() : []) || [];
+        if (!localLogs.length) {
+          localLogs = JSON.parse(localStorage.getItem('kantimes_practice_logs') || '[]');
+        }
+      } catch (e) {
+        localLogs = [];
+      }
+
       const mergedMap = new Map();
+      const getLogKey = (log) => {
+        if (log.id) return `id_${log.id}`;
+        if (log.session_id) return `id_${log.session_id}`;
+        const title = log.title || log.song || log.songTitle || log.song_title || 'Rehearsal';
+        const time = log.timestamp || log.created_at || '';
+        return `${title}-${time}`;
+      };
 
       // Local logs take precedence to avoid overwriting newer offline sessions
       localLogs.forEach(log => {
-        const normDate = (typeof getNormalizedLogDate === 'function' ? getNormalizedLogDate(log) : new Date(log.timestamp || log.created_at || Date.now())).toISOString();
-        const normSong = typeof getNormalizedLogSong === 'function' ? getNormalizedLogSong(log) : (log.songTitle || log.song_title || 'Rehearsal');
-        const normMins = typeof getNormalizedLogMinutes === 'function' ? getNormalizedLogMinutes(log) : Number(log.durationMinutes || log.duration_minutes || 0);
-        const key = `${normDate}_${normSong}_${normMins}`;
-        mergedMap.set(key, log);
+        mergedMap.set(getLogKey(log), log);
       });
 
-      historyData.sessions.forEach(remote => {
-        const timestamp = new Date(remote.created_at).toISOString();
-        const key = `${timestamp}_${remote.song_title}_${remote.duration_minutes}`;
+      // Add remote logs
+      remoteLogs.forEach(rLog => {
+        const key = getLogKey(rLog);
         if (!mergedMap.has(key)) {
-          mergedMap.set(key, {
-            id: remote.id,
-            session_id: remote.id,
-            handle: remote.handle || formattedHandle,
-            stake: remote.stake || remoteStake,
-            voice: remote.voice_part || remoteVoice,
-            voice_part: remote.voice_part || remoteVoice,
-            part: remote.voice_part || remoteVoice,
-            songTitle: remote.song_title,
-            song_title: remote.song_title,
-            durationMinutes: Number(remote.duration_minutes),
-            duration_minutes: Number(remote.duration_minutes),
-            minutes: Number(remote.duration_minutes),
-            timestamp: new Date(remote.created_at).getTime(),
-            created_at: timestamp,
-            synced: true
-          });
+          mergedMap.set(key, rLog);
         }
       });
 
-      const updatedLogs = Array.from(mergedMap.values());
+      const updatedLogs = Array.from(mergedMap.values()).sort((a, b) => {
+        const tA = (typeof getNormalizedLogDate === 'function' ? getNormalizedLogDate(a) : new Date(a.timestamp || a.created_at)).getTime();
+        const tB = (typeof getNormalizedLogDate === 'function' ? getNormalizedLogDate(b) : new Date(b.timestamp || b.created_at)).getTime();
+        return tB - tA;
+      });
+
       localStorage.setItem('kantimes_practice_logs', JSON.stringify(updatedLogs));
       if (typeof savePracticeLogs === 'function') {
         savePracticeLogs(updatedLogs);
@@ -2000,8 +2097,11 @@ async function linkExistingHandle(rawInput, statusEl) {
     // 13. Refresh views immediately
     if (typeof updateMilestonesUI === 'function') updateMilestonesUI();
     if (typeof renderPracticeMilestonesUI === 'function') renderPracticeMilestonesUI();
+    if (typeof updatePracticeSummaryUI === 'function') updatePracticeSummaryUI();
+    if (typeof renderPracticeSummary === 'function') renderPracticeSummary();
     if (typeof renderSectionStandings === 'function') renderSectionStandings();
     if (typeof loadLeaderboard === 'function') loadLeaderboard();
+    if (typeof renderMainStandingsCards === 'function') renderMainStandingsCards();
 
     // If linked from Onboarding modal, close onboarding and display main dashboard
     const profileCard = document.getElementById('profileCard');
@@ -2852,12 +2952,14 @@ function updateIdentityUI() {
   // Form inputs in Profile & Voice tab
   const fullNameInput = document.getElementById("profileFullName");
   if (fullNameInput && document.activeElement !== fullNameInput) {
-    fullNameInput.value = identity.fullName || "";
+    const rawFullName = identity.fullName || localStorage.getItem("choir_name") || "";
+    fullNameInput.value = (rawFullName !== "undefined" && rawFullName !== "null") ? rawFullName : "";
   }
 
   const nicknameInput = document.getElementById("profileNickname") || document.getElementById("profileInitials") || document.getElementById("profileInitialsInput");
   if (nicknameInput && document.activeElement !== nicknameInput) {
-    nicknameInput.value = identity.nickname || identity.initials || localStorage.getItem("choir_nickname") || "";
+    const rawNick = identity.nickname || identity.initials || localStorage.getItem("choir_nickname") || "";
+    nicknameInput.value = (rawNick !== "undefined" && rawNick !== "null") ? rawNick : "";
   }
 
   const partSelect = document.getElementById("profileVoicePart") || document.getElementById("profileVoicePartSelect");
@@ -2874,7 +2976,8 @@ function updateIdentityUI() {
   // Legacy inputs sync
   const legacyNameInput = document.getElementById("settingMemberName");
   if (legacyNameInput && document.activeElement !== legacyNameInput) {
-    legacyNameInput.value = identity.fullName || identity.initials || localStorage.getItem("choir_name") || "";
+    const rawLegacyName = identity.fullName || localStorage.getItem("choir_name") || identity.initials || "";
+    legacyNameInput.value = (rawLegacyName !== "undefined" && rawLegacyName !== "null") ? rawLegacyName : "";
   }
   const legacySection = document.getElementById("settingMemberSection");
   if (legacySection) {
@@ -6247,7 +6350,7 @@ function handleDuplicateAction(actionType) {
  * Common helper to persist profile data to localStorage and synchronize the UI.
  */
 function applyProfileData(name, section, avatar) {
-  if (!localStorage.getItem("choir_name") && name) {
+  if (!localStorage.getItem("choir_name") && name && name !== "undefined" && name !== "null") {
     localStorage.setItem("choir_name", name);
   }
   localStorage.setItem("choir_section", section);
@@ -6259,8 +6362,10 @@ function applyProfileData(name, section, avatar) {
   }
 
   // Update inputs on main setup card & settings modal
+  const storedName = localStorage.getItem("choir_name");
+  const safeStoredName = (storedName && storedName !== "undefined" && storedName !== "null") ? storedName : "";
   const pageFullName = document.getElementById("onboardingFullName");
-  if (pageFullName) pageFullName.value = localStorage.getItem("choir_name") || "";
+  if (pageFullName) pageFullName.value = safeStoredName;
   const pageNameInput = document.getElementById("onboardingNickname") || document.getElementById("memberName");
   if (pageNameInput) pageNameInput.value = localStorage.getItem("choir_nickname") || name;
   const legacyMemberName = document.getElementById("memberName");
@@ -6272,7 +6377,7 @@ function applyProfileData(name, section, avatar) {
   if (legacyMemberSec && legacyMemberSec !== pageSecSelect) legacyMemberSec.value = section;
 
   const settingFullName = document.getElementById("profileFullName");
-  if (settingFullName) settingFullName.value = localStorage.getItem("choir_name") || "";
+  if (settingFullName) settingFullName.value = safeStoredName;
   const settingNickInput = document.getElementById("profileNickname") || document.getElementById("profileInitials");
   if (settingNickInput) settingNickInput.value = localStorage.getItem("choir_nickname") || name;
   const settingSecSelect = document.getElementById("profileVoicePart") || document.getElementById("settingMemberSection");
@@ -6386,7 +6491,11 @@ function saveOnboardingProfile() {
   }));
   localStorage.setItem('kantimes_onboarding_completed', 'true');
   localStorage.setItem('kantimes_user_handle', userHandle);
-  localStorage.setItem('choir_name', profile.fullName);
+  if (profile.fullName && profile.fullName !== 'undefined' && profile.fullName !== 'null') {
+    localStorage.setItem('choir_name', profile.fullName);
+  } else {
+    localStorage.removeItem('choir_name');
+  }
   localStorage.setItem('choir_nickname', profile.nickname);
   localStorage.setItem('choir_voice', profile.voice);
   localStorage.setItem('choir_section', profile.voice);
