@@ -1522,7 +1522,14 @@ function getDisplayHandle(identity = getUserIdentity()) {
   if (!nick) {
     nick = "CHOIR";
   }
-  const tag = identity.tag || "USR1";
+  let tag = identity.tag || "USR1";
+  try {
+    const savedHandle = typeof localStorage !== "undefined" ? localStorage.getItem("kantimes_user_handle") : null;
+    if (savedHandle && savedHandle.includes("#")) {
+      const parts = savedHandle.split("#");
+      if (parts[1]) tag = parts[1];
+    }
+  } catch (e) { }
   return `${nick.toUpperCase()}#${tag}`;
 }
 
@@ -1744,7 +1751,8 @@ async function registerHandleToNeon(payload) {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         handle: payload.handle,
-        primary_voice: payload.primary_voice || payload.voice || payload.part || 'Tenor',
+        old_handle: payload.old_handle || payload.oldHandle || undefined,
+        primary_voice: payload.primary_voice || payload.voice || payload.part || 'Accompanist',
         stake: payload.stake || 'Default Stake',
         avatar_id: payload.avatar_id || payload.avatar || 'default'
       })
@@ -2197,24 +2205,35 @@ function saveProfileVoiceSettings(e) {
     msgEl.style.display = "none";
   }
 
-  // 1. Retrieve current identity
+  // 1. Retrieve current identity & check for handle rename
   let identity;
   try {
     identity = getUserIdentity();
   } catch (err) {
     console.warn("[Kantimes] Error retrieving identity in saveProfileVoiceSettings:", err);
     identity = {
-      tag: "8K2P",
+      tag: "CWN4",
       initials: "",
       part: "All",
       stake: ""
     };
   }
 
+  const oldHandle = localStorage.getItem('kantimes_user_handle') || identity.handle || '';
+  let existingTag = identity.tag || 'CWN4';
+  if (oldHandle && oldHandle.includes('#')) {
+    existingTag = oldHandle.split('#')[1];
+  } else if (!existingTag) {
+    existingTag = 'CWN4';
+  }
+  const newHandle = `${rawNickname}#${existingTag}`;
+
   identity.fullName = fullName;
   identity.nickname = rawNickname;
   identity.initials = rawNickname;
   identity.name = fullName || rawNickname;
+  identity.handle = newHandle;
+  identity.tag = existingTag;
   identity.part = part;
   identity.voice = part;
   identity.stake = stake;
@@ -2224,9 +2243,7 @@ function saveProfileVoiceSettings(e) {
   try {
     localStorage.setItem("kantimes_user_identity", JSON.stringify(identity));
     localStorage.setItem("kantimes_onboarding_completed", "true");
-    if (identity.handle) {
-      localStorage.setItem("kantimes_user_handle", identity.handle);
-    }
+    localStorage.setItem("kantimes_user_handle", newHandle);
   } catch (err) {
     console.error("[Kantimes] Error writing identity to localStorage:", err);
   }
@@ -2247,11 +2264,30 @@ function saveProfileVoiceSettings(e) {
     console.warn("[Kantimes] Error syncing choir keys:", err);
   }
 
-  // 3b. Register handle to Neon PostgreSQL database
+  // 3b. Cascade handle rename to local practice logs immediately
+  if (oldHandle && oldHandle !== newHandle) {
+    try {
+      const logs = getPracticeLogs();
+      let modified = false;
+      logs.forEach(log => {
+        if (log && log.handle === oldHandle) {
+          log.handle = newHandle;
+          modified = true;
+        }
+      });
+      if (modified) {
+        savePracticeLogs(logs);
+      }
+    } catch (e) {
+      console.warn("[Kantimes] Error cascading handle rename to local practice logs:", e);
+    }
+  }
+
+  // 3c. Register / Rename handle in Neon PostgreSQL database
   try {
-    const handleToRegister = identity.handle || (typeof getDisplayHandle === 'function' ? getDisplayHandle(identity) : `${rawNickname}#${identity.tag || '8K2P'}`);
     registerHandleToNeon({
-      handle: handleToRegister,
+      handle: newHandle,
+      old_handle: (oldHandle && oldHandle !== newHandle) ? oldHandle : undefined,
       primary_voice: part,
       stake: stake,
       avatar_id: avatar || 'default'
@@ -2268,6 +2304,14 @@ function saveProfileVoiceSettings(e) {
   }
 
   try {
+    if (typeof updateHeaderIdentityBadge === "function") {
+      updateHeaderIdentityBadge();
+    }
+  } catch (err) {
+    console.warn("[Kantimes] Error in updateHeaderIdentityBadge:", err);
+  }
+
+  try {
     updatePracticeSummaryUI();
   } catch (err) {
     console.warn("[Kantimes] Error in updatePracticeSummaryUI:", err);
@@ -2277,6 +2321,14 @@ function saveProfileVoiceSettings(e) {
     renderPracticeMilestonesUI();
   } catch (err) {
     console.warn("[Kantimes] Error in renderPracticeMilestonesUI:", err);
+  }
+
+  try {
+    if (typeof renderSectionStandings === "function") {
+      renderSectionStandings();
+    }
+  } catch (err) {
+    console.warn("[Kantimes] Error in renderSectionStandings:", err);
   }
 
   try {

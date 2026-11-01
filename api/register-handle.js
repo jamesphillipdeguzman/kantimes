@@ -42,7 +42,7 @@ export default async function handler(req, res) {
     }
   }
 
-  const { handle, primary_voice, stake, avatar_id } = body || {};
+  const { handle, old_handle, primary_voice, stake, avatar_id } = body || {};
 
   if (!handle || typeof handle !== 'string' || !handle.trim()) {
     return res.status(400).json({ error: 'Handle is required' });
@@ -54,7 +54,8 @@ export default async function handler(req, res) {
   }
 
   const cleanHandle = handle.trim();
-  const cleanVoice = (primary_voice || 'Tenor').trim();
+  const cleanOldHandle = (typeof old_handle === 'string' && old_handle.trim()) ? old_handle.trim() : null;
+  const cleanVoice = (primary_voice || 'Accompanist').trim();
   const cleanStake = (stake || 'Default Stake').trim();
   const cleanAvatar = (avatar_id || 'default').trim();
 
@@ -62,17 +63,59 @@ export default async function handler(req, res) {
     const sql = neon(dbUrl);
     await ensureSchema(sql);
 
-    await sql`
-      INSERT INTO user_handles (handle, primary_voice, stake, avatar_id, last_active)
-      VALUES (${cleanHandle}, ${cleanVoice}, ${cleanStake}, ${cleanAvatar}, NOW())
-      ON CONFLICT (handle) 
-      DO UPDATE SET 
-        primary_voice = EXCLUDED.primary_voice,
-        stake = EXCLUDED.stake,
-        avatar_id = EXCLUDED.avatar_id,
-        last_active = NOW()
-    `;
-    return res.status(200).json({ success: true, handle: cleanHandle });
+    if (cleanOldHandle && cleanOldHandle !== cleanHandle) {
+      // 1. Update the primary key in user_handles
+      const updateResult = await sql`
+        UPDATE user_handles 
+        SET handle = ${cleanHandle}, 
+            primary_voice = ${cleanVoice}, 
+            stake = ${cleanStake}, 
+            avatar_id = ${cleanAvatar}, 
+            last_active = NOW()
+        WHERE handle = ${cleanOldHandle}
+        RETURNING handle
+      `;
+
+      // If no row was updated (e.g. initial offline setup), insert or update new handle
+      if (!updateResult || updateResult.length === 0) {
+        await sql`
+          INSERT INTO user_handles (handle, primary_voice, stake, avatar_id, last_active)
+          VALUES (${cleanHandle}, ${cleanVoice}, ${cleanStake}, ${cleanAvatar}, NOW())
+          ON CONFLICT (handle) 
+          DO UPDATE SET 
+            primary_voice = EXCLUDED.primary_voice,
+            stake = EXCLUDED.stake,
+            avatar_id = EXCLUDED.avatar_id,
+            last_active = NOW()
+        `;
+      }
+
+      // 2. Cascade the handle update to past practice sessions
+      try {
+        await sql`
+          UPDATE practice_sessions 
+          SET handle = ${cleanHandle} 
+          WHERE handle = ${cleanOldHandle}
+        `;
+      } catch (cascadeErr) {
+        console.warn('Practice sessions cascade notice:', cascadeErr.message);
+      }
+
+      return res.status(200).json({ success: true, handle: cleanHandle, old_handle: cleanOldHandle });
+    } else {
+      // Standard Upsert
+      await sql`
+        INSERT INTO user_handles (handle, primary_voice, stake, avatar_id, last_active)
+        VALUES (${cleanHandle}, ${cleanVoice}, ${cleanStake}, ${cleanAvatar}, NOW())
+        ON CONFLICT (handle) 
+        DO UPDATE SET 
+          primary_voice = EXCLUDED.primary_voice,
+          stake = EXCLUDED.stake,
+          avatar_id = EXCLUDED.avatar_id,
+          last_active = NOW()
+      `;
+      return res.status(200).json({ success: true, handle: cleanHandle });
+    }
   } catch (err) {
     console.error('Handle registration error:', err);
     return res.status(500).json({ error: 'Failed to register handle', details: err.message });
