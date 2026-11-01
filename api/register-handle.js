@@ -10,9 +10,13 @@ async function ensureSchema(sql) {
         primary_voice TEXT,
         stake TEXT,
         avatar_id TEXT,
+        sheet_url TEXT,
+        sheet_id TEXT,
         last_active TIMESTAMPTZ DEFAULT NOW()
       );
     `;
+    await sql`ALTER TABLE user_handles ADD COLUMN IF NOT EXISTS sheet_url TEXT;`;
+    await sql`ALTER TABLE user_handles ADD COLUMN IF NOT EXISTS sheet_id TEXT;`;
     schemaEnsured = true;
   } catch (e) {
     console.warn('Could not auto-create user_handles schema:', e.message);
@@ -43,9 +47,9 @@ export default async function handler(req, res) {
       const sql = neon(dbUrl);
       await ensureSchema(sql);
       const rows = await sql`
-        SELECT handle, primary_voice, stake, avatar_id, last_active
+        SELECT handle, primary_voice, stake, avatar_id, sheet_url, sheet_id, last_active
         FROM user_handles
-        WHERE UPPER(handle) = UPPER(${cleanHandle})
+        WHERE LOWER(TRIM(handle)) = LOWER(TRIM(${cleanHandle}))
         LIMIT 1
       `;
       if (rows && rows.length > 0) {
@@ -71,7 +75,7 @@ export default async function handler(req, res) {
     }
   }
 
-  const { handle, old_handle, primary_voice, stake, avatar_id } = body || {};
+  const { handle, old_handle, primary_voice, stake, avatar_id, sheet_url, sheet_id } = body || {};
 
   if (!handle || typeof handle !== 'string' || !handle.trim()) {
     return res.status(400).json({ error: 'Handle is required' });
@@ -84,22 +88,26 @@ export default async function handler(req, res) {
 
   const cleanHandle = handle.trim();
   const cleanOldHandle = (typeof old_handle === 'string' && old_handle.trim()) ? old_handle.trim() : null;
-  const cleanVoice = (primary_voice || 'Accompanist').trim();
+  const cleanVoice = (primary_voice || 'Tenor').trim();
   const cleanStake = (stake || 'Default Stake').trim();
   const cleanAvatar = (avatar_id || 'default').trim();
+  const cleanSheetUrl = (typeof sheet_url === 'string' && sheet_url.trim()) ? sheet_url.trim() : null;
+  const cleanSheetId = (typeof sheet_id === 'string' && sheet_id.trim()) ? sheet_id.trim() : null;
 
   try {
     const sql = neon(dbUrl);
     await ensureSchema(sql);
 
     if (cleanOldHandle && cleanOldHandle !== cleanHandle) {
-      // 1. Update the primary key in user_handles
+      // 1. Update the primary key in user_handles with COALESCE for sheet_url/sheet_id
       const updateResult = await sql`
         UPDATE user_handles 
         SET handle = ${cleanHandle}, 
             primary_voice = ${cleanVoice}, 
             stake = ${cleanStake}, 
             avatar_id = ${cleanAvatar}, 
+            sheet_url = COALESCE(${cleanSheetUrl}, sheet_url),
+            sheet_id = COALESCE(${cleanSheetId}, sheet_id),
             last_active = NOW()
         WHERE handle = ${cleanOldHandle}
         RETURNING handle
@@ -108,13 +116,15 @@ export default async function handler(req, res) {
       // If no row was updated (e.g. initial offline setup), insert or update new handle
       if (!updateResult || updateResult.length === 0) {
         await sql`
-          INSERT INTO user_handles (handle, primary_voice, stake, avatar_id, last_active)
-          VALUES (${cleanHandle}, ${cleanVoice}, ${cleanStake}, ${cleanAvatar}, NOW())
+          INSERT INTO user_handles (handle, primary_voice, stake, avatar_id, sheet_url, sheet_id, last_active)
+          VALUES (${cleanHandle}, ${cleanVoice}, ${cleanStake}, ${cleanAvatar}, ${cleanSheetUrl}, ${cleanSheetId}, NOW())
           ON CONFLICT (handle) 
           DO UPDATE SET 
             primary_voice = EXCLUDED.primary_voice,
             stake = EXCLUDED.stake,
             avatar_id = EXCLUDED.avatar_id,
+            sheet_url = COALESCE(EXCLUDED.sheet_url, user_handles.sheet_url),
+            sheet_id = COALESCE(EXCLUDED.sheet_id, user_handles.sheet_id),
             last_active = NOW()
         `;
       }
@@ -132,15 +142,17 @@ export default async function handler(req, res) {
 
       return res.status(200).json({ success: true, handle: cleanHandle, old_handle: cleanOldHandle });
     } else {
-      // Standard Upsert
+      // Standard Upsert with COALESCE for sheet_url/sheet_id
       await sql`
-        INSERT INTO user_handles (handle, primary_voice, stake, avatar_id, last_active)
-        VALUES (${cleanHandle}, ${cleanVoice}, ${cleanStake}, ${cleanAvatar}, NOW())
+        INSERT INTO user_handles (handle, primary_voice, stake, avatar_id, sheet_url, sheet_id, last_active)
+        VALUES (${cleanHandle}, ${cleanVoice}, ${cleanStake}, ${cleanAvatar}, ${cleanSheetUrl}, ${cleanSheetId}, NOW())
         ON CONFLICT (handle) 
         DO UPDATE SET 
           primary_voice = EXCLUDED.primary_voice,
           stake = EXCLUDED.stake,
           avatar_id = EXCLUDED.avatar_id,
+          sheet_url = COALESCE(EXCLUDED.sheet_url, user_handles.sheet_url),
+          sheet_id = COALESCE(EXCLUDED.sheet_id, user_handles.sheet_id),
           last_active = NOW()
       `;
       return res.status(200).json({ success: true, handle: cleanHandle });
@@ -150,4 +162,3 @@ export default async function handler(req, res) {
     return res.status(500).json({ error: 'Failed to register handle', details: err.message });
   }
 }
-

@@ -879,6 +879,18 @@
             </button>
           </div>
 
+          <!-- Found Saved Choir Sheet Badge / Restore Card inside Modal -->
+          <div id="foundSavedSheetModalContainer" class="d-none mt-2 mb-2 p-2 rounded bg-dark border border-secondary" style="border-color: rgba(56, 189, 248, 0.4) !important;">
+            <div class="d-flex align-items-center justify-content-between flex-wrap gap-2">
+              <span id="foundSavedSheetModalText" class="small text-light">
+                Found choir sheet saved for <strong id="foundSavedSheetModalHandle">CHOIR#CWN4</strong>.
+              </span>
+              <button type="button" id="btnUseFoundSheetModal" class="btn btn-sm btn-info text-dark fw-semibold" style="font-size: 0.75rem; padding: 3px 8px;">
+                Use This Sheet
+              </button>
+            </div>
+          </div>
+
           <div class="stake-sheet-input-group" style="margin-top: 14px;">
             <div class="stake-sheet-field-header">
               <label for="stakeSheetUrlInput" class="field-label"
@@ -1209,6 +1221,19 @@
               </div>
               <p class="settings-section-desc settings-hint">Sync repertoire dynamically from any public LDS Stake
                 Google Sheet.</p>
+              
+              <!-- Found Saved Choir Sheet Badge / Restore Card -->
+              <div id="foundSavedSheetContainer" class="d-none mt-2 p-2 rounded bg-dark border border-secondary" style="border-color: rgba(56, 189, 248, 0.4) !important; margin-bottom: 8px;">
+                <div class="d-flex align-items-center justify-content-between flex-wrap gap-2">
+                  <span id="foundSavedSheetText" class="small text-light">
+                    Found choir sheet saved for <strong id="foundSavedSheetHandle">CHOIR#CWN4</strong>.
+                  </span>
+                  <button type="button" id="btnUseFoundSheet" class="btn btn-sm btn-info text-dark fw-semibold" style="font-size: 0.75rem; padding: 3px 8px;">
+                    Use This Sheet
+                  </button>
+                </div>
+              </div>
+
               <button type="button" class="btn btn-outline"
                 style="width: 100%; margin-top: 8px; justify-content: center;"
                 onclick="closeSettingsModal(); openStakeSheetModal();">

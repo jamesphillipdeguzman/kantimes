@@ -57,7 +57,7 @@ export default async function handler(req, res) {
     let userProfile = null;
     try {
       const handleRows = await sql`
-        SELECT handle, primary_voice, stake, avatar_id, last_active
+        SELECT handle, primary_voice, stake, avatar_id, sheet_url, sheet_id, last_active
         FROM user_handles
         WHERE LOWER(TRIM(handle)) = LOWER(TRIM(${cleanHandle}))
         LIMIT 1

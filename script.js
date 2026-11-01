@@ -1050,6 +1050,25 @@ async function handleStakeSheetConnect() {
     // Force-sync with fresh timestamp (no early exit even if sheet URL unchanged)
     await syncRepertoire({ force: true, rawUrl: rawUrl, silent: false });
 
+    localStorage.setItem('kantimes_sheet_url', rawUrl);
+    const sheetId = typeof extractSheetId === 'function' ? extractSheetId(rawUrl) : '';
+    if (sheetId) localStorage.setItem('kantimes_sheet_id', sheetId);
+    localStorage.setItem('kantimes_saved_handle_sheet_url', rawUrl);
+    if (sheetId) localStorage.setItem('kantimes_saved_handle_sheet_id', sheetId);
+
+    const userHandle = localStorage.getItem('kantimes_user_handle');
+    if (userHandle && typeof registerHandleToNeon === 'function') {
+      const identity = typeof getUserIdentity === 'function' ? getUserIdentity() : {};
+      registerHandleToNeon({
+        handle: userHandle,
+        primary_voice: identity.part || 'Tenor',
+        stake: identity.stake || '',
+        avatar_id: identity.avatar || 'default',
+        sheet_url: rawUrl,
+        sheet_id: sheetId
+      });
+    }
+
     setSheetInputMode(false);
     updateStakeSheetStatusUI();
     showToast('Repertoire updated successfully!');
@@ -1084,6 +1103,8 @@ function disconnectRepertoireSheet() {
     localStorage.removeItem(`kantimes_section_standings_${stakeKey}`);
   }
   localStorage.removeItem("kantimes_active_sheet_id");
+  localStorage.removeItem("kantimes_sheet_url");
+  localStorage.removeItem("kantimes_sheet_id");
   localStorage.removeItem("kantimes_repertoire_cache");
   localStorage.removeItem("kantimes_cached_songs");
   cachedKnownSingers = [];
@@ -1117,6 +1138,9 @@ function disconnectRepertoireSheet() {
   populateSongDropdown([]);
   renderRepertoireEmptyState();
   renderRepertoireList();
+  if (typeof checkAndRenderSavedSheetBanner === "function") {
+    checkAndRenderSavedSheetBanner();
+  }
   showToast("Repertoire sheet disconnected! 🔌");
 }
 
@@ -1329,6 +1353,121 @@ function initClearSheetUrlButton() {
 }
 window.initClearSheetUrlButton = initClearSheetUrlButton;
 
+/**
+ * Checks if local storage has no custom sheet, but a linked profile has a saved sheet_url.
+ * Shows a one-click badge: "Found choir sheet saved for <handle>. [Use This Sheet]"
+ */
+async function checkAndRenderSavedSheetBanner() {
+  const currentSheet = localStorage.getItem('kantimes_sheet_url') || localStorage.getItem('kantimes_active_sheet_id');
+  const userHandle = localStorage.getItem('kantimes_user_handle');
+
+  const container = document.getElementById('foundSavedSheetContainer');
+  const modalContainer = document.getElementById('foundSavedSheetModalContainer');
+  const handleEl = document.getElementById('foundSavedSheetHandle');
+  const modalHandleEl = document.getElementById('foundSavedSheetModalHandle');
+
+  // Wire buttons if not yet wired
+  const btnUse = document.getElementById('btnUseFoundSheet');
+  if (btnUse && !btnUse._bound) {
+    btnUse._bound = true;
+    btnUse.addEventListener('click', applySavedHandleSheet);
+  }
+  const btnModalUse = document.getElementById('btnUseFoundSheetModal');
+  if (btnModalUse && !btnModalUse._bound) {
+    btnModalUse._bound = true;
+    btnModalUse.addEventListener('click', applySavedHandleSheet);
+  }
+
+  if (!userHandle) {
+    if (container) container.classList.add('d-none');
+    if (modalContainer) modalContainer.classList.add('d-none');
+    return;
+  }
+
+  // If already connected to a custom sheet, do not show the banner
+  if (currentSheet && currentSheet !== 'default_repertoire') {
+    if (container) container.classList.add('d-none');
+    if (modalContainer) modalContainer.classList.add('d-none');
+    return;
+  }
+
+  let savedSheetUrl = localStorage.getItem('kantimes_saved_handle_sheet_url') || '';
+  let savedSheetId = localStorage.getItem('kantimes_saved_handle_sheet_id') || '';
+
+  if (!savedSheetUrl && typeof navigator !== 'undefined' && navigator.onLine) {
+    try {
+      const res = await fetch(`/api/register-handle?handle=${encodeURIComponent(userHandle)}`).catch(() => null);
+      if (res && res.ok) {
+        const data = await res.json().catch(() => ({}));
+        const prof = data.profile || data;
+        if (prof && prof.sheet_url) {
+          savedSheetUrl = prof.sheet_url;
+          savedSheetId = prof.sheet_id || '';
+          localStorage.setItem('kantimes_saved_handle_sheet_url', savedSheetUrl);
+          if (savedSheetId) localStorage.setItem('kantimes_saved_handle_sheet_id', savedSheetId);
+        }
+      }
+    } catch (e) {
+      console.warn('Could not check saved sheet for handle:', e);
+    }
+  }
+
+  if (savedSheetUrl) {
+    if (container) {
+      container.classList.remove('d-none');
+      if (handleEl) handleEl.textContent = userHandle;
+    }
+    if (modalContainer) {
+      modalContainer.classList.remove('d-none');
+      if (modalHandleEl) modalHandleEl.textContent = userHandle;
+    }
+  } else {
+    if (container) container.classList.add('d-none');
+    if (modalContainer) modalContainer.classList.add('d-none');
+  }
+}
+window.checkAndRenderSavedSheetBanner = checkAndRenderSavedSheetBanner;
+
+/**
+ * Connects to the saved choir Google Sheet associated with the user's handle.
+ */
+async function applySavedHandleSheet() {
+  const savedSheetUrl = localStorage.getItem('kantimes_saved_handle_sheet_url');
+  const savedSheetId = localStorage.getItem('kantimes_saved_handle_sheet_id');
+  if (!savedSheetUrl) return;
+
+  localStorage.setItem('kantimes_sheet_url', savedSheetUrl);
+  if (savedSheetId) localStorage.setItem('kantimes_sheet_id', savedSheetId);
+  localStorage.setItem('kantimes_active_sheet_id', savedSheetUrl);
+
+  const sheetInputs = [
+    document.getElementById('customSheetInput'),
+    document.getElementById('sheetUrlInput'),
+    document.getElementById('stakeSheetUrlInput'),
+    document.getElementById('googleSheetInput'),
+    document.getElementById('stakeSheetInput')
+  ].filter(Boolean);
+  sheetInputs.forEach(inp => { inp.value = savedSheetUrl; });
+
+  const container = document.getElementById('foundSavedSheetContainer');
+  if (container) container.classList.add('d-none');
+  const modalContainer = document.getElementById('foundSavedSheetModalContainer');
+  if (modalContainer) modalContainer.classList.add('d-none');
+
+  if (typeof syncRepertoireFromGoogleSheet === 'function') {
+    await syncRepertoireFromGoogleSheet(savedSheetUrl);
+  } else if (typeof loadRepertoire === 'function') {
+    await loadRepertoire(savedSheetUrl);
+  } else if (typeof syncRepertoire === 'function') {
+    await syncRepertoire({ force: true, rawUrl: savedSheetUrl, silent: false });
+  }
+
+  if (typeof updateStakeSheetStatusUI === 'function') updateStakeSheetStatusUI();
+  if (typeof setSheetInputMode === 'function') setSheetInputMode(false);
+  if (typeof showToast === 'function') showToast('Connected to saved choir sheet! 🎶');
+}
+window.applySavedHandleSheet = applySavedHandleSheet;
+
 function openStakeSheetModal() {
   const modal = document.getElementById("stakeSheetModal");
   if (!modal) return;
@@ -1355,6 +1494,9 @@ function openStakeSheetModal() {
   }
   updateStakeSheetStatusUI();
   updateClearBtnVisibility();
+  if (typeof checkAndRenderSavedSheetBanner === "function") {
+    checkAndRenderSavedSheetBanner();
+  }
   modal.classList.add("active");
   document.body.style.overflow = "hidden";
 }
@@ -1683,7 +1825,7 @@ const syncLogsToNeon = syncPracticeToNeon;
  */
 let isPullingUserHistory = false;
 async function pullUserHistoryFromNeon(targetHandle) {
-  if (typeof navigator !== "undefined" && !navigator.onLine) return;
+  if (typeof navigator !== "undefined" && navigator.onLine === false) return;
   if (isPullingUserHistory) return;
 
   const isOnboarded = localStorage.getItem('kantimes_onboarding_completed') === 'true';
@@ -1878,6 +2020,36 @@ async function linkExistingHandle(rawInput, statusEl) {
 
     const remoteStake = (profileData && profileData.stake) || (historyData.sessions && historyData.sessions[0]?.stake) || '';
     const remoteAvatar = (profileData && profileData.avatar_id && profileData.avatar_id !== 'default') ? profileData.avatar_id : '';
+
+    // 3b. Auto-hydrate and restore Choir Google Sheet URL and ID if saved on remote profile
+    const remoteSheetUrl = (profileData && profileData.sheet_url) || (historyData.profile && historyData.profile.sheet_url) || '';
+    const remoteSheetId = (profileData && profileData.sheet_id) || (historyData.profile && historyData.profile.sheet_id) || '';
+
+    if (remoteSheetUrl) {
+      localStorage.setItem('kantimes_sheet_url', remoteSheetUrl);
+      if (remoteSheetId) localStorage.setItem('kantimes_sheet_id', remoteSheetId);
+      localStorage.setItem('kantimes_active_sheet_id', remoteSheetUrl);
+      localStorage.setItem('kantimes_saved_handle_sheet_url', remoteSheetUrl);
+      if (remoteSheetId) localStorage.setItem('kantimes_saved_handle_sheet_id', remoteSheetId);
+
+      const sheetInputs = [
+        document.getElementById('customSheetInput'),
+        document.getElementById('sheetUrlInput'),
+        document.getElementById('stakeSheetUrlInput'),
+        document.getElementById('googleSheetInput'),
+        document.getElementById('stakeSheetInput')
+      ].filter(Boolean);
+      sheetInputs.forEach(inp => { inp.value = remoteSheetUrl; });
+
+      // Trigger existing repertoire loader to pull songs immediately
+      if (typeof syncRepertoireFromGoogleSheet === 'function') {
+        syncRepertoireFromGoogleSheet(remoteSheetUrl);
+      } else if (typeof loadRepertoire === 'function') {
+        loadRepertoire(remoteSheetUrl);
+      } else if (typeof syncRepertoire === 'function') {
+        syncRepertoire({ force: true, rawUrl: remoteSheetUrl, silent: true });
+      }
+    }
 
     // 4. Populate stake select and trigger change events
     const stakeSelect = document.getElementById('choirStakeSelect') || document.getElementById('profileStake') || document.getElementById('onboardingStake');
@@ -2102,6 +2274,7 @@ async function linkExistingHandle(rawInput, statusEl) {
     if (typeof renderSectionStandings === 'function') renderSectionStandings();
     if (typeof loadLeaderboard === 'function') loadLeaderboard();
     if (typeof renderMainStandingsCards === 'function') renderMainStandingsCards();
+    if (typeof checkAndRenderSavedSheetBanner === 'function') checkAndRenderSavedSheetBanner();
 
     // If linked from Onboarding modal, close onboarding and display main dashboard
     const profileCard = document.getElementById('profileCard');
@@ -2193,8 +2366,11 @@ function initRestoreHandleListeners() {
  * Registers or updates a user's handle and profile details in the Neon PostgreSQL database.
  */
 async function registerHandleToNeon(payload) {
-  if (typeof navigator !== "undefined" && !navigator.onLine) return;
+  if (typeof navigator !== "undefined" && navigator.onLine === false) return;
   if (!payload || !payload.handle) return;
+
+  const activeSheetUrl = payload.sheet_url || payload.sheetUrl || localStorage.getItem('kantimes_sheet_url') || localStorage.getItem('choir_custom_sheet_url') || localStorage.getItem('kantimes_active_sheet_id') || '';
+  const activeSheetId = payload.sheet_id || payload.sheetId || localStorage.getItem('kantimes_sheet_id') || localStorage.getItem('choir_sheet_id') || (activeSheetUrl && typeof extractSheetId === 'function' ? extractSheetId(activeSheetUrl) : '') || '';
 
   try {
     const res = await fetch('/api/register-handle', {
@@ -2203,9 +2379,11 @@ async function registerHandleToNeon(payload) {
       body: JSON.stringify({
         handle: payload.handle,
         old_handle: payload.old_handle || payload.oldHandle || undefined,
-        primary_voice: payload.primary_voice || payload.voice || payload.part || 'Accompanist',
+        primary_voice: payload.primary_voice || payload.voice || payload.part || 'Tenor',
         stake: payload.stake || 'Default Stake',
-        avatar_id: payload.avatar_id || payload.avatar || 'default'
+        avatar_id: payload.avatar_id || payload.avatar || 'default',
+        sheet_url: activeSheetUrl || undefined,
+        sheet_id: activeSheetId || undefined
       })
     });
     if (!res.ok) {
@@ -2808,12 +2986,17 @@ function saveProfileVoiceSettings(e) {
 
   // 3c. Register / Rename handle in Neon PostgreSQL database
   try {
+    const activeSheetUrl = localStorage.getItem('kantimes_sheet_url') || localStorage.getItem('choir_custom_sheet_url') || localStorage.getItem('kantimes_active_sheet_id') || '';
+    const activeSheetId = localStorage.getItem('kantimes_sheet_id') || localStorage.getItem('choir_sheet_id') || (activeSheetUrl && typeof extractSheetId === 'function' ? extractSheetId(activeSheetUrl) : '') || '';
+
     registerHandleToNeon({
       handle: newHandle,
       old_handle: (oldHandle && oldHandle !== newHandle) ? oldHandle : undefined,
       primary_voice: part,
       stake: stake,
-      avatar_id: avatar || 'default'
+      avatar_id: avatar || 'default',
+      sheet_url: activeSheetUrl,
+      sheet_id: activeSheetId
     });
   } catch (err) {
     console.warn("[Kantimes] Error registering handle to Neon:", err);
@@ -6507,11 +6690,16 @@ function saveOnboardingProfile() {
   }
 
   // Register handle to Neon backend
+  const activeSheetUrl = localStorage.getItem('kantimes_sheet_url') || localStorage.getItem('choir_custom_sheet_url') || localStorage.getItem('kantimes_active_sheet_id') || '';
+  const activeSheetId = localStorage.getItem('kantimes_sheet_id') || localStorage.getItem('choir_sheet_id') || (activeSheetUrl && typeof extractSheetId === 'function' ? extractSheetId(activeSheetUrl) : '') || '';
+
   registerHandleToNeon({
     handle: userHandle,
     primary_voice: profile.voice,
     stake: profile.stake,
-    avatar_id: avatar || 'default'
+    avatar_id: avatar || 'default',
+    sheet_url: activeSheetUrl,
+    sheet_id: activeSheetId
   });
 
   applyProfileData(profile.fullName || profile.nickname, profile.voice, avatar);
@@ -8659,6 +8847,12 @@ function switchSettingsTab(tabName) {
       }
     }
   });
+
+  if (target === "preferences") {
+    if (typeof checkAndRenderSavedSheetBanner === "function") {
+      checkAndRenderSavedSheetBanner();
+    }
+  }
 }
 
 function handleTargetDateInput(val) {
