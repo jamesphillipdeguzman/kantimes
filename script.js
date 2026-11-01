@@ -3482,19 +3482,21 @@ function initStandingsFilterControls() {
   if (btnCurrent && !btnCurrent.dataset.filterBound) {
     btnCurrent.dataset.filterBound = "true";
     btnCurrent.addEventListener('click', () => {
+      window.currentStandingsScope = 'stake';
       currentStandingsFilter = 'current-stake';
       currentSelectedStake = '';
       cachedNeonStandings = null;
       if (btnCurrent) btnCurrent.classList.add('active');
       if (btnAll) btnAll.classList.remove('active');
       if (selectStake) selectStake.style.display = 'none';
-      renderSectionStandings();
+      loadStandingsData();
     });
   }
 
   if (btnAll && !btnAll.dataset.filterBound) {
     btnAll.dataset.filterBound = "true";
     btnAll.addEventListener('click', () => {
+      window.currentStandingsScope = 'all';
       currentStandingsFilter = 'all-stakes';
       currentSelectedStake = '';
       cachedNeonStandings = null;
@@ -3505,7 +3507,7 @@ function initStandingsFilterControls() {
         const optionsCount = selectStake.options ? selectStake.options.length : 0;
         selectStake.style.display = optionsCount > 1 ? 'inline-block' : 'none';
       }
-      renderSectionStandings();
+      loadStandingsData();
     });
   }
 
@@ -3515,13 +3517,15 @@ function initStandingsFilterControls() {
       cachedNeonStandings = null;
       const val = selectStake.value;
       if (val === 'ALL') {
+        window.currentStandingsScope = 'all';
         currentStandingsFilter = 'all-stakes';
         currentSelectedStake = '';
       } else {
+        window.currentStandingsScope = 'stake';
         currentStandingsFilter = 'by-stake';
         currentSelectedStake = val;
       }
-      renderSectionStandings();
+      loadStandingsData();
     });
   }
 }
@@ -3650,177 +3654,225 @@ function recordSectionPracticeMinutes(part, minutes) {
 
 /**
  * Re-renders the Section Standings UI sorted descending by practice minutes,
- * complete with rank badges (#1, #2, #3, etc.) and hours display.
+ * complete with rank badges (🥇 #1, 🥈 #2, 🥉 #3, #4, #5) and hours display.
  */
-function renderSectionStandingsUI(overrideData) {
-  const sectionEl = document.getElementById("sectionList");
+function renderSectionStandingsUI(sectionTotals) {
+  const sectionEl = document.getElementById("sectionStandingsList")
+    || document.getElementById("sectionList")
+    || document.querySelector(".section-standings-container");
   if (!sectionEl) return;
 
   initStandingsFilterControls();
 
-  const ranked = overrideData || cachedNeonStandings || getSectionStandingsData();
+  const standardSections = {
+    Soprano: 0,
+    Alto: 0,
+    Tenor: 0,
+    Bass: 0,
+    Primary: 0
+  };
 
-  // Update cachedSectionStandings for modal drilldown
-  cachedSectionStandings = ranked.map((item, idx) => {
-    return {
-      section: item.name,
-      rank: idx + 1,
-      totalSections: ranked.length,
-      totalMins: item.minutes,
-      hours: item.hours,
-      singers: (item.roster || []).map(r => ({
-        name: r.handle,
-        handle: r.handle,
-        totalMins: r.minutes,
-        section: item.name
-      }))
-    };
+  const singersMap = {
+    Soprano: 0,
+    Alto: 0,
+    Tenor: 0,
+    Bass: 0,
+    Primary: 0,
+    Accompanist: 0,
+    Director: 0
+  };
+
+  const staffTotals = {
+    Accompanist: 0,
+    Director: 0
+  };
+
+  let inputList = [];
+  if (Array.isArray(sectionTotals)) {
+    inputList = sectionTotals;
+  } else if (window.latestStandingsData && Array.isArray(window.latestStandingsData.sectionTotals)) {
+    inputList = window.latestStandingsData.sectionTotals;
+  } else if (Array.isArray(cachedNeonStandings)) {
+    inputList = cachedNeonStandings;
+  }
+
+  inputList.forEach(item => {
+    const rawVoice = (item.voice_part || item.name || item.voice || '').trim();
+    if (!rawVoice) return;
+    const vLower = rawVoice.toLowerCase();
+    const minutes = Number(item.total_minutes !== undefined ? item.total_minutes : (item.minutes || 0));
+    const singers = Number(item.active_singers !== undefined ? item.active_singers : (item.singers || item.singerCount || 0));
+
+    if (vLower.includes('soprano')) {
+      standardSections.Soprano += minutes;
+      singersMap.Soprano += singers;
+    } else if (vLower.includes('alto')) {
+      standardSections.Alto += minutes;
+      singersMap.Alto += singers;
+    } else if (vLower.includes('tenor')) {
+      standardSections.Tenor += minutes;
+      singersMap.Tenor += singers;
+    } else if (vLower.includes('bass')) {
+      standardSections.Bass += minutes;
+      singersMap.Bass += singers;
+    } else if (vLower.includes('primary')) {
+      standardSections.Primary += minutes;
+      singersMap.Primary += singers;
+    } else if (vLower.includes('accompan')) {
+      staffTotals.Accompanist += minutes;
+      singersMap.Accompanist += singers;
+    } else if (vLower.includes('director') || vLower.includes('conduct')) {
+      staffTotals.Director += minutes;
+      singersMap.Director += singers;
+    }
   });
 
-  let sectionHtml = "";
-  ranked.forEach((item, idx) => {
-    const isTop3 = idx < 3 ? "rank-top3" : "";
-    const medal = idx === 0 ? "🥇 " : idx === 1 ? "🥈 " : idx === 2 ? "🥉 " : "";
-    const numMins = item.minutes;
-    const hours = item.hours;
-    const safeSec = escapeLeaderboardHtml(item.name);
-    const safeEncodedSec = encodeURIComponent(item.name);
+  currentStandingsTotalsMap = {
+    ...standardSections,
+    ...staffTotals
+  };
+  currentStandingsSingersMap = singersMap;
 
-    sectionHtml += `
-      <div class="board-row section-standings-row section-item clickable-section leaderboard-row"
-           onclick="if(event){event.stopPropagation();}showSectionDetails('${safeEncodedSec}', ${idx + 1}, event)"
-           data-section-name="${safeSec}"
-           data-section-rank="${idx + 1}"
-           role="button" tabindex="0"
-           title="Click to view full breakdown for ${safeSec}"
-           aria-label="View rehearsal breakdown for ${safeSec}"
-           onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();event.stopPropagation();showSectionDetails('${safeEncodedSec}', ${idx + 1}, event);}">
-        <span class="rank ${isTop3}">${medal}#${idx + 1}</span>
-        <div class="section-name-wrap">
-          <span class="section-name">${safeSec}</span>
+  const sortedSections = Object.keys(standardSections).map(name => {
+    const mins = standardSections[name];
+    const hrs = (mins / 60).toFixed(1);
+    return {
+      name,
+      minutes: mins,
+      hours: hrs
+    };
+  }).sort((a, b) => b.minutes - a.minutes);
+
+  cachedSectionStandings = sortedSections.map((item, idx) => ({
+    section: item.name,
+    rank: idx + 1,
+    totalSections: sortedSections.length,
+    totalMins: item.minutes,
+    hours: item.hours,
+    singers: []
+  }));
+
+  const medals = ['🥇 #1', '🥈 #2', '🥉 #3', '#4', '#5'];
+
+  let html = '';
+  sortedSections.forEach((sec, idx) => {
+    const name = escapeLeaderboardHtml(sec.name);
+    const minutes = sec.minutes;
+    const hours = sec.hours;
+    const medalBadge = medals[idx] || `#${idx + 1}`;
+
+    html += `
+      <div class="standing-item d-flex align-items-center justify-content-between p-3 mb-2 rounded bg-dark-subtle" onclick="openSectionBreakdown('${name}')" style="cursor: pointer;">
+        <div class="d-flex align-items-center gap-3">
+          <span class="badge text-warning fw-bold">${medalBadge}</span>
+          <span class="fw-semibold text-light">${name}</span>
         </div>
-        <span class="mins-badge">${numMins}m <span class="mins-sub">(${hours}h)</span></span>
+        <div class="text-end">
+          <span class="badge bg-secondary-subtle text-light fw-bold px-3 py-2">
+            ${minutes}m <small class="text-muted">(${hours}h)</small>
+          </span>
+        </div>
       </div>
     `;
   });
 
-  sectionEl.innerHTML = sectionHtml;
+  sectionEl.innerHTML = html;
 
   // Render Music Staff & Leadership Spotlight card below section standings
-  renderMusicStaffUI(currentStandingsTotalsMap, currentStandingsSingersMap);
+  if (typeof renderMusicStaffUI === 'function') {
+    renderMusicStaffUI(staffTotals, singersMap);
+  }
+}
 
-  if (!sectionEl.dataset.detailsBound) {
-    sectionEl.dataset.detailsBound = "true";
-    sectionEl.addEventListener("click", function (e) {
-      const row = e.target.closest(".board-row.clickable-section, .section-standings-row, .section-item, .leaderboard-row");
-      if (!row) return;
-      e.stopPropagation();
-      const name = row.getAttribute("data-section-name");
-      const r = row.getAttribute("data-section-rank");
-      if (name) {
-        showSectionDetails(name, r ? Number(r) : 1, e);
+/**
+ * Fallback to compute and render section standings from local device practice logs.
+ */
+function renderSectionStandingsFromLocal() {
+  const scope = window.currentStandingsScope || 'stake';
+  const filterMode = scope === 'stake' ? 'current-stake' : 'all-stakes';
+  const local = getAggregatedStandings(filterMode, currentSelectedStake || '');
+  currentStandingsTotalsMap = local.totalsMap;
+  currentStandingsSingersMap = local.singersMap;
+  currentStandingsTopRoster = local.topRoster;
+
+  const sectionTotals = [
+    { voice_part: 'Soprano', total_minutes: local.totalsMap.Soprano || 0, active_singers: local.singersMap.Soprano || 0 },
+    { voice_part: 'Alto', total_minutes: local.totalsMap.Alto || 0, active_singers: local.singersMap.Alto || 0 },
+    { voice_part: 'Tenor', total_minutes: local.totalsMap.Tenor || 0, active_singers: local.singersMap.Tenor || 0 },
+    { voice_part: 'Bass', total_minutes: local.totalsMap.Bass || 0, active_singers: local.singersMap.Bass || 0 },
+    { voice_part: 'Primary', total_minutes: local.totalsMap.Primary || 0, active_singers: local.singersMap.Primary || 0 },
+    { voice_part: 'Accompanist', total_minutes: local.totalsMap.Accompanist || 0, active_singers: local.singersMap.Accompanist || 0 },
+    { voice_part: 'Director', total_minutes: local.totalsMap.Director || 0, active_singers: local.singersMap.Director || 0 }
+  ];
+
+  window.latestStandingsData = {
+    sectionTotals,
+    topRoster: local.topRoster
+  };
+
+  renderSectionStandingsUI(sectionTotals);
+}
+
+/**
+ * Standard asynchronous loader for collective standings from Neon.
+ * Falls back to local logs if offline or request fails.
+ */
+async function loadStandingsData() {
+  const scope = window.currentStandingsScope || 'stake'; // 'stake' or 'all'
+  let userStake = 'Iloilo Philippines Stake';
+  if (currentStandingsFilter === 'by-stake' && currentSelectedStake) {
+    userStake = currentSelectedStake;
+  } else {
+    try {
+      userStake = localStorage.getItem('choir_stake')
+        || localStorage.getItem('kantimes_user_stake');
+      if (!userStake) {
+        const profile = JSON.parse(localStorage.getItem('kantimes_user_identity') || '{}');
+        userStake = profile.stake;
       }
-    });
+    } catch (e) {}
+  }
+  if (!userStake) userStake = 'Iloilo Philippines Stake';
+  const sheetHash = typeof getActiveSheetHash === 'function' ? getActiveSheetHash() : '';
+
+  try {
+    const res = await fetch(`/api/standings?scope=${scope}&stake=${encodeURIComponent(userStake)}&sheet_hash=${encodeURIComponent(sheetHash)}`);
+    if (!res.ok) throw new Error('Failed to fetch standings');
+    const data = await res.json();
+    window.latestStandingsData = data;
+    if (Array.isArray(data.topRoster)) {
+      currentStandingsTopRoster = data.topRoster;
+      cachedLeaderboardSingers = data.topRoster.map(r => ({
+        name: r.handle,
+        section: r.voice_part || r.voice || 'Choir',
+        avatar: r.avatar || '',
+        totalMins: Number(r.total_minutes || r.minutes || 0)
+      })).sort((a, b) => b.totalMins - a.totalMins);
+      if (typeof renderLeaderboardSingers === 'function') {
+        renderLeaderboardSingers();
+      }
+    }
+    renderSectionStandingsUI(data.sectionTotals || []);
+
+    if (currentOpenSection) {
+      const modal = document.getElementById("sectionBreakdownModal") || document.getElementById("sectionDetailsModal");
+      if (modal && (modal.classList.contains("active") || modal.classList.contains("show") || modal.style.display === "flex")) {
+        renderSectionBreakdown(currentOpenSection);
+      }
+    }
+  } catch (err) {
+    console.warn('Fallback to local standings:', err);
+    renderSectionStandingsFromLocal();
   }
 }
 
 /**
  * Standard trigger to refresh section standings board.
  * Refreshes breakdown modal as well if currently opened.
- * When online, queries /api/standings to reflect collective live totals from Neon.
+ * Delegated to loadStandingsData() to keep online and local sync consistent.
  */
 async function renderSectionStandings() {
-  // 1. Immediately render local-first state (zero latency fallback)
-  const local = getAggregatedStandings(currentStandingsFilter, currentSelectedStake);
-  currentStandingsTotalsMap = local.totalsMap;
-  currentStandingsSingersMap = local.singersMap;
-  currentStandingsTopRoster = local.topRoster;
-
-  const localRanked = buildRankedStandings(local.totalsMap, local.singersMap, local.topRoster);
-  renderSectionStandingsUI(localRanked);
-  renderMusicStaffUI(local.totalsMap, local.singersMap);
-
-  if (currentOpenSection) {
-    const modal = document.getElementById("sectionBreakdownModal") || document.getElementById("sectionDetailsModal");
-    if (modal && (modal.classList.contains("active") || modal.classList.contains("show") || modal.style.display === "flex")) {
-      renderSectionBreakdown(currentOpenSection, localRanked);
-    }
-  }
-
-  // 2. Query Neon PostgreSQL standings when online
-  if (typeof navigator !== "undefined" && navigator.onLine) {
-    try {
-      let currentStakeFilter = '';
-      if (currentStandingsFilter === 'current-stake') {
-        try {
-          const profile = JSON.parse(localStorage.getItem('kantimes_user_identity') || '{}');
-          currentStakeFilter = profile.stake || (typeof getUserIdentity === 'function' ? getUserIdentity().stake : '') || '';
-        } catch (e) { }
-      } else if (currentStandingsFilter === 'by-stake' && currentSelectedStake) {
-        currentStakeFilter = currentSelectedStake;
-      }
-
-      const res = await fetch(`/api/standings?sheet_hash=${getActiveSheetHash()}&stake=${encodeURIComponent(currentStakeFilter || '')}`);
-      if (res.ok) {
-        const data = await res.json().catch(() => ({}));
-        if (data && (Array.isArray(data.sectionTotals) || Array.isArray(data.standings))) {
-          const totalsMap = { Soprano: 0, Alto: 0, Tenor: 0, Bass: 0, Primary: 0, Accompanist: 0, Director: 0 };
-          const singersMap = { Soprano: 0, Alto: 0, Tenor: 0, Bass: 0, Primary: 0, Accompanist: 0, Director: 0 };
-
-          if (Array.isArray(data.sectionTotals)) {
-            data.sectionTotals.forEach(row => {
-              const part = (row.voice_part || '').trim();
-              let matchingKey = Object.keys(totalsMap).find(k => k.toLowerCase() === part.toLowerCase());
-              if (!matchingKey && part) {
-                const pLower = part.toLowerCase();
-                if (pLower.includes('soprano')) matchingKey = 'Soprano';
-                else if (pLower.includes('alto')) matchingKey = 'Alto';
-                else if (pLower.includes('tenor')) matchingKey = 'Tenor';
-                else if (pLower.includes('bass')) matchingKey = 'Bass';
-                else if (pLower.includes('primary')) matchingKey = 'Primary';
-                else if (pLower.includes('accompan')) matchingKey = 'Accompanist';
-                else if (pLower.includes('director') || pLower.includes('conduct')) matchingKey = 'Director';
-              }
-              if (matchingKey) {
-                totalsMap[matchingKey] = (totalsMap[matchingKey] || 0) + Number(row.total_minutes || 0);
-                singersMap[matchingKey] = (singersMap[matchingKey] || 0) + Number(row.active_singers || 0);
-              }
-            });
-          }
-
-          currentStandingsTotalsMap = totalsMap;
-          currentStandingsSingersMap = singersMap;
-          currentStandingsTopRoster = Array.isArray(data.topRoster) ? data.topRoster : [];
-
-          const remoteRanked = buildRankedStandings(totalsMap, singersMap, currentStandingsTopRoster);
-          cachedNeonStandings = remoteRanked;
-
-          // Update live badges and roster in DOM
-          renderSectionStandingsUI(remoteRanked);
-          renderMusicStaffUI(totalsMap, singersMap);
-
-          if (Array.isArray(data.topRoster) && data.topRoster.length > 0) {
-            cachedLeaderboardSingers = data.topRoster.map(r => ({
-              name: r.handle,
-              section: r.voice_part || r.voice || 'Choir',
-              avatar: r.avatar || '',
-              totalMins: Number(r.total_minutes || r.minutes || 0)
-            })).sort((a, b) => b.totalMins - a.totalMins);
-            renderLeaderboardSingers();
-          }
-
-          if (currentOpenSection) {
-            const modal = document.getElementById("sectionBreakdownModal") || document.getElementById("sectionDetailsModal");
-            if (modal && (modal.classList.contains("active") || modal.classList.contains("show") || modal.style.display === "flex")) {
-              renderSectionBreakdown(currentOpenSection, remoteRanked);
-            }
-          }
-        }
-      }
-    } catch (e) {
-      console.warn('Neon standings query deferred (offline or unreachable):', e);
-    }
-  }
+  await loadStandingsData();
 }
 
 
@@ -10386,6 +10438,12 @@ function switchHorizontalTab(targetId) {
     btn.classList.toggle('active', isTarget);
     btn.setAttribute('aria-selected', isTarget ? 'true' : 'false');
   });
+
+  if (targetId === 'standingsSection') {
+    if (typeof loadStandingsData === 'function') {
+      loadStandingsData();
+    }
+  }
 }
 
 function initLayoutMode() {
@@ -10411,6 +10469,16 @@ function initLayoutMode() {
       }
     });
   });
+
+  const tabStandings = document.getElementById('tabNavStandings');
+  if (tabStandings && !tabStandings.dataset.standingsBound) {
+    tabStandings.dataset.standingsBound = "true";
+    tabStandings.addEventListener('click', () => {
+      if (typeof loadStandingsData === 'function') {
+        loadStandingsData();
+      }
+    });
+  }
 }
 
 window.applyLayoutMode = applyLayoutMode;
@@ -12952,6 +13020,7 @@ window.addEventListener("DOMContentLoaded", function () {
   window.addEventListener('online', () => {
     syncPracticeToNeon();
     pullUserHistoryFromNeon();
+    loadStandingsData();
   });
   initPWAInstallBanner();
   wireCopyTemplateButton();
@@ -12981,6 +13050,7 @@ window.addEventListener("DOMContentLoaded", function () {
   initAppBrandSync();
   initClearSheetUrlButton();
   initSheetEditButton();
+  loadStandingsData();
 });
 
 // Close modals on Escape key
@@ -13109,6 +13179,8 @@ window.getSectionStandingsData = getSectionStandingsData;
 window.recordSectionPracticeMinutes = recordSectionPracticeMinutes;
 window.initFreshStakeSectionStandings = initFreshStakeSectionStandings;
 window.renderSectionStandingsUI = renderSectionStandingsUI;
+window.renderSectionStandingsFromLocal = renderSectionStandingsFromLocal;
+window.loadStandingsData = loadStandingsData;
 window.renderMusicStaffUI = renderMusicStaffUI;
 window.renderSectionStandings = renderSectionStandings;
 window.getAggregatedStandings = getAggregatedStandings;

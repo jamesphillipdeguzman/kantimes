@@ -9435,10 +9435,88 @@ body.piano-fullscreen-active {
   color: #93c5fd;
 }
 
-#sectionList {
+#sectionStandingsList,
+#sectionList,
+.section-standings-container {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 8px;
+}
+
+.standing-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px;
+  border-radius: 10px;
+  background: var(--bg-card-secondary, rgba(241, 245, 249, 0.7));
+  border: 1px solid var(--border-light, rgba(226, 232, 240, 0.9));
+  transition: all 0.2s ease;
+  cursor: pointer;
+  user-select: none;
+}
+
+.standing-item:hover {
+  background: var(--primary-light, rgba(59, 130, 246, 0.08));
+  border-color: rgba(59, 130, 246, 0.35);
+  transform: translateY(-1px);
+}
+
+.standing-item .fw-semibold {
+  font-weight: 600;
+  font-size: 0.95rem;
+  color: var(--text-primary, #0f172a);
+}
+
+.standing-item .text-light {
+  color: var(--text-primary, #0f172a);
+}
+
+.standing-item .badge.text-warning {
+  color: #d97706 !important;
+  font-weight: 700;
+  font-size: 0.95rem;
+}
+
+.standing-item .bg-secondary-subtle {
+  background: rgba(37, 99, 235, 0.08);
+  color: var(--primary, #2563eb) !important;
+  border-radius: 8px;
+  padding: 6px 12px;
+  font-weight: 700;
+  font-size: 0.9rem;
+  border: 1px solid rgba(37, 99, 235, 0.15);
+}
+
+[data-theme="dark"] .standing-item,
+.dark .standing-item {
+  background: rgba(30, 41, 59, 0.6);
+  border-color: var(--border, #23314e);
+}
+
+[data-theme="dark"] .standing-item:hover,
+.dark .standing-item:hover {
+  background: rgba(59, 130, 246, 0.14);
+  border-color: rgba(59, 130, 246, 0.4);
+}
+
+[data-theme="dark"] .standing-item .fw-semibold,
+.dark .standing-item .fw-semibold,
+[data-theme="dark"] .standing-item .text-light,
+.dark .standing-item .text-light {
+  color: #f1f5f9;
+}
+
+[data-theme="dark"] .standing-item .badge.text-warning,
+.dark .standing-item .badge.text-warning {
+  color: #fbbf24 !important;
+}
+
+[data-theme="dark"] .standing-item .bg-secondary-subtle,
+.dark .standing-item .bg-secondary-subtle {
+  background: rgba(59, 130, 246, 0.15);
+  color: #93c5fd !important;
+  border-color: rgba(59, 130, 246, 0.3);
 }
 
 .section-standings-row {
