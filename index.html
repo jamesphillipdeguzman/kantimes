@@ -46,7 +46,8 @@
 
   <header>
     <div class="header-inner header-nav">
-      <div class="header-brand brand-wrap nav-brand" id="appBrandSync" title="Click to refresh repertoire from Sheet" style="cursor: pointer;" role="button" tabindex="0">
+      <div class="header-brand brand-wrap nav-brand" id="appBrandSync" title="Click to refresh repertoire from Sheet"
+        style="cursor: pointer;" role="button" tabindex="0">
         <img src="images/kantimes-logo.png" alt="KanTimes Logo" class="header-logo" id="appLogoRefresh"
           title="Click to refresh repertoire from Sheet" aria-label="Refresh repertoire from Sheet"
           onerror="this.style.display='none'">
@@ -128,7 +129,8 @@
     </div>
 
     <!-- Singer Profile Setup Card / First-Time Onboarding Modal (Visible before sign-in / on change) -->
-    <div class="card fade-in" id="profileCard" data-modal="welcomeModal" data-alt-id="firstRunProfileModal,initialSetupModal,welcomeModal">
+    <div class="card fade-in" id="profileCard" data-modal="welcomeModal"
+      data-alt-id="firstRunProfileModal,initialSetupModal,welcomeModal">
       <h2 id="profileCardTitle">👤 Choir Member Setup</h2>
 
       <!-- Onboarding Anonymous Choir Handle Preview & Restore Link -->
@@ -137,19 +139,21 @@
           <span class="profile-avatar-symbol" id="onboardingModalAvatarSymbol">🎵</span>
           <div class="profile-handle-meta">
             <span class="profile-handle-label">Your Anonymous Choir Handle</span>
-            <span class="profile-handle-tag" id="onboardingModalDisplayHandle">New Chorister</span>
+            <span class="profile-handle-tag" id="onboardingModalDisplayHandle">New Choir Member</span>
           </div>
         </div>
       </div>
       <div class="d-flex align-items-center justify-content-between mt-1 mb-2">
-        <button type="button" id="toggleRestoreHandleBtnOnboarding" class="btn btn-link btn-sm p-0 text-decoration-none text-info">
+        <button type="button" id="toggleRestoreHandleBtnOnboarding"
+          class="btn btn-link btn-sm p-0 text-decoration-none text-info">
           🔗 Already have a handle from another device?
         </button>
       </div>
       <div id="restoreHandleContainerOnboarding" class="d-none mb-3 p-2 rounded bg-dark border border-secondary">
         <label class="form-label small text-muted mb-1">ENTER EXISTING HANDLE (e.g. DIET#CWN4)</label>
         <div class="input-group input-group-sm">
-          <input type="text" id="existingHandleInputOnboarding" class="form-control text-uppercase" placeholder="DIET#CWN4">
+          <input type="text" id="existingHandleInputOnboarding" class="form-control text-uppercase"
+            placeholder="DIET#CWN4">
           <button type="button" id="applyExistingHandleBtnOnboarding" class="btn btn-outline-info">Link</button>
         </div>
         <small id="restoreHandleStatusOnboarding" class="form-text mt-1 d-block"></small>
@@ -160,14 +164,8 @@
         <label for="onboardingFullName" class="form-label font-semibold">
           Full Name <span class="text-xs text-muted">(Optional, local in-app only)</span>
         </label>
-        <input 
-          type="text" 
-          id="onboardingFullName" 
-          data-alt-id="choirNameInput"
-          class="form-control" 
-          placeholder="e.g. James Phillip De Guzman"
-          autocomplete="name"
-        />
+        <input type="text" id="onboardingFullName" data-alt-id="choirNameInput" class="form-control"
+          placeholder="e.g. James Phillip De Guzman" autocomplete="name" />
         <p class="field-hint text-xs text-muted">Used for your private in-app greeting and dashboard.</p>
       </div>
 
@@ -176,17 +174,8 @@
         <label for="onboardingNickname" class="form-label font-semibold">
           Initials or Nickname <span class="text-xs text-danger">* (2–6 chars)</span>
         </label>
-        <input 
-          type="text" 
-          id="onboardingNickname" 
-          data-alt-id="memberName"
-          class="form-control" 
-          placeholder="e.g. JD, SAM" 
-          maxlength="6"
-          required
-          autocomplete="off"
-          autocapitalize="characters"
-        />
+        <input type="text" id="onboardingNickname" data-alt-id="memberName" class="form-control"
+          placeholder="e.g. JD, SAM" maxlength="6" required autocomplete="off" autocapitalize="characters" />
         <div class="input-validation-msg" id="memberNameValidationMsg"
           style="display: none; color: #f87171; font-size: 0.8rem; margin-top: 0.35rem;">
           ⚠️ Please enter your initials or nickname (2 to 6 characters).
@@ -216,27 +205,11 @@
           Stake / District <span class="text-xs text-muted">(Optional)</span>
         </label>
         <div class="stake-input-combobox-wrapper">
-          <input 
-            type="text" 
-            id="onboardingStake" 
-            data-alt-id="choirStakeSelect"
-            list="stakeDistrictOptions" 
-            class="form-control stake-combobox-input" 
-            placeholder="Select or type your Stake (e.g. Iloilo Philippines Stake)"
-            autocomplete="off"
-          />
-          <svg 
-            class="combobox-chevron-icon" 
-            width="16" 
-            height="16" 
-            viewBox="0 0 24 24" 
-            fill="none" 
-            stroke="#64748b" 
-            stroke-width="2" 
-            stroke-linecap="round" 
-            stroke-linejoin="round"
-            aria-hidden="true"
-          >
+          <input type="text" id="onboardingStake" data-alt-id="choirStakeSelect" list="stakeDistrictOptions"
+            class="form-control stake-combobox-input"
+            placeholder="Select or type your Stake (e.g. Iloilo Philippines Stake)" autocomplete="off" />
+          <svg class="combobox-chevron-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#64748b"
+            stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
             <polyline points="6 9 12 15 18 9"></polyline>
           </svg>
         </div>
@@ -274,420 +247,433 @@
 
       <!-- Horizontal Tab Bar (Displayed in Horizontal Layout Mode) -->
       <nav class="horizontal-tab-bar" id="horizontalTabBar" role="tablist" aria-label="Dashboard Sections">
-        <button type="button" class="tab-btn active" role="tab" aria-selected="true" data-tab-target="practiceSection" id="tabNavPractice">
+        <button type="button" class="tab-btn active" role="tab" aria-selected="true" data-tab-target="practiceSection"
+          id="tabNavPractice">
           ⏱️ Rehearse
         </button>
-        <button type="button" class="tab-btn" role="tab" aria-selected="false" data-tab-target="repertoireSection" id="tabNavRepertoire">
+        <button type="button" class="tab-btn" role="tab" aria-selected="false" data-tab-target="repertoireSection"
+          id="tabNavRepertoire">
           🎵 Repertoire
         </button>
-        <button type="button" class="tab-btn" role="tab" aria-selected="false" data-tab-target="milestonesSection" id="tabNavMilestones">
+        <button type="button" class="tab-btn" role="tab" aria-selected="false" data-tab-target="milestonesSection"
+          id="tabNavMilestones">
           📈 Milestones
         </button>
-        <button type="button" class="tab-btn" role="tab" aria-selected="false" data-tab-target="standingsSection" id="tabNavStandings">
+        <button type="button" class="tab-btn" role="tab" aria-selected="false" data-tab-target="standingsSection"
+          id="tabNavStandings">
           🏆 Standings
         </button>
       </nav>
 
       <!-- Practice Session & Dynamic Workspace -->
       <div id="practiceSection" class="dashboard-section-tab active tab-active">
-      <div class="card" id="practiceWorkspace">
-        <div class="workspace-header-row">
-          <h2>⏱️ <span id="practiceDurationTitle">15</span>-Minute Practice Session</h2>
-          <div class="workspace-header-actions">
-            <button type="button" class="btn-tool-pill" id="toggleMetronomeVisibilityBtn"
-              onclick="toggleMetronomeVisibility()" title="Show/hide rehearsal metronome" aria-label="Toggle Metronome">
-              <span class="tool-icon">⏱️</span>
-              <span class="tool-text">Metronome</span>
-            </button>
-            <button type="button" class="btn-tool-pill" id="pianoToggleBtn" onclick="togglePianoDrawer()"
-              title="Practice Piano &amp; Vocal Pitch Helper" aria-label="Toggle Piano">
-              🎹 Piano
-            </button>
-            <button type="button" class="btn-vocal-tips" id="btnVocalTips" data-action="vocal-tips"
-              onclick="openVocalTipsModal(event)" title="Vocal Warm-Ups &amp; Singing Tips"
-              aria-label="Open Vocal Warm-Ups &amp; Singing Tips">
-              <span class="vocal-tips-icon">ℹ️</span>
-              <span class="vocal-tips-text">Vocal Tips</span>
-            </button>
-          </div>
-        </div>
-        <label for="targetSong">Select Song to Rehearse</label>
-        <select id="targetSong" data-alt-id="songSelect,selectSongToRehearse" class="rehearsal-song-select" onchange="handleSongSelectionChange()">
-          <!-- Populated dynamically from userSettings.songs -->
-        </select>
-
-        <!-- Quick Timer Duration Adjuster -->
-        <div class="quick-duration-wrapper" id="quickDurationWrapper">
-          <span class="quick-duration-label">⏱️ Duration:</span>
-          <div class="quick-duration-pills" id="quickDurationPills" role="radiogroup" aria-label="Practice duration">
-            <button type="button" class="quick-duration-pill" data-mins="5" onclick="selectQuickDuration(5)">5m</button>
-            <button type="button" class="quick-duration-pill" data-mins="10"
-              onclick="selectQuickDuration(10)">10m</button>
-            <button type="button" class="quick-duration-pill active" data-mins="15"
-              onclick="selectQuickDuration(15)">15m</button>
-            <button type="button" class="quick-duration-pill" data-mins="20"
-              onclick="selectQuickDuration(20)">20m</button>
-            <button type="button" class="quick-duration-pill" data-mins="30"
-              onclick="selectQuickDuration(30)">30m</button>
-            <button type="button" class="quick-duration-pill" data-mins="45"
-              onclick="selectQuickDuration(45)">45m</button>
-            <button type="button" class="quick-duration-pill" data-mins="60"
-              onclick="selectQuickDuration(60)">60m</button>
-          </div>
-        </div>
-
-        <div class="timer-display" id="timerDisplay">15:00</div>
-
-        <!-- Encouraging Choir Quote & Milestone Banner -->
-        <div id="encouragementBanner" class="encouragement-banner" style="display: none;">
-          <span class="encouragement-icon" id="encouragementIcon">🎵</span>
-          <span class="encouragement-text" id="encouragementText">"The song of the righteous is a prayer unto
-            Him."</span>
-        </div>
-
-        <p id="practiceInstructionSubtext"
-          style="font-size: 0.78rem; text-align: center; color: var(--text-muted); margin-bottom: 12px;">
-          Hit Start, practice your parts, and complete the 15-minute countdown to record your session.
-        </p>
-
-        <button class="btn btn-primary" id="timerBtn" onclick="toggleTimer()">Start Practice</button>
-      </div>
-
-      <!-- Built-in In-Browser Metronome Tool (Hidden by default unless user shows it) -->
-      <div class="card metronome-card fade-in" id="metronomeWidget" style="display: none;">
-        <div class="metronome-header">
-          <div class="metronome-header-left" onclick="toggleMetronomeCollapse()" role="button" tabindex="0"
-            aria-expanded="true" style="cursor: pointer; flex: 1;">
-            <span class="metronome-header-icon">⏱️</span>
-            <div>
-              <h3 class="metronome-title">Kantimes Metronome</h3>
-              <p class="metronome-subtitle">Web Audio precision pulse for choral rehearsal</p>
-            </div>
-          </div>
-          <div class="metronome-header-right">
-            <span class="metronome-badge" id="metronomeHeaderBadge">100 BPM • 4/4</span>
-            <button type="button" class="metronome-collapse-btn" id="metronomeCollapseBtn"
-              onclick="toggleMetronomeCollapse()" aria-label="Toggle Metronome Controls"
-              title="Collapse/Expand Metronome">▼</button>
-            <button type="button" class="metronome-close-btn" id="metronomeCloseBtn" onclick="hideMetronomeWidget()"
-              aria-label="Hide Metronome" title="Hide Metronome">&times;</button>
-          </div>
-        </div>
-
-        <div class="metronome-body" id="metronomeBody">
-          <!-- Tempo Display & Dynamic Italian Marking -->
-          <div class="metronome-tempo-display">
-            <div class="metronome-bpm-wrap">
-              <span class="metronome-bpm-number" id="metronomeBpmDisplay">100</span>
-              <span class="metronome-bpm-unit">BPM</span>
-            </div>
-            <div class="metronome-tempo-name" id="metronomeTempoMarking">Moderato (Moderate)</div>
-          </div>
-
-          <!-- Slider & Fine Tuning -->
-          <div class="metronome-controls-row">
-            <button type="button" class="metronome-fine-btn" onclick="adjustMetronomeBpm(-1)" title="Decrease 1 BPM"
-              aria-label="Decrease 1 BPM">&minus;1</button>
-            <input type="range" class="metronome-slider" id="metronomeSlider" min="40" max="220" value="100"
-              oninput="handleMetronomeSliderInput(this.value)" aria-label="Metronome Tempo Slider">
-            <button type="button" class="metronome-fine-btn" onclick="adjustMetronomeBpm(1)" title="Increase 1 BPM"
-              aria-label="Increase 1 BPM">+1</button>
-          </div>
-
-          <!-- Tap Tempo & Time Signatures -->
-          <div class="metronome-options-row">
-            <button type="button" class="metronome-tap-btn" id="metronomeTapBtn" onclick="handleTapTempo()"
-              title="Tap repeatedly at your desired tempo">
-              <span class="tap-icon">👆</span> Tap Tempo
-            </button>
-
-            <div class="metronome-meter-group" role="radiogroup" aria-label="Time Signature">
-              <button type="button" class="metronome-meter-pill" data-beats="2"
-                onclick="setMetronomeTimeSignature(2)">2/4</button>
-              <button type="button" class="metronome-meter-pill" data-beats="3"
-                onclick="setMetronomeTimeSignature(3)">3/4</button>
-              <button type="button" class="metronome-meter-pill active" data-beats="4"
-                onclick="setMetronomeTimeSignature(4)">4/4</button>
-              <button type="button" class="metronome-meter-pill" data-beats="6"
-                onclick="setMetronomeTimeSignature(6)">6/8</button>
-            </div>
-          </div>
-
-          <!-- Visual Beat Indicator LED Dots -->
-          <div class="metronome-beat-container">
-            <div class="metronome-beat-dots" id="metronomeBeatDots">
-              <!-- Rendered dynamically by updateMetronomeBeatDots() -->
-            </div>
-          </div>
-
-          <!-- Start / Stop Button -->
-          <button type="button" class="btn btn-primary metronome-toggle-btn" id="metronomeToggleBtn"
-            onclick="toggleMetronome()">
-            ▶ Start Metronome
-          </button>
-        </div>
-      </div>
-
-      <!-- Built-in In-Browser Piano Drawer / Pitch Helper (Hidden by default unless user shows it) -->
-      <div class="card piano-card fade-in" id="pianoDrawer" style="display: none;">
-        <div class="piano-header">
-          <div class="piano-header-left" onclick="togglePianoCollapse()" role="button" tabindex="0"
-            aria-expanded="true">
-            <span class="piano-header-icon">🎹</span>
-            <div>
-              <h3 class="piano-title">Kantimes Piano &amp; Pitch Helper</h3>
-              <p class="piano-subtitle">Web Audio precision pitch finder for choir rehearsal</p>
-            </div>
-          </div>
-          <div class="piano-header-right">
-            <button type="button" class="piano-collapse-btn" id="pianoCollapseBtn" onclick="togglePianoCollapse()"
-              aria-label="Toggle Piano Controls" title="Collapse/Expand Piano">▼</button>
-            <button type="button" class="piano-maximize-btn" id="pianoMaximizeBtn" onclick="togglePianoMaximize()"
-              aria-label="Maximize Fullscreen Piano" title="Maximize Fullscreen Mode (X)">
-              <svg class="piano-icon-max" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor"
-                stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-                <path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7" />
-              </svg>
-              <svg class="piano-icon-min" style="display: none;" viewBox="0 0 24 24" width="14" height="14" fill="none"
-                stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-                <path d="M4 14h6v6M20 10h-6V4M14 10l7-7M3 21l7-7" />
-              </svg>
-            </button>
-            <button type="button" class="piano-fullscreen-exit-btn" id="pianoFullscreenExitBtn"
-              onclick="exitPianoMaximized()" aria-label="Exit Fullscreen" title="Exit Fullscreen (Esc or X)">
-              <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.2"
-                stroke-linecap="round" stroke-linejoin="round">
-                <line x1="18" y1="6" x2="6" y2="18"></line>
-                <line x1="6" y1="6" x2="18" y2="18"></line>
-              </svg>
-              <span>Exit Fullscreen</span>
-            </button>
-            <button type="button" class="piano-close-btn" id="pianoCloseBtn" onclick="hidePianoDrawer()"
-              aria-label="Hide Piano" title="Hide Piano">&times;</button>
-          </div>
-        </div>
-
-        <div class="piano-body" id="pianoBody">
-          <!-- Device Orientation Banner for Mobile Portrait -->
-          <div class="piano-orientation-banner" id="pianoOrientationBanner" role="status">
-            <span class="banner-icon">📱</span>
-            <span>Rotate device to landscape for full keyboard width</span>
-          </div>
-
-          <!-- Voice Part Quick Pitch Row -->
-          <div class="piano-voice-parts-row">
-            <span class="piano-voice-label">Choir Starting Pitches:</span>
-            <div class="piano-voice-buttons">
-              <button type="button" class="piano-part-btn part-soprano" onclick="playPianoVoicePart('Soprano')"
-                title="Soprano Reference Pitch: C5">
-                <span class="part-badge">S</span> Soprano (C5)
+        <div class="card" id="practiceWorkspace">
+          <div class="workspace-header-row">
+            <h2>⏱️ <span id="practiceDurationTitle">15</span>-Minute Practice Session</h2>
+            <div class="workspace-header-actions">
+              <button type="button" class="btn-tool-pill" id="toggleMetronomeVisibilityBtn"
+                onclick="toggleMetronomeVisibility()" title="Show/hide rehearsal metronome"
+                aria-label="Toggle Metronome">
+                <span class="tool-icon">⏱️</span>
+                <span class="tool-text">Metronome</span>
               </button>
-              <button type="button" class="piano-part-btn part-alto" onclick="playPianoVoicePart('Alto')"
-                title="Alto Reference Pitch: G4">
-                <span class="part-badge">A</span> Alto (G4)
+              <button type="button" class="btn-tool-pill" id="pianoToggleBtn" onclick="togglePianoDrawer()"
+                title="Practice Piano &amp; Vocal Pitch Helper" aria-label="Toggle Piano">
+                🎹 Piano
               </button>
-              <button type="button" class="piano-part-btn part-tenor" onclick="playPianoVoicePart('Tenor')"
-                title="Tenor Reference Pitch: E4">
-                <span class="part-badge">T</span> Tenor (E4)
-              </button>
-              <button type="button" class="piano-part-btn part-bass" onclick="playPianoVoicePart('Bass')"
-                title="Bass Reference Pitch: C3">
-                <span class="part-badge">B</span> Bass (C3)
+              <button type="button" class="btn-vocal-tips" id="btnVocalTips" data-action="vocal-tips"
+                onclick="openVocalTipsModal(event)" title="Vocal Warm-Ups &amp; Singing Tips"
+                aria-label="Open Vocal Warm-Ups &amp; Singing Tips">
+                <span class="vocal-tips-icon">ℹ️</span>
+                <span class="vocal-tips-text">Vocal Tips</span>
               </button>
             </div>
           </div>
+          <label for="targetSong">Select Song to Rehearse</label>
+          <select id="targetSong" data-alt-id="songSelect,selectSongToRehearse" class="rehearsal-song-select"
+            onchange="handleSongSelectionChange()">
+            <!-- Populated dynamically from userSettings.songs -->
+          </select>
 
-          <!-- Controls: Octave Selector, Note Labels, Mobile Shifts -->
-          <div class="piano-toolbar">
-            <div class="piano-octave-selector" role="radiogroup" aria-label="Keyboard Octave">
-              <span class="piano-toolbar-label">Octave:</span>
-              <button type="button" class="piano-octave-pill" data-octave="3" onclick="setPianoOctave(3)">Oct 3
-                (C3–B3)</button>
-              <button type="button" class="piano-octave-pill active" data-octave="4" onclick="setPianoOctave(4)">Oct 4
-                (Middle C)</button>
-              <button type="button" class="piano-octave-pill" data-octave="5" onclick="setPianoOctave(5)">Oct 5
-                (C5–B5)</button>
+          <!-- Quick Timer Duration Adjuster -->
+          <div class="quick-duration-wrapper" id="quickDurationWrapper">
+            <span class="quick-duration-label">⏱️ Duration:</span>
+            <div class="quick-duration-pills" id="quickDurationPills" role="radiogroup" aria-label="Practice duration">
+              <button type="button" class="quick-duration-pill" data-mins="5"
+                onclick="selectQuickDuration(5)">5m</button>
+              <button type="button" class="quick-duration-pill" data-mins="10"
+                onclick="selectQuickDuration(10)">10m</button>
+              <button type="button" class="quick-duration-pill active" data-mins="15"
+                onclick="selectQuickDuration(15)">15m</button>
+              <button type="button" class="quick-duration-pill" data-mins="20"
+                onclick="selectQuickDuration(20)">20m</button>
+              <button type="button" class="quick-duration-pill" data-mins="30"
+                onclick="selectQuickDuration(30)">30m</button>
+              <button type="button" class="quick-duration-pill" data-mins="45"
+                onclick="selectQuickDuration(45)">45m</button>
+              <button type="button" class="quick-duration-pill" data-mins="60"
+                onclick="selectQuickDuration(60)">60m</button>
+            </div>
+          </div>
+
+          <div class="timer-display" id="timerDisplay">15:00</div>
+
+          <!-- Encouraging Choir Quote & Milestone Banner -->
+          <div id="encouragementBanner" class="encouragement-banner" style="display: none;">
+            <span class="encouragement-icon" id="encouragementIcon">🎵</span>
+            <span class="encouragement-text" id="encouragementText">"The song of the righteous is a prayer unto
+              Him."</span>
+          </div>
+
+          <p id="practiceInstructionSubtext"
+            style="font-size: 0.78rem; text-align: center; color: var(--text-muted); margin-bottom: 12px;">
+            Hit Start, practice your parts, and complete the 15-minute countdown to record your session.
+          </p>
+
+          <button class="btn btn-primary" id="timerBtn" onclick="toggleTimer()">Start Practice</button>
+        </div>
+
+        <!-- Built-in In-Browser Metronome Tool (Hidden by default unless user shows it) -->
+        <div class="card metronome-card fade-in" id="metronomeWidget" style="display: none;">
+          <div class="metronome-header">
+            <div class="metronome-header-left" onclick="toggleMetronomeCollapse()" role="button" tabindex="0"
+              aria-expanded="true" style="cursor: pointer; flex: 1;">
+              <span class="metronome-header-icon">⏱️</span>
+              <div>
+                <h3 class="metronome-title">Kantimes Metronome</h3>
+                <p class="metronome-subtitle">Web Audio precision pulse for choral rehearsal</p>
+              </div>
+            </div>
+            <div class="metronome-header-right">
+              <span class="metronome-badge" id="metronomeHeaderBadge">100 BPM • 4/4</span>
+              <button type="button" class="metronome-collapse-btn" id="metronomeCollapseBtn"
+                onclick="toggleMetronomeCollapse()" aria-label="Toggle Metronome Controls"
+                title="Collapse/Expand Metronome">▼</button>
+              <button type="button" class="metronome-close-btn" id="metronomeCloseBtn" onclick="hideMetronomeWidget()"
+                aria-label="Hide Metronome" title="Hide Metronome">&times;</button>
+            </div>
+          </div>
+
+          <div class="metronome-body" id="metronomeBody">
+            <!-- Tempo Display & Dynamic Italian Marking -->
+            <div class="metronome-tempo-display">
+              <div class="metronome-bpm-wrap">
+                <span class="metronome-bpm-number" id="metronomeBpmDisplay">100</span>
+                <span class="metronome-bpm-unit">BPM</span>
+              </div>
+              <div class="metronome-tempo-name" id="metronomeTempoMarking">Moderato (Moderate)</div>
             </div>
 
-            <!-- Mobile / Quick Octave Shift Buttons -->
-            <div class="piano-octave-shift-group" id="pianoOctaveShiftGroup" aria-label="Octave Shift">
-              <button type="button" class="piano-shift-btn" id="pianoShiftDownBtn" onclick="shiftPianoOctave(-1)"
-                title="Shift 1 Octave Lower" aria-label="Octave Down">◀ Oct</button>
-              <span class="piano-shift-label" id="pianoShiftLabel">Oct 4</span>
-              <button type="button" class="piano-shift-btn" id="pianoShiftUpBtn" onclick="shiftPianoOctave(1)"
-                title="Shift 1 Octave Higher" aria-label="Octave Up">Oct ▶</button>
+            <!-- Slider & Fine Tuning -->
+            <div class="metronome-controls-row">
+              <button type="button" class="metronome-fine-btn" onclick="adjustMetronomeBpm(-1)" title="Decrease 1 BPM"
+                aria-label="Decrease 1 BPM">&minus;1</button>
+              <input type="range" class="metronome-slider" id="metronomeSlider" min="40" max="220" value="100"
+                oninput="handleMetronomeSliderInput(this.value)" aria-label="Metronome Tempo Slider">
+              <button type="button" class="metronome-fine-btn" onclick="adjustMetronomeBpm(1)" title="Increase 1 BPM"
+                aria-label="Increase 1 BPM">+1</button>
             </div>
 
-            <div class="piano-options-group">
-              <button type="button" class="piano-opt-btn active" id="pianoToggleLabelsBtn" onclick="togglePianoLabels()"
-                title="Toggle note names on keys">
-                🏷️ Labels
+            <!-- Tap Tempo & Time Signatures -->
+            <div class="metronome-options-row">
+              <button type="button" class="metronome-tap-btn" id="metronomeTapBtn" onclick="handleTapTempo()"
+                title="Tap repeatedly at your desired tempo">
+                <span class="tap-icon">👆</span> Tap Tempo
               </button>
+
+              <div class="metronome-meter-group" role="radiogroup" aria-label="Time Signature">
+                <button type="button" class="metronome-meter-pill" data-beats="2"
+                  onclick="setMetronomeTimeSignature(2)">2/4</button>
+                <button type="button" class="metronome-meter-pill" data-beats="3"
+                  onclick="setMetronomeTimeSignature(3)">3/4</button>
+                <button type="button" class="metronome-meter-pill active" data-beats="4"
+                  onclick="setMetronomeTimeSignature(4)">4/4</button>
+                <button type="button" class="metronome-meter-pill" data-beats="6"
+                  onclick="setMetronomeTimeSignature(6)">6/8</button>
+              </div>
             </div>
-          </div>
 
-          <!-- Currently Playing Note Display / Feedback -->
-          <div class="piano-status-strip">
-            <span class="piano-active-note-display" id="pianoActiveNoteDisplay">Ready — Tap a key or vocal part</span>
-            <span class="piano-frequency-display" id="pianoFrequencyDisplay"></span>
-          </div>
-
-          <!-- Interactive Virtual Piano Keyboard -->
-          <div class="piano-keyboard-wrapper">
-            <div class="piano-keyboard" id="pianoKeyboard" role="region" aria-label="Virtual Piano Keyboard">
-              <!-- Rendered dynamically by renderPianoKeyboard() -->
+            <!-- Visual Beat Indicator LED Dots -->
+            <div class="metronome-beat-container">
+              <div class="metronome-beat-dots" id="metronomeBeatDots">
+                <!-- Rendered dynamically by updateMetronomeBeatDots() -->
+              </div>
             </div>
-          </div>
 
-          <div class="piano-hint-text" id="pianoHintText">
-            <span>💡 Tip: Click or tap any key to sound the note. Keyboard shortcuts: <kbd>A</kbd>–<kbd>K</kbd> play
-              white keys, <kbd>W,E,T,Y,U</kbd> play black keys. Press <kbd>X</kbd> for Fullscreen.</span>
+            <!-- Start / Stop Button -->
+            <button type="button" class="btn btn-primary metronome-toggle-btn" id="metronomeToggleBtn"
+              onclick="toggleMetronome()">
+              ▶ Start Metronome
+            </button>
           </div>
         </div>
-      </div>
+
+        <!-- Built-in In-Browser Piano Drawer / Pitch Helper (Hidden by default unless user shows it) -->
+        <div class="card piano-card fade-in" id="pianoDrawer" style="display: none;">
+          <div class="piano-header">
+            <div class="piano-header-left" onclick="togglePianoCollapse()" role="button" tabindex="0"
+              aria-expanded="true">
+              <span class="piano-header-icon">🎹</span>
+              <div>
+                <h3 class="piano-title">Kantimes Piano &amp; Pitch Helper</h3>
+                <p class="piano-subtitle">Web Audio precision pitch finder for choir rehearsal</p>
+              </div>
+            </div>
+            <div class="piano-header-right">
+              <button type="button" class="piano-collapse-btn" id="pianoCollapseBtn" onclick="togglePianoCollapse()"
+                aria-label="Toggle Piano Controls" title="Collapse/Expand Piano">▼</button>
+              <button type="button" class="piano-maximize-btn" id="pianoMaximizeBtn" onclick="togglePianoMaximize()"
+                aria-label="Maximize Fullscreen Piano" title="Maximize Fullscreen Mode (X)">
+                <svg class="piano-icon-max" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor"
+                  stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7" />
+                </svg>
+                <svg class="piano-icon-min" style="display: none;" viewBox="0 0 24 24" width="14" height="14"
+                  fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M4 14h6v6M20 10h-6V4M14 10l7-7M3 21l7-7" />
+                </svg>
+              </button>
+              <button type="button" class="piano-fullscreen-exit-btn" id="pianoFullscreenExitBtn"
+                onclick="exitPianoMaximized()" aria-label="Exit Fullscreen" title="Exit Fullscreen (Esc or X)">
+                <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.2"
+                  stroke-linecap="round" stroke-linejoin="round">
+                  <line x1="18" y1="6" x2="6" y2="18"></line>
+                  <line x1="6" y1="6" x2="18" y2="18"></line>
+                </svg>
+                <span>Exit Fullscreen</span>
+              </button>
+              <button type="button" class="piano-close-btn" id="pianoCloseBtn" onclick="hidePianoDrawer()"
+                aria-label="Hide Piano" title="Hide Piano">&times;</button>
+            </div>
+          </div>
+
+          <div class="piano-body" id="pianoBody">
+            <!-- Device Orientation Banner for Mobile Portrait -->
+            <div class="piano-orientation-banner" id="pianoOrientationBanner" role="status">
+              <span class="banner-icon">📱</span>
+              <span>Rotate device to landscape for full keyboard width</span>
+            </div>
+
+            <!-- Voice Part Quick Pitch Row -->
+            <div class="piano-voice-parts-row">
+              <span class="piano-voice-label">Choir Starting Pitches:</span>
+              <div class="piano-voice-buttons">
+                <button type="button" class="piano-part-btn part-soprano" onclick="playPianoVoicePart('Soprano')"
+                  title="Soprano Reference Pitch: C5">
+                  <span class="part-badge">S</span> Soprano (C5)
+                </button>
+                <button type="button" class="piano-part-btn part-alto" onclick="playPianoVoicePart('Alto')"
+                  title="Alto Reference Pitch: G4">
+                  <span class="part-badge">A</span> Alto (G4)
+                </button>
+                <button type="button" class="piano-part-btn part-tenor" onclick="playPianoVoicePart('Tenor')"
+                  title="Tenor Reference Pitch: E4">
+                  <span class="part-badge">T</span> Tenor (E4)
+                </button>
+                <button type="button" class="piano-part-btn part-bass" onclick="playPianoVoicePart('Bass')"
+                  title="Bass Reference Pitch: C3">
+                  <span class="part-badge">B</span> Bass (C3)
+                </button>
+              </div>
+            </div>
+
+            <!-- Controls: Octave Selector, Note Labels, Mobile Shifts -->
+            <div class="piano-toolbar">
+              <div class="piano-octave-selector" role="radiogroup" aria-label="Keyboard Octave">
+                <span class="piano-toolbar-label">Octave:</span>
+                <button type="button" class="piano-octave-pill" data-octave="3" onclick="setPianoOctave(3)">Oct 3
+                  (C3–B3)</button>
+                <button type="button" class="piano-octave-pill active" data-octave="4" onclick="setPianoOctave(4)">Oct 4
+                  (Middle C)</button>
+                <button type="button" class="piano-octave-pill" data-octave="5" onclick="setPianoOctave(5)">Oct 5
+                  (C5–B5)</button>
+              </div>
+
+              <!-- Mobile / Quick Octave Shift Buttons -->
+              <div class="piano-octave-shift-group" id="pianoOctaveShiftGroup" aria-label="Octave Shift">
+                <button type="button" class="piano-shift-btn" id="pianoShiftDownBtn" onclick="shiftPianoOctave(-1)"
+                  title="Shift 1 Octave Lower" aria-label="Octave Down">◀ Oct</button>
+                <span class="piano-shift-label" id="pianoShiftLabel">Oct 4</span>
+                <button type="button" class="piano-shift-btn" id="pianoShiftUpBtn" onclick="shiftPianoOctave(1)"
+                  title="Shift 1 Octave Higher" aria-label="Octave Up">Oct ▶</button>
+              </div>
+
+              <div class="piano-options-group">
+                <button type="button" class="piano-opt-btn active" id="pianoToggleLabelsBtn"
+                  onclick="togglePianoLabels()" title="Toggle note names on keys">
+                  🏷️ Labels
+                </button>
+              </div>
+            </div>
+
+            <!-- Currently Playing Note Display / Feedback -->
+            <div class="piano-status-strip">
+              <span class="piano-active-note-display" id="pianoActiveNoteDisplay">Ready — Tap a key or vocal part</span>
+              <span class="piano-frequency-display" id="pianoFrequencyDisplay"></span>
+            </div>
+
+            <!-- Interactive Virtual Piano Keyboard -->
+            <div class="piano-keyboard-wrapper">
+              <div class="piano-keyboard" id="pianoKeyboard" role="region" aria-label="Virtual Piano Keyboard">
+                <!-- Rendered dynamically by renderPianoKeyboard() -->
+              </div>
+            </div>
+
+            <div class="piano-hint-text" id="pianoHintText">
+              <span>💡 Tip: Click or tap any key to sound the note. Keyboard shortcuts: <kbd>A</kbd>–<kbd>K</kbd> play
+                white keys, <kbd>W,E,T,Y,U</kbd> play black keys. Press <kbd>X</kbd> for Fullscreen.</span>
+            </div>
+          </div>
+        </div>
 
       </div>
       <!-- /#practiceSection -->
 
       <!-- Repertoire Section (Active + Archived) -->
       <div id="repertoireSection" class="dashboard-section-tab">
-      <!-- Active Song Resources (Dynamically Filtered) -->
-      <div class="card" id="activeResourcesCard">
-        <h2>🎵 Active Song Repertoire</h2>
-        <div id="dynamicResourceContainer">
-          <!-- Dynamically populated based on targetSong selection -->
+        <!-- Active Song Resources (Dynamically Filtered) -->
+        <div class="card" id="activeResourcesCard">
+          <h2>🎵 Active Song Repertoire</h2>
+          <div id="dynamicResourceContainer">
+            <!-- Dynamically populated based on targetSong selection -->
+          </div>
         </div>
-      </div>
 
-      <!-- Archived / Past Conferences Section (Collapsible, shown when enabled in Settings) -->
-      <div class="card archived-repertoire-card" id="archivedRepertoireCard" style="display: none;">
-        <div class="archived-header-row" onclick="toggleArchivedRepertoireCollapse()" role="button" tabindex="0"
-          onkeydown="if(event.key==='Enter'||event.key===' ')toggleArchivedRepertoireCollapse()" aria-expanded="false"
-          aria-controls="archivedRepertoireContent">
-          <div class="archived-title-wrap">
-            <h2>📁 Archived / Past Conferences</h2>
-            <span class="archived-count-pill archived-count-badge" id="archivedCountPill" data-alt-id="archivedAccordionCount">0 pieces</span>
+        <!-- Archived / Past Conferences Section (Collapsible, shown when enabled in Settings) -->
+        <div class="card archived-repertoire-card" id="archivedRepertoireCard" style="display: none;">
+          <div class="archived-header-row" onclick="toggleArchivedRepertoireCollapse()" role="button" tabindex="0"
+            onkeydown="if(event.key==='Enter'||event.key===' ')toggleArchivedRepertoireCollapse()" aria-expanded="false"
+            aria-controls="archivedRepertoireContent">
+            <div class="archived-title-wrap">
+              <h2>📁 Archived / Past Conferences</h2>
+              <span class="archived-count-pill archived-count-badge" id="archivedCountPill"
+                data-alt-id="archivedAccordionCount">0 pieces</span>
+            </div>
+            <button type="button" class="btn-icon-collapse" id="archivedCollapseBtn"
+              aria-label="Toggle archived repertoire">▼</button>
           </div>
-          <button type="button" class="btn-icon-collapse" id="archivedCollapseBtn"
-            aria-label="Toggle archived repertoire">▼</button>
-        </div>
-        <div class="archived-repertoire-content" id="archivedRepertoireContent" style="display: none;">
-          <p class="archived-subtitle">Repertoire from past events &amp; conferences. Tap any piece to load it into the
-            rehearsal workspace.</p>
-          <div class="archived-items-grid" id="archivedItemsGrid" data-alt-id="archivedSongsList">
-            <!-- Dynamically populated from archived songs -->
+          <div class="archived-repertoire-content" id="archivedRepertoireContent" style="display: none;">
+            <p class="archived-subtitle">Repertoire from past events &amp; conferences. Tap any piece to load it into
+              the
+              rehearsal workspace.</p>
+            <div class="archived-items-grid" id="archivedItemsGrid" data-alt-id="archivedSongsList">
+              <!-- Dynamically populated from archived songs -->
+            </div>
           </div>
         </div>
-      </div>
 
       </div>
       <!-- /#repertoireSection -->
 
       <!-- My Practice Milestones & Weekly Pulse -->
       <div id="milestonesSection" class="dashboard-section-tab">
-      <div class="card practice-milestones-card" id="practiceMilestonesCard">
-        <div class="milestones-header">
-          <div class="milestones-title-group">
-            <h3 id="milestonesCardTitle">📈 My Practice Milestones &amp; Weekly Pulse</h3>
-            <p>Local-first, privacy-protected practice tracking for group chats</p>
-          </div>
-        </div>
-
-        <!-- Singer Identity Hero Ribbon -->
-        <div class="milestones-identity-ribbon">
-          <div class="identity-ribbon-left">
-            <span class="identity-ribbon-avatar" id="milestonesAvatarIcon">🎵</span>
-            <div class="identity-ribbon-meta">
-              <div class="identity-ribbon-top">
-                <span class="identity-handle-text" id="milestonesHandleDisplay">Loading...</span>
-                <span class="identity-tag-badge" id="milestonesTagDisplay">#----</span>
-              </div>
-              <div class="identity-ribbon-sub" id="milestonesSubtext">All • LDS Choir</div>
+        <div class="card practice-milestones-card" id="practiceMilestonesCard">
+          <div class="milestones-header">
+            <div class="milestones-title-group">
+              <h3 id="milestonesCardTitle">📈 My Practice Milestones &amp; Weekly Pulse</h3>
+              <p>Local-first, privacy-protected practice tracking for group chats</p>
             </div>
           </div>
-        </div>
 
-        <!-- 3-Column Weekly Pulse KPI Strip -->
-        <div class="milestones-stats-grid">
-          <div class="milestone-stat-tile">
-            <span class="stat-tile-label">This Week</span>
-            <span class="stat-tile-value" id="milestonesWeeklyMins">0m</span>
-            <span class="stat-tile-sub" id="milestonesWeeklyHours">0.0 hours</span>
+          <!-- Singer Identity Hero Ribbon -->
+          <div class="milestones-identity-ribbon">
+            <div class="identity-ribbon-left">
+              <span class="identity-ribbon-avatar" id="milestonesAvatarIcon">🎵</span>
+              <div class="identity-ribbon-meta">
+                <div class="identity-ribbon-top">
+                  <span class="identity-handle-text" id="milestonesHandleDisplay">Loading...</span>
+                  <span class="identity-tag-badge" id="milestonesTagDisplay">#----</span>
+                </div>
+                <div class="identity-ribbon-sub" id="milestonesSubtext">All • LDS Choir</div>
+              </div>
+            </div>
           </div>
-          <div class="milestone-stat-tile">
-            <span class="stat-tile-label">Sessions</span>
-            <span class="stat-tile-value" id="milestonesSessionCount">0</span>
-            <span class="stat-tile-sub">logged</span>
-          </div>
-          <div class="milestone-stat-tile">
-            <span class="stat-tile-label">Songs Rehearsed</span>
-            <span class="stat-tile-value" id="milestonesSongsCount">0</span>
-            <span class="stat-tile-sub">pieces</span>
-          </div>
-        </div>
 
-        <!-- Recent Milestones & Activity List -->
-        <div class="milestones-activity-section">
-          <div class="milestones-activity-header">
-            <span>Recent Activity Logs</span>
-            <span class="activity-history-count" id="milestonesActivityCount">0 records</span>
+          <!-- 3-Column Weekly Pulse KPI Strip -->
+          <div class="milestones-stats-grid">
+            <div class="milestone-stat-tile">
+              <span class="stat-tile-label">This Week</span>
+              <span class="stat-tile-value" id="milestonesWeeklyMins">0m</span>
+              <span class="stat-tile-sub" id="milestonesWeeklyHours">0.0 hours</span>
+            </div>
+            <div class="milestone-stat-tile">
+              <span class="stat-tile-label">Sessions</span>
+              <span class="stat-tile-value" id="milestonesSessionCount">0</span>
+              <span class="stat-tile-sub">logged</span>
+            </div>
+            <div class="milestone-stat-tile">
+              <span class="stat-tile-label">Songs Rehearsed</span>
+              <span class="stat-tile-value" id="milestonesSongsCount">0</span>
+              <span class="stat-tile-sub">pieces</span>
+            </div>
           </div>
-          <div class="milestones-activity-list" id="milestonesActivityList">
-            <!-- Populated dynamically from kantimes_practice_logs -->
-          </div>
-        </div>
 
-        <!-- Prominent 1-Tap Group Chat Practice Report Generator -->
-        <div class="milestones-card-actions">
-          <button type="button" class="btn btn-primary btn-copy-chat-report" id="btnCopyChatReport"
-            onclick="copyPracticeReport()">
-            📋 Copy Practice Report for Group Chat
-          </button>
-          <p class="milestones-share-hint">
-            Tap to copy a clean summary of your practice minutes and pieces to share in your Ward/Stake choir group chat
-            (Messenger or Viber).
-          </p>
+          <!-- Recent Milestones & Activity List -->
+          <div class="milestones-activity-section">
+            <div class="milestones-activity-header">
+              <span>Recent Activity Logs</span>
+              <span class="activity-history-count" id="milestonesActivityCount">0 records</span>
+            </div>
+            <div class="milestones-activity-list" id="milestonesActivityList">
+              <!-- Populated dynamically from kantimes_practice_logs -->
+            </div>
+          </div>
+
+          <!-- Prominent 1-Tap Group Chat Practice Report Generator -->
+          <div class="milestones-card-actions">
+            <button type="button" class="btn btn-primary btn-copy-chat-report" id="btnCopyChatReport"
+              onclick="copyPracticeReport()">
+              📋 Copy Practice Report for Group Chat
+            </button>
+            <p class="milestones-share-hint">
+              Tap to copy a clean summary of your practice minutes and pieces to share in your Ward/Stake choir group
+              chat
+              (Messenger or Viber).
+            </p>
+          </div>
         </div>
-      </div>
 
       </div>
       <!-- /#milestonesSection -->
 
       <!-- Section Standings -->
       <div id="standingsSection" class="dashboard-section-tab">
-      <div class="card" id="sectionStandings">
-        <h2>📊 Section Standings</h2>
-        <div class="standings-header-controls">
-          <div class="standings-filter-pills" role="tablist">
-            <button type="button" class="btn-standings-filter active" data-filter="current-stake" id="btnFilterCurrentStake">
-              📍 Current Stake
-            </button>
-            <button type="button" class="btn-standings-filter" data-filter="all-stakes" id="btnFilterAllStakes">
-              🌐 All Stakes
-            </button>
-          </div>
-          <select id="selectStandingsStake" class="standings-stake-dropdown" style="display: none;">
-            <!-- Populated with stakes present in logs -->
-          </select>
-        </div>
-        <div id="sectionStandingsList" class="section-standings-container" data-alt-id="sectionList">
-          <div style="text-align: center; color: var(--text-muted); font-size: 0.85rem; padding: 12px;">Loading section
-            rankings...</div>
-        </div>
-
-        <!-- Music Staff & Leadership Spotlight Card -->
-        <div id="musicStaffCard" class="music-staff-card mt-3 p-3 rounded bg-surface border border-secondary d-none" style="display: none;">
-          <div class="d-flex align-items-center justify-content-between mb-2">
-            <div class="fw-semibold text-light">
-              <span>🎹</span> Music Staff &amp; Leadership
+        <div class="card" id="sectionStandings">
+          <h2>📊 Section Standings</h2>
+          <div class="standings-header-controls">
+            <div class="standings-filter-pills" role="tablist">
+              <button type="button" class="btn-standings-filter active" data-filter="current-stake"
+                id="btnFilterCurrentStake">
+                📍 Current Stake
+              </button>
+              <button type="button" class="btn-standings-filter" data-filter="all-stakes" id="btnFilterAllStakes">
+                🌐 All Stakes
+              </button>
             </div>
-            <span class="badge bg-secondary text-uppercase" style="font-size: 0.75rem;">Support</span>
+            <select id="selectStandingsStake" class="standings-stake-dropdown" style="display: none;">
+              <!-- Populated with stakes present in logs -->
+            </select>
           </div>
-          <div id="musicStaffList" class="d-flex flex-column gap-2">
-            <!-- Dynamically rendered rows for Accompanist and Director -->
+          <div id="sectionStandingsList" class="section-standings-container" data-alt-id="sectionList">
+            <div style="text-align: center; color: var(--text-muted); font-size: 0.85rem; padding: 12px;">Loading
+              section
+              rankings...</div>
+          </div>
+
+          <!-- Music Staff & Leadership Spotlight Card -->
+          <div id="musicStaffCard" class="music-staff-card mt-3 p-3 rounded bg-surface border border-secondary d-none"
+            style="display: none;">
+            <div class="d-flex align-items-center justify-content-between mb-2">
+              <div class="fw-semibold text-light">
+                <span>🎹</span> Music Staff &amp; Leadership
+              </div>
+              <span class="badge bg-secondary text-uppercase" style="font-size: 0.75rem;">Support</span>
+            </div>
+            <div id="musicStaffList" class="d-flex flex-column gap-2">
+              <!-- Dynamically rendered rows for Accompanist and Director -->
+            </div>
           </div>
         </div>
-      </div>
       </div>
       <!-- /#standingsSection -->
 
@@ -708,7 +694,9 @@
           <strong>never recorded or transmitted</strong>.
         </p>
       </div>
-      <p class="footer-credit">&copy; <span id="footerYear"></span> <a href="https://www.jamesdeguzman.com/" target="_blank" rel="noopener noreferrer" class="footer-author-link">James Phillip De Guzman</a> • <span class="footer-version-tag">Kantimes v2.8.0</span></p>
+      <p class="footer-credit">&copy; <span id="footerYear"></span> <a href="https://www.jamesdeguzman.com/"
+          target="_blank" rel="noopener noreferrer" class="footer-author-link">James Phillip De Guzman</a> • <span
+          class="footer-version-tag">Kantimes v2.8.0</span></p>
       <div class="footer-live-badge" title="Live Practice Sessions">
         <span class="live-pulse-dot" aria-hidden="true"></span>
         <span id="liveVisitorCount" class="live-visitor-text">Connecting...</span>
@@ -893,31 +881,20 @@
 
           <div class="stake-sheet-input-group" style="margin-top: 14px;">
             <div class="stake-sheet-field-header">
-              <label for="stakeSheetUrlInput" class="field-label" style="font-weight: 600; font-size: 0.85rem; letter-spacing: 0.03em; color: var(--text-muted, #94a3b8);">GOOGLE SHEET URL OR ID</label>
+              <label for="stakeSheetUrlInput" class="field-label"
+                style="font-weight: 600; font-size: 0.85rem; letter-spacing: 0.03em; color: var(--text-muted, #94a3b8);">GOOGLE
+                SHEET URL OR ID</label>
               <span id="sheetLockBadge" class="sheet-lock-badge">Connected</span>
             </div>
 
             <div class="stake-sheet-input-wrapper">
-              <textarea 
-                id="stakeSheetUrlInput" 
-                data-alt-id="googleSheetInput,stakeSheetInput" 
-                class="form-control stake-sheet-textarea" 
-                rows="3" 
-                placeholder="https://docs.google.com/spreadsheets/d/..." 
-                autocomplete="off" 
-                spellcheck="false"
-                wrap="soft"
-                readonly
-                onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();handleStakeSheetConnect();}"
-              ></textarea>
-              <button 
-                type="button" 
-                id="btnClearSheetUrl" 
-                class="btn-clear-sheet-url" 
-                title="Clear input" 
-                aria-label="Clear Google Sheet link"
-                style="display: none;"
-              >✕</button>
+              <textarea id="stakeSheetUrlInput" data-alt-id="googleSheetInput,stakeSheetInput"
+                class="form-control stake-sheet-textarea" rows="3"
+                placeholder="https://docs.google.com/spreadsheets/d/..." autocomplete="off" spellcheck="false"
+                wrap="soft" readonly
+                onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();handleStakeSheetConnect();}"></textarea>
+              <button type="button" id="btnClearSheetUrl" class="btn-clear-sheet-url" title="Clear input"
+                aria-label="Clear Google Sheet link" style="display: none;">✕</button>
             </div>
 
             <div class="stake-sheet-field-actions">
@@ -925,7 +902,8 @@
                 ✏️ Edit Sheet Link
               </button>
               <p class="stake-sheet-helper-note stake-modal-field-hint">
-                Ensure your Google Sheet is set to <strong>&ldquo;Anyone with the link can view&rdquo;</strong> (Share &gt; General access).
+                Ensure your Google Sheet is set to <strong>&ldquo;Anyone with the link can view&rdquo;</strong> (Share
+                &gt; General access).
               </p>
             </div>
             <div class="stake-sheet-error" id="stakeSheetError" style="display: none;"></div>
@@ -976,8 +954,8 @@
     </div>
 
     <!-- Personal Settings / Preferences / Profile Modal -->
-    <div id="settingsModal" data-alt-id="profileSettingsModal" class="modal-backdrop" onclick="closeSettingsOnBackdrop(event)" role="dialog"
-      aria-modal="true" aria-labelledby="settingsModalTitle">
+    <div id="settingsModal" data-alt-id="profileSettingsModal" class="modal-backdrop"
+      onclick="closeSettingsOnBackdrop(event)" role="dialog" aria-modal="true" aria-labelledby="settingsModalTitle">
       <div class="modal-box settings-modal-box">
         <div class="modal-header">
           <div class="settings-modal-title-wrap">
@@ -1019,7 +997,8 @@
 
             <!-- Restore Existing Handle from Another Device -->
             <div class="d-flex align-items-center justify-content-between mt-1 mb-2">
-              <button type="button" id="toggleRestoreHandleBtn" class="btn btn-link btn-sm p-0 text-decoration-none text-info">
+              <button type="button" id="toggleRestoreHandleBtn"
+                class="btn btn-link btn-sm p-0 text-decoration-none text-info">
                 🔗 Already have a handle from another device?
               </button>
             </div>
@@ -1035,16 +1014,16 @@
             <div class="settings-section" style="margin-top: 14px;">
               <label for="profileFullName">Full Name <span class="label-hint">(Optional, Local in-app
                   only)</span></label>
-              <input type="text" id="profileFullName" data-alt-id="choirNameInput" placeholder="e.g. Juan dela Cruz" autocomplete="name"
-                onblur="if(typeof toTitleCase==='function')this.value=toTitleCase(this.value)">
+              <input type="text" id="profileFullName" data-alt-id="choirNameInput" placeholder="e.g. Juan dela Cruz"
+                autocomplete="name" onblur="if(typeof toTitleCase==='function')this.value=toTitleCase(this.value)">
               <p class="settings-hint">Used for local in-app greetings and personal dashboard.</p>
             </div>
 
             <div class="settings-section">
               <label for="profileNickname">Initials or Nickname <span class="label-hint">(Required, 2–6
                   chars)</span></label>
-              <input type="text" id="profileNickname" data-alt-id="profileInitials" minlength="2" maxlength="6" required placeholder="e.g. JD, SAM"
-                autocomplete="off" autocapitalize="characters"
+              <input type="text" id="profileNickname" data-alt-id="profileInitials" minlength="2" maxlength="6" required
+                placeholder="e.g. JD, SAM" autocomplete="off" autocapitalize="characters"
                 oninput="this.value = this.value.toUpperCase(); if(typeof validateNicknameInput==='function')validateNicknameInput(this);">
               <div class="input-validation-msg" id="profileNicknameValidationMsg" style="display: none;">⚠️ Please enter
                 2 to 6 characters.</div>
@@ -1054,7 +1033,8 @@
 
             <div class="settings-section">
               <label for="profileVoicePart" class="form-label">CHORAL ROLE / VOICE PART</label>
-              <select id="profileVoicePart" data-alt-id="choirVoiceSelect" class="form-select" onchange="handleProfileVoicePartChange(this)">
+              <select id="profileVoicePart" data-alt-id="choirVoiceSelect" class="form-select"
+                onchange="handleProfileVoicePartChange(this)">
                 <option value="Soprano">Soprano</option>
                 <option value="Alto">Alto</option>
                 <option value="Tenor">Tenor</option>
@@ -1071,20 +1051,11 @@
               <label for="profileStake" class="profile-field-label">Stake / District <span
                   class="label-hint">(Optional)</span></label>
               <div class="stake-select-wrapper stake-input-combobox-wrapper">
-                <input type="text" id="profileStake" data-alt-id="choirStakeSelect" list="profileStakeOptions" class="form-control stake-combobox-input"
+                <input type="text" id="profileStake" data-alt-id="choirStakeSelect" list="profileStakeOptions"
+                  class="form-control stake-combobox-input"
                   placeholder="Select or type your Stake (e.g. Iloilo Philippines Stake)" autocomplete="off" />
-                <svg 
-                  class="combobox-chevron-icon" 
-                  width="16" 
-                  height="16" 
-                  viewBox="0 0 24 24" 
-                  fill="none" 
-                  stroke="#64748b" 
-                  stroke-width="2" 
-                  stroke-linecap="round" 
-                  stroke-linejoin="round"
-                  aria-hidden="true"
-                >
+                <svg class="combobox-chevron-icon" width="16" height="16" viewBox="0 0 24 24" fill="none"
+                  stroke="#64748b" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                   <polyline points="6 9 12 15 18 9"></polyline>
                 </svg>
                 <datalist id="profileStakeOptions"></datalist>
@@ -1187,13 +1158,15 @@
             <div class="settings-section setting-item layout-preference-setting">
               <div class="setting-label-group">
                 <label class="setting-title" style="font-weight: 700;">Dashboard Layout</label>
-                <p class="setting-desc settings-hint" style="margin-top: 2px; margin-bottom: 8px;">Choose between a stacked continuous view or organized horizontal tabs.</p>
+                <p class="setting-desc settings-hint" style="margin-top: 2px; margin-bottom: 8px;">Choose between a
+                  stacked continuous view or organized horizontal tabs.</p>
               </div>
               <div class="layout-toggle-group" role="radiogroup" aria-label="Dashboard Layout">
                 <button type="button" class="btn-layout-option" data-layout="vertical" id="layoutBtnVertical">
                   ↕️ Vertical (Stacked)
                 </button>
-                <button type="button" class="btn-layout-option active" data-layout="horizontal" id="layoutBtnHorizontal">
+                <button type="button" class="btn-layout-option active" data-layout="horizontal"
+                  id="layoutBtnHorizontal">
                   ↔️ Horizontal (Tabs)
                 </button>
               </div>
@@ -1291,7 +1264,8 @@
               <input type="text" id="songFormSheet" placeholder="https://... PDF or Google Drive link">
 
               <div style="display: flex; gap: 8px; margin-top: 10px;">
-                <button type="button" id="btnAddPieceSubmit" class="btn btn-primary btn-add-piece" style="flex: 1;" onclick="handleAddNewSongFromModal()">
+                <button type="button" id="btnAddPieceSubmit" class="btn btn-primary btn-add-piece" style="flex: 1;"
+                  onclick="handleAddNewSongFromModal()">
                   ➕ Save Piece to Repertoire
                 </button>
                 <button type="button" class="btn btn-outline" style="width: auto;"
@@ -1833,7 +1807,8 @@
             </div>
             <div class="section-details-hero-info">
               <div class="section-details-title-row">
-                <h4 class="section-details-name" id="sectionDetailsName"><span id="breakdownSectionName">Section Name</span></h4>
+                <h4 class="section-details-name" id="sectionDetailsName"><span id="breakdownSectionName">Section
+                    Name</span></h4>
                 <span class="part-badge section-details-voice" id="sectionDetailsVoicePart"
                   data-voice="Tenor">Tenor</span>
               </div>
@@ -1846,7 +1821,8 @@
             <div class="section-stat-col">
               <span class="section-stat-label">Total</span>
               <span class="section-stat-val-inline"><strong id="breakdownTotalMinutes">0m (0.0h)</strong> <span
-                  class="stat-sub-inline" id="sectionDetailsTimeSub" style="display: none;">(0.0h)</span><span id="sectionDetailsTimeValue" style="display: none;">0m</span></span>
+                  class="stat-sub-inline" id="sectionDetailsTimeSub" style="display: none;">(0.0h)</span><span
+                  id="sectionDetailsTimeValue" style="display: none;">0m</span></span>
             </div>
             <div class="section-stat-col">
               <span class="section-stat-label">Rank</span>
@@ -1856,7 +1832,8 @@
             <div class="section-stat-col">
               <span class="section-stat-label">Singers</span>
               <span class="section-stat-val-inline"><strong id="breakdownSingersCount">0 active</strong> <span
-                  class="stat-sub-inline" id="sectionDetailsContributorsSub" style="display: none;">active</span><span id="sectionDetailsContributorsValue" style="display: none;">0</span></span>
+                  class="stat-sub-inline" id="sectionDetailsContributorsSub" style="display: none;">active</span><span
+                  id="sectionDetailsContributorsValue" style="display: none;">0</span></span>
             </div>
           </div>
 
