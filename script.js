@@ -1682,7 +1682,7 @@ function getUserIdentity() {
       existingName = "";
       localStorage.removeItem("choir_name");
     }
-    let existingNickname = localStorage.getItem("choir_nickname") || "";
+    let existingNickname = localStorage.getItem("choir_nickname") || localStorage.getItem("kantimes_persistent_nickname") || "";
     if (existingNickname === "undefined" || existingNickname === "null") {
       existingNickname = "";
       localStorage.removeItem("choir_nickname");
@@ -1747,10 +1747,15 @@ function getDisplayHandle(identity = getUserIdentity()) {
   }
   let tag = identity.tag || "USR1";
   try {
-    const savedHandle = typeof localStorage !== "undefined" ? localStorage.getItem("kantimes_user_handle") : null;
+    const savedHandle = typeof localStorage !== "undefined"
+      ? (localStorage.getItem("kantimes_user_handle") || localStorage.getItem("kantimes_persistent_handle"))
+      : null;
     if (savedHandle && savedHandle.includes("#")) {
       const parts = savedHandle.split("#");
       if (parts[1]) tag = parts[1];
+      if ((!nick || nick === "CHOIR") && parts[0] && parts[0] !== "CHOIR") {
+        nick = parts[0];
+      }
     }
   } catch (e) { }
   return `${nick.toUpperCase()}#${tag}`;
@@ -1991,6 +1996,117 @@ async function pullUserHistoryFromNeon(targetHandle) {
 }
 
 /**
+ * Checks if the user is practicing under an unlinked random default handle (e.g. CHOIR#TAG),
+ * and surfaces a subtle reminder banner with a 1-tap link action.
+ */
+function checkAnonymousSyncReminder() {
+  const currentHandle = localStorage.getItem('kantimes_user_handle') || (typeof getUserIdentity === 'function' ? getUserIdentity()?.handle : '');
+  const hasCustomHandle = currentHandle && !currentHandle.startsWith('CHOIR#');
+  const reminderEl = document.getElementById('anonymousSyncReminder');
+  if (!reminderEl) return;
+
+  if (!hasCustomHandle) {
+    const identity = typeof getUserIdentity === 'function' ? getUserIdentity() : {};
+    const tag = identity.tag || (currentHandle && currentHandle.includes('#') ? currentHandle.split('#')[1] : '----');
+    const tagDisplayEl = document.getElementById('anonymousSyncTag');
+    if (tagDisplayEl) {
+      tagDisplayEl.textContent = `#${tag}`;
+    }
+    reminderEl.classList.remove('d-none');
+    reminderEl.style.display = 'block';
+  } else {
+    reminderEl.classList.add('d-none');
+    reminderEl.style.display = 'none';
+  }
+}
+window.checkAnonymousSyncReminder = checkAnonymousSyncReminder;
+
+/**
+ * Background Sync Pull on App Launch:
+ * Fetches remote practice history from Neon to backfill local storage on startup.
+ */
+async function bootstrapPracticeSync() {
+  let handle = localStorage.getItem('kantimes_user_handle');
+  if (!handle) {
+    handle = localStorage.getItem('kantimes_persistent_handle');
+    if (handle) {
+      localStorage.setItem('kantimes_user_handle', handle);
+    }
+  }
+  if (!handle && typeof getUserIdentity === 'function') {
+    const id = getUserIdentity();
+    if (id && id.handle && !id.handle.startsWith('CHOIR#')) {
+      handle = id.handle;
+      localStorage.setItem('kantimes_user_handle', handle);
+    }
+  }
+
+  if (!handle) {
+    if (typeof checkAnonymousSyncReminder === 'function') checkAnonymousSyncReminder();
+    return;
+  }
+
+  try {
+    // Fetch remote practice history from Neon to backfill local storage
+    const res = await fetch(`/api/user-history?handle=${encodeURIComponent(handle)}&_t=${Date.now()}`);
+    if (res.ok) {
+      const { sessions } = await res.json();
+      if (Array.isArray(sessions) && sessions.length > 0) {
+        let localLogs = [];
+        try {
+          localLogs = JSON.parse(localStorage.getItem('kantimes_practice_logs') || '[]');
+        } catch (e) {
+          localLogs = [];
+        }
+        const logMap = new Map();
+
+        // Merge local and remote logs using unique session ID / timestamp
+        sessions.forEach(s => logMap.set(s.id || `${s.title}-${s.timestamp}`, {
+          id: s.id,
+          session_id: s.id,
+          song: s.title,
+          title: s.title,
+          songTitle: s.title,
+          voice: s.voice,
+          voice_part: s.voice,
+          part: s.voice,
+          stake: s.stake,
+          duration: Number(s.duration || 0),
+          minutes: Number(s.duration || 0),
+          durationMinutes: Number(s.duration || 0),
+          timestamp: typeof s.timestamp === 'number' ? s.timestamp : (new Date(s.timestamp).getTime() || Date.now()),
+          created_at: typeof s.timestamp === 'string' ? s.timestamp : new Date(s.timestamp).toISOString(),
+          synced: true
+        }));
+
+        localLogs.forEach(l => {
+          const key = l.id || `${l.title || l.song}-${l.timestamp || l.created_at}`;
+          if (!logMap.has(key)) logMap.set(key, l);
+        });
+
+        const merged = Array.from(logMap.values()).sort((a, b) => {
+          const tA = (typeof getNormalizedLogDate === 'function' ? getNormalizedLogDate(a) : new Date(a.timestamp || a.created_at)).getTime();
+          const tB = (typeof getNormalizedLogDate === 'function' ? getNormalizedLogDate(b) : new Date(b.timestamp || b.created_at)).getTime();
+          return tB - tA;
+        });
+
+        localStorage.setItem('kantimes_practice_logs', JSON.stringify(merged));
+        if (typeof savePracticeLogs === 'function') savePracticeLogs(merged);
+        if (typeof updateMilestonesUI === 'function') updateMilestonesUI();
+        if (typeof renderPracticeMilestonesUI === 'function') renderPracticeMilestonesUI();
+        if (typeof updatePracticeSummaryUI === 'function') updatePracticeSummaryUI();
+        if (typeof renderMainStandingsCards === 'function') renderMainStandingsCards();
+      }
+    }
+  } catch (err) {
+    console.warn('Initial telemetry pull failed:', err);
+  } finally {
+    if (typeof checkAnonymousSyncReminder === 'function') checkAnonymousSyncReminder();
+  }
+}
+window.bootstrapPracticeSync = bootstrapPracticeSync;
+
+/**
  * Links an existing handle from another device and restores practice history, voice part, stake, and avatar.
  */
 async function linkExistingHandle(rawInput, statusEl) {
@@ -2163,7 +2279,9 @@ async function linkExistingHandle(rawInput, statusEl) {
 
     // 7. Save keys uniformly to localStorage (Never write "undefined" to choir_name)
     localStorage.setItem('kantimes_user_handle', formattedHandle);
+    localStorage.setItem('kantimes_persistent_handle', formattedHandle);
     localStorage.setItem('choir_nickname', nickname);
+    localStorage.setItem('kantimes_persistent_nickname', nickname);
     if (remoteStake) {
       localStorage.setItem('choir_stake', remoteStake);
     }
@@ -2339,6 +2457,7 @@ async function linkExistingHandle(rawInput, statusEl) {
     if (typeof loadLeaderboard === 'function') loadLeaderboard();
     if (typeof renderMainStandingsCards === 'function') renderMainStandingsCards();
     if (typeof checkAndRenderSavedSheetBanner === 'function') checkAndRenderSavedSheetBanner();
+    if (typeof checkAnonymousSyncReminder === 'function') checkAnonymousSyncReminder();
 
     // If linked from Onboarding modal, close onboarding and display main dashboard
     const profileCard = document.getElementById('profileCard');
@@ -2704,8 +2823,32 @@ function getWeeklyPracticeSummary() {
   });
 
   let totalMinutes = 0;
+  const partMinutes = {};
+
   validWeeklyLogs.forEach(item => {
-    totalMinutes += getNormalizedLogMinutes(item);
+    const mins = getNormalizedLogMinutes(item);
+    totalMinutes += mins;
+
+    let p = (item.voice_part || item.voice || item.part || "").trim();
+    if (!p) {
+      try {
+        const id = getUserIdentity();
+        p = id.part || "Tenor";
+      } catch (e) {
+        p = "Tenor";
+      }
+    }
+    let norm = p;
+    const pLow = p.toLowerCase();
+    if (pLow.includes("accompan")) norm = "Accompanist";
+    else if (pLow.includes("director") || pLow.includes("conduct")) norm = "Director";
+    else if (pLow.includes("soprano")) norm = "Soprano";
+    else if (pLow.includes("alto")) norm = "Alto";
+    else if (pLow.includes("tenor")) norm = "Tenor";
+    else if (pLow.includes("bass")) norm = "Bass";
+    else if (pLow.includes("primary")) norm = "Primary";
+
+    partMinutes[norm] = (partMinutes[norm] || 0) + mins;
   });
 
   const songsSet = new Set();
@@ -2718,6 +2861,7 @@ function getWeeklyPracticeSummary() {
 
   return {
     totalMinutes: Math.round(totalMinutes),
+    partMinutes: partMinutes,
     songs: Array.from(songsSet),
     logs: validWeeklyLogs,
     allLogs: logs
@@ -3009,6 +3153,7 @@ function saveProfileVoiceSettings(e) {
     localStorage.setItem("kantimes_user_identity", JSON.stringify(identity));
     localStorage.setItem("kantimes_onboarding_completed", "true");
     localStorage.setItem("kantimes_user_handle", newHandle);
+    localStorage.setItem("kantimes_persistent_handle", newHandle);
   } catch (err) {
     console.error("[Kantimes] Error writing identity to localStorage:", err);
   }
@@ -3017,6 +3162,7 @@ function saveProfileVoiceSettings(e) {
   try {
     localStorage.setItem("choir_name", fullName);
     localStorage.setItem("choir_nickname", rawNickname);
+    localStorage.setItem("kantimes_persistent_nickname", rawNickname);
     localStorage.setItem("choir_voice", part);
     localStorage.setItem("choir_section", part);
     if (stake) {
@@ -3132,6 +3278,9 @@ function saveProfileVoiceSettings(e) {
   // 7. Pull and reconcile practice history for the updated handle across devices
   if (typeof pullUserHistoryFromNeon === "function") {
     pullUserHistoryFromNeon();
+  }
+  if (typeof checkAnonymousSyncReminder === "function") {
+    checkAnonymousSyncReminder();
   }
 
   return true;
@@ -3337,6 +3486,29 @@ function renderPracticeMilestonesUI() {
   if (weeklyHoursEl) {
     const hours = (summary.totalMinutes / 60).toFixed(1);
     weeklyHoursEl.textContent = `${hours} hour${hours === "1.0" ? "" : "s"}`;
+  }
+
+  // Subtle note/sub-stat if mixed roles exist (e.g. Tenor: 25m • Accompanist: 5m)
+  const partBreakdownEl = document.getElementById("milestonesPartBreakdown");
+  const partEntries = Object.entries(summary.partMinutes || {});
+  if (partBreakdownEl) {
+    if (partEntries.length > 1) {
+      partEntries.sort((a, b) => {
+        if (a[0].toLowerCase() === part.toLowerCase()) return -1;
+        if (b[0].toLowerCase() === part.toLowerCase()) return 1;
+        return b[1] - a[1];
+      });
+      const breakdownText = partEntries
+        .map(([role, mins]) => `${role}: ${Math.round(mins)}m`)
+        .join(" • ");
+      partBreakdownEl.textContent = breakdownText;
+      partBreakdownEl.classList.remove("d-none");
+      partBreakdownEl.style.display = "block";
+    } else {
+      partBreakdownEl.textContent = "";
+      partBreakdownEl.classList.add("d-none");
+      partBreakdownEl.style.display = "none";
+    }
   }
 
   const sessionCountEl = document.getElementById("milestonesSessionCount");
@@ -4026,9 +4198,18 @@ function renderMainStandingsCards() {
   data.forEach(item => {
     const voice = (item.voice_part || item.name || item.voice || '').trim();
     if (!voice) return;
-    const match = Object.keys(sectionMap).find(k => k.toLowerCase() === voice.toLowerCase() || voice.toLowerCase().includes(k.toLowerCase()));
+    const match = Object.keys(sectionMap).find(k => k.toLowerCase() === voice.toLowerCase());
+    const mins = Number(item.total_minutes !== undefined ? item.total_minutes : (item.duration_minutes || item.minutes || 0));
+    const count = Number(item.active_singers !== undefined ? item.active_singers : (item.singers || 0));
+
     if (match) {
-      sectionMap[match] = Number(item.total_minutes !== undefined ? item.total_minutes : (item.duration_minutes || item.minutes || 0));
+      sectionMap[match] = mins;
+    } else if (/accompan/i.test(voice)) {
+      currentStandingsTotalsMap['Accompanist'] = mins;
+      currentStandingsSingersMap['Accompanist'] = count;
+    } else if (/director|conduct/i.test(voice)) {
+      currentStandingsTotalsMap['Director'] = mins;
+      currentStandingsSingersMap['Director'] = count;
     }
   });
 
@@ -4168,7 +4349,8 @@ async function loadStandingsData() {
   const sheetHash = typeof getActiveSheetHash === 'function' ? getActiveSheetHash() : '';
 
   try {
-    const queryUrl = `/api/standings?scope=${scope}&stake=${encodeURIComponent(userStake)}&sheet_hash=${encodeURIComponent(sheetHash)}`;
+    const registeredHandle = localStorage.getItem('kantimes_user_handle') || localStorage.getItem('kantimes_persistent_handle') || (typeof getUserIdentity === 'function' ? getUserIdentity()?.handle : '') || '';
+    const queryUrl = `/api/standings?scope=${scope}&stake=${encodeURIComponent(userStake)}&sheet_hash=${encodeURIComponent(sheetHash)}&handle=${encodeURIComponent(registeredHandle)}&_t=${Date.now()}`;
     const res = await fetch(queryUrl);
     if (!res.ok) throw new Error(`Failed to fetch standings: HTTP ${res.status}`);
     const data = await res.json();
@@ -4185,6 +4367,10 @@ async function loadStandingsData() {
       topRoster
     };
     currentStandingsTopRoster = topRoster;
+
+    if (typeof convertNeonStandingsToRanked === 'function') {
+      convertNeonStandingsToRanked(sectionTotals, topRoster);
+    }
 
     if (topRoster.length > 0) {
       cachedLeaderboardSingers = topRoster.map(r => ({
@@ -6806,12 +6992,14 @@ function saveOnboardingProfile() {
   }));
   localStorage.setItem('kantimes_onboarding_completed', 'true');
   localStorage.setItem('kantimes_user_handle', userHandle);
+  localStorage.setItem('kantimes_persistent_handle', userHandle);
   if (profile.fullName && profile.fullName !== 'undefined' && profile.fullName !== 'null') {
     localStorage.setItem('choir_name', profile.fullName);
   } else {
     localStorage.removeItem('choir_name');
   }
   localStorage.setItem('choir_nickname', profile.nickname);
+  localStorage.setItem('kantimes_persistent_nickname', profile.nickname);
   localStorage.setItem('choir_voice', profile.voice);
   localStorage.setItem('choir_section', profile.voice);
   if (profile.stake) {
@@ -6849,6 +7037,9 @@ function saveOnboardingProfile() {
   // Pull remote practice history for restored handle
   if (typeof pullUserHistoryFromNeon === "function") {
     pullUserHistoryFromNeon();
+  }
+  if (typeof checkAnonymousSyncReminder === "function") {
+    checkAnonymousSyncReminder();
   }
 
   return true;
@@ -13529,9 +13720,13 @@ window.addEventListener("DOMContentLoaded", function () {
   syncOfflinePracticeQueue();
   syncPracticeToNeon();
   pullUserHistoryFromNeon();
+  bootstrapPracticeSync();
+  checkAnonymousSyncReminder();
   window.addEventListener('online', () => {
     syncPracticeToNeon();
     pullUserHistoryFromNeon();
+    bootstrapPracticeSync();
+    checkAnonymousSyncReminder();
     loadStandingsData();
   });
   initPWAInstallBanner();

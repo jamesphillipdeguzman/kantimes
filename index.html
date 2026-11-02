@@ -245,6 +245,21 @@
     <!-- Main Dashboard (Gated: Timer, Repertoire Resources, Leaderboards) -->
     <div id="mainDashboard" class="fade-in" style="display: none;">
 
+      <!-- Sticky Subtle Prompt for Anonymous / Unlinked Random Handle -->
+      <div id="anonymousSyncReminder" class="alert alert-dark border border-secondary p-2 px-3 mb-3 rounded d-none" style="font-size: 0.85rem; background: rgba(30, 41, 59, 0.85); backdrop-filter: blur(8px);">
+        <div class="d-flex align-items-center justify-content-between flex-wrap gap-2">
+          <div class="d-flex align-items-center gap-2 text-light">
+            <span>👤</span>
+            <span>Practicing anonymously as <strong id="anonymousSyncTag" class="text-info">#TAG</strong>.</span>
+          </div>
+          <div>
+            <button type="button" id="reminderLinkHandleBtn" class="btn btn-link btn-sm p-0 text-decoration-none text-info fw-semibold" onclick="handleEditProfileClick(event); setTimeout(() => { const t = document.getElementById('toggleRestoreHandleBtn'); if (t) t.click(); }, 300);">
+              🔗 Link Existing Handle to sync stats
+            </button>
+          </div>
+        </div>
+      </div>
+
       <!-- Horizontal Tab Bar (Displayed in Horizontal Layout Mode) -->
       <nav class="horizontal-tab-bar" id="horizontalTabBar" role="tablist" aria-label="Dashboard Sections">
         <button type="button" class="tab-btn active" role="tab" aria-selected="true" data-tab-target="practiceSection"
@@ -612,6 +627,7 @@
               <span class="stat-tile-label">This Week</span>
               <span class="stat-tile-value" id="milestonesWeeklyMins">0m</span>
               <span class="stat-tile-sub" id="milestonesWeeklyHours">0.0 hours</span>
+              <div class="stat-tile-part-breakdown text-muted small mt-1 d-none" id="milestonesPartBreakdown" style="font-size: 0.72rem; line-height: 1.2;"></div>
             </div>
             <div class="milestone-stat-tile">
               <span class="stat-tile-label">Sessions</span>
