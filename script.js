@@ -81,6 +81,9 @@ function getStakeStorageKey(baseKey, customSheet = "") {
  * Returns array of recorded practice logs strictly scoped by the active sheet identifier.
  */
 function getPracticeLogs() {
+  if (Array.isArray(window.serverPracticeLogs) && window.serverPracticeLogs.length > 0) {
+    return window.serverPracticeLogs;
+  }
   const key = `${getStorageScope()}_practice_logs`;
   try {
     const raw = localStorage.getItem(key) || (getStorageScope() === "kantimes_default" || getStorageScope() === "kantimes_defaulttemplate" ? localStorage.getItem("kantimes_practice_logs") : null);
@@ -95,6 +98,9 @@ function getPracticeLogs() {
  * Persists practice logs strictly scoped by the active sheet identifier.
  */
 function savePracticeLogs(logs) {
+  if (Array.isArray(logs)) {
+    window.serverPracticeLogs = logs;
+  }
   const key = `${getStorageScope()}_practice_logs`;
   try {
     localStorage.setItem(key, JSON.stringify(logs));
@@ -1766,7 +1772,7 @@ function getDisplayHandle(identity = getUserIdentity()) {
  * Records session under current user handle and voice part, updates session history, and triggers
  * immediate standings board refresh.
  */
-function recordCompletedPracticeSession(durationMinutes, songTitle, part) {
+async function recordCompletedPracticeSession(durationMinutes, songTitle, part) {
   // Always round to the nearest whole integer to ensure clean database inserts
   const rawMinutes = parseFloat(durationMinutes) || 0;
   const cleanMinutes = Math.max(1, Math.round(rawMinutes));
@@ -1835,7 +1841,47 @@ function recordCompletedPracticeSession(durationMinutes, songTitle, part) {
     renderPracticeMilestonesUI();
   }
 
-  // Immediately invoke syncPracticeToNeon()
+  // 3. Immediate Remote Post & Fresh Server Pull
+  if (typeof navigator !== 'undefined' && navigator.onLine) {
+    try {
+      const postPayload = {
+        handle: currentHandle,
+        stake: currentStake,
+        voice_part: currentVoice,
+        song_title: currentSong,
+        duration_minutes: cleanMinutes,
+        sheet_hash: sheetHash
+      };
+      const res = await fetch('/api/record-practice', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(postPayload)
+      }).catch(() => null);
+
+      if (res && res.ok) {
+        sessionEntry.synced = true;
+        try {
+          const stored = JSON.parse(localStorage.getItem('kantimes_practice_logs') || '[]');
+          const target = stored.find(s => s && s.id === sessionUid);
+          if (target) target.synced = true;
+          localStorage.setItem('kantimes_practice_logs', JSON.stringify(stored));
+        } catch (e) { }
+
+        // Immediately trigger fresh fetch of user's remote history & standings
+        if (typeof loadMilestonesData === 'function') {
+          await loadMilestonesData();
+        }
+        if (typeof loadStandingsData === 'function') {
+          await loadStandingsData();
+        }
+        return sessionEntry;
+      }
+    } catch (err) {
+      console.warn('Direct practice post deferred, running queue sync:', err);
+    }
+  }
+
+  // Fallback to queue sync if offline or direct post failed
   syncPracticeToNeon();
 
   return sessionEntry;
@@ -1988,106 +2034,9 @@ window.autoRetryUnsyncedSessions = autoRetryUnsyncedSessions;
  * Fetches remote user practice sessions from Neon PostgreSQL (/api/user-history)
  * and reconciles them with local practice logs to sync across all devices.
  */
-let isPullingUserHistory = false;
 async function pullUserHistoryFromNeon(targetHandle) {
-  if (typeof navigator !== "undefined" && navigator.onLine === false) return;
-  if (isPullingUserHistory) return;
-
-  const isOnboarded = localStorage.getItem('kantimes_onboarding_completed') === 'true';
-  const handle = targetHandle || localStorage.getItem('kantimes_user_handle') || (isOnboarded && typeof getUserIdentity === 'function' ? getUserIdentity()?.handle : null);
-  if (!handle) return;
-
-  isPullingUserHistory = true;
-  try {
-    const res = await fetch(`/api/user-history?handle=${encodeURIComponent(handle)}`);
-    if (!res.ok) return;
-
-    const data = await res.json();
-    if (!Array.isArray(data.sessions)) return;
-
-    let localLogs = [];
-    try {
-      localLogs = (typeof getPracticeLogs === 'function' ? getPracticeLogs() : []) || [];
-      if (!localLogs.length) {
-        localLogs = JSON.parse(localStorage.getItem('kantimes_practice_logs') || '[]');
-      }
-    } catch (e) {
-      localLogs = [];
-    }
-
-    // Merge server logs into local logs without duplicating existing timestamps/titles
-    const mergedMap = new Map();
-    const getLogKey = (log) => {
-      if (log.id) return `id_${log.id}`;
-      if (log.session_id) return `id_${log.session_id}`;
-      const title = log.title || log.song || log.songTitle || log.song_title || 'Rehearsal';
-      const time = log.timestamp || log.created_at || '';
-      return `${title}-${time}`;
-    };
-
-    // 1. Existing local logs take precedence
-    localLogs.forEach(log => {
-      mergedMap.set(getLogKey(log), log);
-    });
-
-    // 2. Add remote logs if missing locally
-    data.sessions.forEach(remote => {
-      const dur = Number(remote.duration !== undefined ? remote.duration : (remote.duration_minutes !== undefined ? remote.duration_minutes : (remote.minutes || 0)));
-      const songTitle = remote.title || remote.song_title || remote.songTitle || remote.song || 'Rehearsal';
-      const voice = remote.voice || remote.voice_part || remote.part || 'Tenor';
-      const rawTime = remote.timestamp || remote.created_at || new Date().toISOString();
-      const timeNum = typeof rawTime === 'number' ? rawTime : (new Date(rawTime).getTime() || Date.now());
-      const timeIso = typeof rawTime === 'string' ? rawTime : new Date(timeNum).toISOString();
-
-      const rLog = {
-        id: remote.id,
-        session_id: remote.id,
-        handle: remote.handle,
-        voice: voice,
-        voice_part: voice,
-        part: voice,
-        stake: remote.stake,
-        song: songTitle,
-        title: songTitle,
-        songTitle: songTitle,
-        song_title: songTitle,
-        durationMinutes: dur,
-        duration_minutes: dur,
-        duration: dur,
-        minutes: dur,
-        timestamp: timeNum,
-        created_at: timeIso,
-        sheet_hash: remote.sheet_hash || 'default',
-        synced: true
-      };
-      const key = getLogKey(rLog);
-      if (!mergedMap.has(key)) {
-        mergedMap.set(key, rLog);
-      }
-    });
-
-    const updatedLogs = Array.from(mergedMap.values()).sort((a, b) => {
-      const tA = (typeof getNormalizedLogDate === 'function' ? getNormalizedLogDate(a) : new Date(a.timestamp || a.created_at)).getTime();
-      const tB = (typeof getNormalizedLogDate === 'function' ? getNormalizedLogDate(b) : new Date(b.timestamp || b.created_at)).getTime();
-      return tB - tA;
-    });
-
-    localStorage.setItem('kantimes_practice_logs', JSON.stringify(updatedLogs));
-    if (typeof savePracticeLogs === 'function') {
-      savePracticeLogs(updatedLogs);
-    }
-
-    // Re-render Milestones and Practice Summary displays
-    if (typeof renderPracticeMilestonesUI === 'function') renderPracticeMilestonesUI();
-    if (typeof updatePracticeSummaryUI === 'function') updatePracticeSummaryUI();
-    if (typeof updateMilestonesUI === 'function') updateMilestonesUI();
-    if (typeof renderPracticeSummary === 'function') renderPracticeSummary();
-    if (typeof renderSectionStandings === 'function') renderSectionStandings();
-    if (typeof renderMainStandingsCards === 'function') renderMainStandingsCards();
-  } catch (err) {
-    console.warn('Could not pull user history from Neon:', err);
-  } finally {
-    isPullingUserHistory = false;
+  if (typeof loadMilestonesData === 'function') {
+    return await loadMilestonesData(targetHandle);
   }
 }
 
@@ -2995,8 +2944,12 @@ function isLogWithinThisWeek(logDate) {
  * - unique songs practiced
  * - session count
  */
-function getWeeklyPracticeSummary() {
-  const logs = getPracticeLogs();
+function getWeeklyPracticeSummary(customLogs) {
+  const logs = Array.isArray(customLogs)
+    ? customLogs
+    : (Array.isArray(window.serverPracticeLogs) && window.serverPracticeLogs.length > 0
+      ? window.serverPracticeLogs
+      : getPracticeLogs());
   const validWeeklyLogs = logs.filter(item => {
     if (!item) return false;
     const logDate = getNormalizedLogDate(item);
@@ -3622,7 +3575,7 @@ function formatLogTimestamp(timestamp) {
  * Renders the "My Practice Milestones & Weekly Pulse" card on the main dashboard.
  * Local-first, privacy-protected practice tracker for group chats.
  */
-function renderPracticeMilestonesUI() {
+function renderPracticeMilestonesUI(customLogs) {
   const card = document.getElementById("practiceMilestonesCard");
   if (!card) return;
 
@@ -3630,8 +3583,12 @@ function renderPracticeMilestonesUI() {
   const handle = getDisplayHandle(identity);
   const part = identity.part || "All";
   const stake = (identity.stake && identity.stake.trim()) ? identity.stake.trim() : "LDS Choir";
-  const summary = getWeeklyPracticeSummary();
-  const logs = getPracticeLogs();
+  const logs = Array.isArray(customLogs)
+    ? customLogs
+    : (Array.isArray(window.serverPracticeLogs) && window.serverPracticeLogs.length > 0
+      ? window.serverPracticeLogs
+      : getPracticeLogs());
+  const summary = getWeeklyPracticeSummary(logs);
 
   // 1. Identity Ribbon
   const handleEl = document.getElementById("milestonesHandleDisplay");
@@ -3742,11 +3699,126 @@ function renderPracticeMilestonesUI() {
   }
 }
 
+let isLoadingMilestones = false;
+async function loadMilestonesData(targetHandle) {
+  if (isLoadingMilestones) return;
+  const isOnboarded = localStorage.getItem('kantimes_onboarding_completed') === 'true';
+  const identity = (typeof getUserIdentity === 'function') ? getUserIdentity() : null;
+  const handle = targetHandle || localStorage.getItem('kantimes_user_handle') || (identity?.handle || (isOnboarded && typeof getDisplayHandle === 'function' ? getDisplayHandle(identity) : null));
+
+  if (!handle) {
+    renderPracticeMilestonesUI();
+    return;
+  }
+
+  if (typeof navigator !== 'undefined' && navigator.onLine === false) {
+    renderPracticeMilestonesUI();
+    return;
+  }
+
+  isLoadingMilestones = true;
+  try {
+    const res = await fetch(`/api/user-history?handle=${encodeURIComponent(handle)}&_t=${Date.now()}`);
+    if (res.ok) {
+      const data = await res.json();
+      if (Array.isArray(data.sessions)) {
+        let localLogs = [];
+        try {
+          localLogs = JSON.parse(localStorage.getItem('kantimes_practice_logs') || '[]');
+          if (!Array.isArray(localLogs)) localLogs = [];
+        } catch (e) {
+          localLogs = [];
+        }
+        const unsyncedLocal = localLogs.filter(l => l && !l.synced);
+
+        const remoteFormatted = data.sessions.map(s => {
+          const dur = Number(s.duration !== undefined ? s.duration : (s.duration_minutes !== undefined ? s.duration_minutes : (s.minutes || 0)));
+          const songTitle = s.title || s.song_title || s.songTitle || s.song || 'General Practice';
+          const voice = s.voice || s.voice_part || s.part || 'Tenor';
+          const rawTime = s.timestamp || s.created_at || new Date().toISOString();
+          const timeNum = typeof rawTime === 'number' ? rawTime : (new Date(rawTime).getTime() || Date.now());
+          const timeIso = typeof rawTime === 'string' ? rawTime : new Date(timeNum).toISOString();
+
+          return {
+            id: s.id,
+            session_id: s.id,
+            handle: s.handle || handle,
+            voice: voice,
+            voice_part: voice,
+            part: voice,
+            stake: s.stake || 'Iloilo Philippines Stake',
+            song: songTitle,
+            title: songTitle,
+            songTitle: songTitle,
+            song_title: songTitle,
+            durationMinutes: dur,
+            duration_minutes: dur,
+            duration: dur,
+            minutes: dur,
+            timestamp: timeNum,
+            created_at: timeIso,
+            sheet_hash: s.sheet_hash || 'default',
+            synced: true
+          };
+        });
+
+        const logMap = new Map();
+        // Server records are authoritative source of truth
+        remoteFormatted.forEach(r => {
+          const key = r.id || `${r.title}-${r.timestamp}`;
+          logMap.set(key, r);
+        });
+
+        // Add local unsynced logs if they haven't synced to server yet
+        unsyncedLocal.forEach(l => {
+          const key = l.id || `${l.title || l.song}-${l.timestamp || l.created_at}`;
+          if (!logMap.has(key)) {
+            logMap.set(key, l);
+          }
+        });
+
+        const authoritativeLogs = Array.from(logMap.values()).sort((a, b) => {
+          const tA = (typeof getNormalizedLogDate === 'function' ? getNormalizedLogDate(a) : new Date(a.timestamp || a.created_at)).getTime();
+          const tB = (typeof getNormalizedLogDate === 'function' ? getNormalizedLogDate(b) : new Date(b.timestamp || b.created_at)).getTime();
+          return tB - tA;
+        });
+
+        window.serverPracticeLogs = authoritativeLogs;
+        try {
+          localStorage.setItem('kantimes_practice_logs', JSON.stringify(authoritativeLogs));
+          const scopedKey = `${getStorageScope()}_practice_logs`;
+          localStorage.setItem(scopedKey, JSON.stringify(authoritativeLogs));
+        } catch (e) { }
+
+        renderPracticeMilestonesUI(authoritativeLogs);
+        if (typeof updatePracticeSummaryUI === 'function') updatePracticeSummaryUI();
+        if (typeof renderPracticeSummary === 'function') renderPracticeSummary();
+        if (typeof renderSectionStandings === 'function') renderSectionStandings();
+        if (typeof renderMainStandingsCards === 'function') renderMainStandingsCards();
+      } else {
+        renderPracticeMilestonesUI();
+      }
+    } else {
+      renderPracticeMilestonesUI();
+    }
+  } catch (err) {
+    console.warn('Error loading milestones from Neon, falling back to local:', err);
+    renderPracticeMilestonesUI();
+  } finally {
+    isLoadingMilestones = false;
+  }
+}
+window.loadMilestonesData = loadMilestonesData;
+
 /**
  * Standard trigger to refresh milestones and weekly pulse calculations.
  */
 function updateMilestonesUI() {
-  renderPracticeMilestonesUI();
+  if (typeof loadMilestonesData === 'function') {
+    loadMilestonesData();
+  } else {
+    renderPracticeMilestonesUI();
+  }
 }
 
 function handleEditProfileClick(e) {
@@ -7929,10 +8001,16 @@ function toggleTimer() {
 document.addEventListener("visibilitychange", () => {
   if (!document.hidden) {
     restoreTimerState();
+    if (typeof loadMilestonesData === 'function') loadMilestonesData();
+    if (typeof loadStandingsData === 'function') loadStandingsData();
+    if (typeof autoRetryUnsyncedSessions === 'function') autoRetryUnsyncedSessions();
   }
 });
 window.addEventListener("focus", () => {
   restoreTimerState();
+  if (typeof loadMilestonesData === 'function') loadMilestonesData();
+  if (typeof loadStandingsData === 'function') loadStandingsData();
+  if (typeof autoRetryUnsyncedSessions === 'function') autoRetryUnsyncedSessions();
 });
 
 function showToast(msg) {
@@ -11319,14 +11397,17 @@ function switchHorizontalTab(targetId) {
     if (typeof autoRetryUnsyncedSessions === 'function') {
       autoRetryUnsyncedSessions();
     }
+    if (typeof loadMilestonesData === 'function') {
+      loadMilestonesData();
+    }
+    if (typeof loadStandingsData === 'function') {
+      loadStandingsData();
+    }
   }
 
   if (targetId === 'standingsSection') {
     if (typeof renderMainStandingsCards === 'function') {
       renderMainStandingsCards();
-    }
-    if (typeof loadStandingsData === 'function') {
-      loadStandingsData();
     }
   }
 }
@@ -13918,6 +13999,7 @@ window.addEventListener("DOMContentLoaded", function () {
     checkAnonymousSyncReminder();
     autoRetryUnsyncedSessions();
     loadStandingsData();
+    loadMilestonesData();
   });
   initPWAInstallBanner();
   wireCopyTemplateButton();
@@ -13948,6 +14030,7 @@ window.addEventListener("DOMContentLoaded", function () {
   initClearSheetUrlButton();
   initSheetEditButton();
   loadStandingsData();
+  loadMilestonesData();
 });
 
 // Close modals on Escape key
@@ -14066,6 +14149,7 @@ window.closeProfileModalOnBackdrop = closeProfileModalOnBackdrop;
 window.initIdentityAndPracticeTracking = initIdentityAndPracticeTracking;
 window.renderPracticeMilestonesUI = renderPracticeMilestonesUI;
 window.updateMilestonesUI = updateMilestonesUI;
+window.loadMilestonesData = loadMilestonesData;
 window.getNormalizedLogMinutes = getNormalizedLogMinutes;
 window.getNormalizedLogSong = getNormalizedLogSong;
 window.getNormalizedLogDate = getNormalizedLogDate;
