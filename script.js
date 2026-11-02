@@ -2118,22 +2118,74 @@ function checkAnonymousSyncReminder() {
 window.checkAnonymousSyncReminder = checkAnonymousSyncReminder;
 
 /**
- * Detects in-app browsers (Messenger, Facebook, Instagram, Viber, etc.)
- * and prompts users to open in Safari or Chrome for reliable persistent storage.
+ * Detects genuine mobile in-app browsers (Messenger, Facebook, Instagram, Viber, etc.)
+ * while explicitly excluding standard desktop browsers (Windows, Mac, Linux, CrOS).
  */
+function isGenuineInAppBrowser() {
+  if (typeof navigator === 'undefined') return false;
+  const ua = navigator.userAgent || navigator.vendor || (typeof window !== 'undefined' ? window.opera : '') || '';
+  if (!ua) return false;
+
+  // Check if it's explicitly desktop
+  const isDesktop = /Windows NT|Macintosh|Linux x86_64|CrOS|Desktop/i.test(ua);
+  if (isDesktop) return false;
+
+  // Known mobile in-app webview signatures
+  const isInApp = /FBAN|FBAV|Instagram|Messenger|Viber|Line|WhatsApp|Twitter|TikTok/i.test(ua);
+  return isInApp;
+}
+window.isGenuineInAppBrowser = isGenuineInAppBrowser;
+
+function createInAppWarningBanner() {
+  let banner = document.getElementById('inAppBrowserWarning');
+  if (banner) return banner;
+
+  banner = document.createElement('div');
+  banner.id = 'inAppBrowserWarning';
+  banner.className = 'in-app-browser-banner p-2 px-3 text-center d-none';
+  banner.style.cssText = 'font-size: 0.82rem; background: rgba(245, 158, 11, 0.15); color: #f59e0b; border-bottom: 1px solid rgba(245, 158, 11, 0.35); backdrop-filter: blur(8px);';
+  banner.setAttribute('role', 'alert');
+  banner.innerHTML = `
+    <div class="d-flex align-items-center justify-content-between mx-auto" style="max-width: 900px;">
+      <div class="d-flex align-items-center gap-2 text-start">
+        <span style="font-size: 1rem;">🌐</span>
+        <span>You are using an in-app browser. For persistent sync across devices, please open in Safari or Chrome.</span>
+      </div>
+      <button type="button" class="btn btn-sm btn-link text-warning text-decoration-none p-0 ms-2"
+        onclick="dismissInAppBrowserWarning()" aria-label="Dismiss in-app browser warning" style="font-size: 1.1rem; line-height: 1;">✕</button>
+    </div>
+  `;
+  if (document.body) {
+    document.body.insertBefore(banner, document.body.firstChild);
+  }
+  return banner;
+}
+window.createInAppWarningBanner = createInAppWarningBanner;
+
 function checkInAppBrowser() {
-  if (typeof navigator === 'undefined' || !navigator.userAgent) return;
-  try {
-    if (sessionStorage.getItem('dismissed_inapp_warning') === 'true') return;
-  } catch (e) { }
+  if (isGenuineInAppBrowser()) {
+    try {
+      if (sessionStorage.getItem('dismissed_inapp_warning') === 'true') {
+        const existing = document.getElementById('inAppBrowserWarning');
+        if (existing) {
+          existing.classList.add('d-none');
+          existing.style.display = 'none';
+        }
+        return;
+      }
+    } catch (e) { }
 
-  const ua = navigator.userAgent;
-  const isInApp = /FBAN|FBAV|Messenger|Instagram|Viber|Line\/|wv|WebView/i.test(ua);
-
-  const banner = document.getElementById('inAppBrowserWarning');
-  if (banner && isInApp) {
-    banner.classList.remove('d-none');
-    banner.style.display = 'block';
+    const banner = document.getElementById('inAppBrowserWarning') || createInAppWarningBanner();
+    if (banner) {
+      banner.classList.remove('d-none');
+      banner.style.display = 'block';
+    }
+  } else {
+    const banner = document.getElementById('inAppBrowserWarning');
+    if (banner) {
+      banner.classList.add('d-none');
+      banner.style.display = 'none';
+    }
   }
 }
 window.checkInAppBrowser = checkInAppBrowser;
