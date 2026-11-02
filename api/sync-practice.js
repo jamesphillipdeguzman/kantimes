@@ -68,6 +68,8 @@ export default async function handler(req, res) {
 
   try {
     for (const s of sessions) {
+      const rawDur = s.duration_minutes !== undefined ? s.duration_minutes : (s.durationMinutes !== undefined ? s.durationMinutes : (s.duration || s.minutes || 5));
+      const cleanDuration = Math.max(1, Math.round(parseFloat(rawDur) || 0));
       await sql`
         INSERT INTO practice_sessions (
           handle, stake, voice_part, song_title, duration_minutes, sheet_hash, created_at
@@ -76,7 +78,7 @@ export default async function handler(req, res) {
           ${s.stake || 'Unassigned Stake'}, 
           ${s.voice_part || s.voice || 'Tenor'}, 
           ${s.song_title || s.songTitle || 'General Practice'}, 
-          ${Number(s.duration_minutes || s.durationMinutes || s.duration || 5)}, 
+          ${cleanDuration}, 
           ${s.sheet_hash || s.sheetHash || 'default'}, 
           ${s.created_at || s.timestamp || new Date().toISOString()}
         )

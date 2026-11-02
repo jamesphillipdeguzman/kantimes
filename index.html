@@ -75,6 +75,20 @@
     </div>
   </header>
 
+  <!-- In-App Browser Warning Pill Banner (Messenger / Viber / Instagram) -->
+  <div id="inAppBrowserWarning" class="in-app-browser-banner p-2 px-3 text-center d-none"
+    style="font-size: 0.82rem; background: rgba(245, 158, 11, 0.15); color: #f59e0b; border-bottom: 1px solid rgba(245, 158, 11, 0.35); backdrop-filter: blur(8px);"
+    role="alert">
+    <div class="d-flex align-items-center justify-content-between mx-auto" style="max-width: 900px;">
+      <div class="d-flex align-items-center gap-2 text-start">
+        <span style="font-size: 1rem;">🌐</span>
+        <span>You are using an in-app browser. For persistent sync across devices, please open in Safari or Chrome.</span>
+      </div>
+      <button type="button" class="btn btn-sm btn-link text-warning text-decoration-none p-0 ms-2"
+        onclick="dismissInAppBrowserWarning()" aria-label="Dismiss in-app browser warning" style="font-size: 1.1rem; line-height: 1;">✕</button>
+    </div>
+  </div>
+
   <!-- Offline Status Banner (Visible when offline) -->
   <div id="offlineStatusBanner" class="offline-banner" style="display: none;" role="status" aria-live="polite">
     <span class="offline-banner-icon">📡</span>

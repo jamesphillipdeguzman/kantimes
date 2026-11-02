@@ -1767,8 +1767,10 @@ function getDisplayHandle(identity = getUserIdentity()) {
  * immediate standings board refresh.
  */
 function recordCompletedPracticeSession(durationMinutes, songTitle, part) {
-  const mins = Math.max(1, Math.round((Number(durationMinutes) || 0) * 10) / 10);
-  if (mins <= 0) return null;
+  // Always round to the nearest whole integer to ensure clean database inserts
+  const rawMinutes = parseFloat(durationMinutes) || 0;
+  const cleanMinutes = Math.max(1, Math.round(rawMinutes));
+  if (cleanMinutes <= 0) return null;
 
   const identity = getUserIdentity();
   let userProfile = { ...identity };
@@ -1796,9 +1798,10 @@ function recordCompletedPracticeSession(durationMinutes, songTitle, part) {
     stake: currentStake,
     songTitle: currentSong,
     song_title: currentSong,
-    durationMinutes: mins,
-    duration_minutes: mins,
-    duration: mins,
+    durationMinutes: cleanMinutes,
+    duration_minutes: cleanMinutes,
+    duration: cleanMinutes,
+    minutes: cleanMinutes,
     sheet_hash: sheetHash,
     timestamp: new Date().toISOString(),
     created_at: new Date().toISOString(),
@@ -1822,7 +1825,7 @@ function recordCompletedPracticeSession(durationMinutes, songTitle, part) {
   } catch (e) { }
 
   // Save into session history for weekly stats
-  recordCompletedSession(mins);
+  recordCompletedSession(cleanMinutes);
 
   // Auto-credit and immediately re-render section standings board
   renderSectionStandings();
@@ -1852,30 +1855,55 @@ function getActiveSheetHash() {
 }
 
 /**
- * Background Sync function: pushes unsynced practice logs to Neon PostgreSQL (/api/sync-practice).
+ * Background Sync function: pushes unsynced practice logs to Neon PostgreSQL (/api/record-practice or /api/sync-practice).
  */
 let isNeonSyncing = false;
 async function syncPracticeToNeon() {
   if (!navigator.onLine || isNeonSyncing) return;
   const logs = JSON.parse(localStorage.getItem('kantimes_practice_logs') || '[]');
-  const pending = logs.filter(item => !item.synced);
+  const pending = logs.filter(item => item && !item.synced);
   if (pending.length === 0) return;
 
   isNeonSyncing = true;
   try {
-    const res = await fetch('/api/sync-practice', {
+    const payload = pending.map(s => {
+      const rawMin = parseFloat(s.duration_minutes !== undefined ? s.duration_minutes : (s.duration || s.minutes || 0)) || 0;
+      const cleanMin = Math.max(1, Math.round(rawMin));
+      return {
+        handle: (s.handle || 'ANON#0000').trim().toUpperCase(),
+        stake: s.stake || localStorage.getItem('choir_stake') || 'Iloilo Philippines Stake',
+        voice_part: s.voice_part || s.voice || s.part || 'Tenor',
+        song_title: s.song_title || s.songTitle || s.song || 'General Practice',
+        duration_minutes: cleanMin,
+        sheet_hash: s.sheet_hash || s.sheetHash || 'sh_wn0peb',
+        created_at: s.created_at || s.timestamp || new Date().toISOString()
+      };
+    });
+
+    let res = await fetch('/api/record-practice', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ sessions: pending })
-    });
-    if (res.ok) {
-      logs.forEach(item => { item.synced = true; });
+      body: JSON.stringify({ sessions: payload })
+    }).catch(() => null);
+
+    if (!res || !res.ok) {
+      res = await fetch('/api/sync-practice', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ sessions: payload })
+      }).catch(() => null);
+    }
+
+    if (res && res.ok) {
+      pending.forEach(item => { item.synced = true; });
       localStorage.setItem('kantimes_practice_logs', JSON.stringify(logs));
       if (typeof savePracticeLogs === 'function') {
         savePracticeLogs(logs);
       }
       // Re-fetch live Neon standings after syncing
-      if (typeof renderSectionStandings === 'function') {
+      if (typeof loadStandingsData === 'function') {
+        await loadStandingsData();
+      } else if (typeof renderSectionStandings === 'function') {
         renderSectionStandings();
       }
     }
@@ -1886,6 +1914,74 @@ async function syncPracticeToNeon() {
   }
 }
 const syncLogsToNeon = syncPracticeToNeon;
+
+/**
+ * Auto-Retry & Backfill Unsynced Local Sessions:
+ * Iterates through kantimes_practice_logs, dispatches unsynced sessions to /api/record-practice,
+ * and refreshes Section Standings so they reflect all completed minutes.
+ */
+let isAutoRetryingUnsynced = false;
+async function autoRetryUnsyncedSessions() {
+  if (typeof navigator !== 'undefined' && navigator.onLine === false) return;
+  if (isAutoRetryingUnsynced) return;
+
+  let logs = [];
+  try {
+    logs = JSON.parse(localStorage.getItem('kantimes_practice_logs') || '[]');
+  } catch (e) {
+    logs = [];
+  }
+  if (!Array.isArray(logs) || logs.length === 0) return;
+
+  const unsynced = logs.filter(item => item && !item.synced);
+  if (unsynced.length === 0) return;
+
+  isAutoRetryingUnsynced = true;
+  try {
+    const payload = unsynced.map(s => {
+      const rawMin = parseFloat(s.duration_minutes !== undefined ? s.duration_minutes : (s.duration || s.minutes || 0)) || 0;
+      const cleanMin = Math.max(1, Math.round(rawMin));
+      return {
+        handle: (s.handle || 'ANON#0000').trim().toUpperCase(),
+        stake: s.stake || localStorage.getItem('choir_stake') || 'Iloilo Philippines Stake',
+        voice_part: s.voice_part || s.voice || s.part || 'Tenor',
+        song_title: s.song_title || s.songTitle || s.song || 'General Practice',
+        duration_minutes: cleanMin,
+        sheet_hash: s.sheet_hash || s.sheetHash || 'sh_wn0peb'
+      };
+    });
+
+    let res = await fetch('/api/record-practice', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ sessions: payload })
+    }).catch(() => null);
+
+    if (!res || !res.ok) {
+      res = await fetch('/api/sync-practice', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ sessions: payload })
+      }).catch(() => null);
+    }
+
+    if (res && res.ok) {
+      unsynced.forEach(item => { item.synced = true; });
+      localStorage.setItem('kantimes_practice_logs', JSON.stringify(logs));
+      if (typeof savePracticeLogs === 'function') {
+        savePracticeLogs(logs);
+      }
+      if (typeof loadStandingsData === 'function') {
+        await loadStandingsData();
+      }
+    }
+  } catch (err) {
+    console.warn('Auto-retry unsynced sessions deferred:', err);
+  } finally {
+    isAutoRetryingUnsynced = false;
+  }
+}
+window.autoRetryUnsyncedSessions = autoRetryUnsyncedSessions;
 
 /**
  * Bidirectional Pull & Reconciliation:
@@ -2020,6 +2116,39 @@ function checkAnonymousSyncReminder() {
   }
 }
 window.checkAnonymousSyncReminder = checkAnonymousSyncReminder;
+
+/**
+ * Detects in-app browsers (Messenger, Facebook, Instagram, Viber, etc.)
+ * and prompts users to open in Safari or Chrome for reliable persistent storage.
+ */
+function checkInAppBrowser() {
+  if (typeof navigator === 'undefined' || !navigator.userAgent) return;
+  try {
+    if (sessionStorage.getItem('dismissed_inapp_warning') === 'true') return;
+  } catch (e) { }
+
+  const ua = navigator.userAgent;
+  const isInApp = /FBAN|FBAV|Messenger|Instagram|Viber|Line\/|wv|WebView/i.test(ua);
+
+  const banner = document.getElementById('inAppBrowserWarning');
+  if (banner && isInApp) {
+    banner.classList.remove('d-none');
+    banner.style.display = 'block';
+  }
+}
+window.checkInAppBrowser = checkInAppBrowser;
+
+function dismissInAppBrowserWarning() {
+  const banner = document.getElementById('inAppBrowserWarning');
+  if (banner) {
+    banner.classList.add('d-none');
+    banner.style.display = 'none';
+  }
+  try {
+    sessionStorage.setItem('dismissed_inapp_warning', 'true');
+  } catch (e) { }
+}
+window.dismissInAppBrowserWarning = dismissInAppBrowserWarning;
 
 /**
  * Background Sync Pull on App Launch:
@@ -3620,11 +3749,11 @@ function handleMediaStop(e) {
     if (startTime) {
       const elapsedSeconds = (Date.now() - startTime) / 1000;
       mediaTrackStartTimes.delete(e.target);
-      const elapsedMins = Math.round((elapsedSeconds / 60) * 10) / 10;
-      if (elapsedMins >= 0.5) {
+      const cleanElapsed = Math.round(elapsedSeconds / 60);
+      if (cleanElapsed >= 1) {
         const currentSong = document.getElementById("targetSong") ? document.getElementById("targetSong").value : "";
         const identity = getUserIdentity();
-        logPracticeSession(currentSong, identity.part || "All", elapsedMins);
+        logPracticeSession(currentSong, identity.part || "All", cleanElapsed);
       }
     }
   }
@@ -7694,11 +7823,11 @@ function toggleTimer() {
     localStorage.setItem("kantime_paused_remaining", timeRemaining);
 
     // Record partial practice session if at least 1 minute was practiced
-    const elapsedMins = Math.round((elapsedSeconds / 60) * 10) / 10;
-    if (elapsedMins >= 1) {
+    const cleanElapsed = Math.round(elapsedSeconds / 60);
+    if (cleanElapsed >= 1) {
       const currentSong = document.getElementById("targetSong") ? document.getElementById("targetSong").value : "";
       const identity = getUserIdentity();
-      logPracticeSession(currentSong, identity.part || "All", elapsedMins);
+      logPracticeSession(currentSong, identity.part || "All", cleanElapsed);
     }
 
     const timerDisp = document.getElementById("timerDisplay"); if (timerDisp) timerDisp.innerText = formatTime(timeRemaining);
@@ -11134,6 +11263,12 @@ function switchHorizontalTab(targetId) {
     }
   }
 
+  if (targetId === 'milestonesSection' || targetId === 'standingsSection') {
+    if (typeof autoRetryUnsyncedSessions === 'function') {
+      autoRetryUnsyncedSessions();
+    }
+  }
+
   if (targetId === 'standingsSection') {
     if (typeof renderMainStandingsCards === 'function') {
       renderMainStandingsCards();
@@ -13717,16 +13852,19 @@ window.addEventListener("DOMContentLoaded", function () {
   initMetronomeVisibility();
   initPianoVisibility();
   initTutorialLang();
+  checkInAppBrowser();
   syncOfflinePracticeQueue();
   syncPracticeToNeon();
   pullUserHistoryFromNeon();
   bootstrapPracticeSync();
   checkAnonymousSyncReminder();
+  autoRetryUnsyncedSessions();
   window.addEventListener('online', () => {
     syncPracticeToNeon();
     pullUserHistoryFromNeon();
     bootstrapPracticeSync();
     checkAnonymousSyncReminder();
+    autoRetryUnsyncedSessions();
     loadStandingsData();
   });
   initPWAInstallBanner();
