@@ -2552,9 +2552,7 @@ async function linkExistingHandle(rawInput, statusEl) {
       });
 
       const updatedLogs = Array.from(mergedMap.values()).sort((a, b) => {
-        const tA = (typeof getNormalizedLogDate === 'function' ? getNormalizedLogDate(a) : new Date(a.timestamp || a.created_at)).getTime();
-        const tB = (typeof getNormalizedLogDate === 'function' ? getNormalizedLogDate(b) : new Date(b.timestamp || b.created_at)).getTime();
-        return tB - tA;
+        return new Date(b.timestamp || b.created_at || 0) - new Date(a.timestamp || a.created_at || 0);
       });
 
       localStorage.setItem('kantimes_practice_logs', JSON.stringify(updatedLogs));
@@ -2898,7 +2896,7 @@ function logPracticeSession(songTitle, part, durationMinutes) {
  */
 function getNormalizedLogMinutes(log) {
   if (!log) return 0;
-  return Number(log.duration_minutes || log.durationMinutes || log.minutes || 0);
+  return Number(log.duration_minutes || log.durationMinutes || log.duration || log.minutes || 0);
 }
 
 /**
@@ -2913,10 +2911,10 @@ function getNormalizedLogSong(log) {
  * Normalizes practice log timestamp/date across all storage schemas.
  */
 function getNormalizedLogDate(log) {
-  if (!log || (!log.timestamp && !log.created_at)) return new Date();
+  if (!log || (!log.timestamp && !log.created_at)) return new Date(0);
   const raw = log.timestamp || log.created_at;
   const d = new Date(typeof raw === 'number' ? raw : raw);
-  return isNaN(d.getTime()) ? new Date() : d;
+  return isNaN(d.getTime()) ? new Date(0) : d;
 }
 
 /**
@@ -3583,12 +3581,18 @@ function renderPracticeMilestonesUI(customLogs) {
   const handle = getDisplayHandle(identity);
   const part = identity.part || "All";
   const stake = (identity.stake && identity.stake.trim()) ? identity.stake.trim() : "LDS Choir";
-  const logs = Array.isArray(customLogs)
+  
+  // Prefer explicit/server sessions if available, otherwise scoped practice logs
+  const rawLogs = Array.isArray(customLogs)
     ? customLogs
     : (Array.isArray(window.serverPracticeLogs) && window.serverPracticeLogs.length > 0
       ? window.serverPracticeLogs
       : getPracticeLogs());
-  const summary = getWeeklyPracticeSummary(logs);
+
+  // Strictly sort chronological (newest first)
+  const sortedSessions = (rawLogs || []).slice().sort((a, b) => new Date(b.timestamp || b.created_at || 0) - new Date(a.timestamp || a.created_at || 0));
+  const summary = getWeeklyPracticeSummary(sortedSessions);
+  const logs = sortedSessions;
 
   // 1. Identity Ribbon
   const handleEl = document.getElementById("milestonesHandleDisplay");
@@ -3765,22 +3769,24 @@ async function loadMilestonesData(targetHandle) {
         const logMap = new Map();
         // Server records are authoritative source of truth
         remoteFormatted.forEach(r => {
-          const key = r.id || `${r.title}-${r.timestamp}`;
+          const key = r.id ? `id_${r.id}` : `${r.title}-${r.timestamp}`;
           logMap.set(key, r);
         });
 
-        // Add local unsynced logs if they haven't synced to server yet
+        // Add local unsynced logs if they haven't synced to server yet (skip stale logs >24h)
+        const now = Date.now();
         unsyncedLocal.forEach(l => {
-          const key = l.id || `${l.title || l.song}-${l.timestamp || l.created_at}`;
+          if (!l || l.synced) return;
+          const logTime = new Date(l.timestamp || l.created_at || 0).getTime();
+          if (now - logTime > 24 * 60 * 60 * 1000) return;
+          const key = l.id ? `id_${l.id}` : `${l.title || l.song}-${l.timestamp || l.created_at}`;
           if (!logMap.has(key)) {
             logMap.set(key, l);
           }
         });
 
         const authoritativeLogs = Array.from(logMap.values()).sort((a, b) => {
-          const tA = (typeof getNormalizedLogDate === 'function' ? getNormalizedLogDate(a) : new Date(a.timestamp || a.created_at)).getTime();
-          const tB = (typeof getNormalizedLogDate === 'function' ? getNormalizedLogDate(b) : new Date(b.timestamp || b.created_at)).getTime();
-          return tB - tA;
+          return new Date(b.timestamp || b.created_at || 0) - new Date(a.timestamp || a.created_at || 0);
         });
 
         window.serverPracticeLogs = authoritativeLogs;
@@ -14148,6 +14154,7 @@ window.initRoleDescriptionListeners = initRoleDescriptionListeners;
 window.closeProfileModalOnBackdrop = closeProfileModalOnBackdrop;
 window.initIdentityAndPracticeTracking = initIdentityAndPracticeTracking;
 window.renderPracticeMilestonesUI = renderPracticeMilestonesUI;
+window.renderRecentActivity = renderPracticeMilestonesUI;
 window.updateMilestonesUI = updateMilestonesUI;
 window.loadMilestonesData = loadMilestonesData;
 window.getNormalizedLogMinutes = getNormalizedLogMinutes;

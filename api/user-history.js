@@ -28,6 +28,8 @@ export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
   res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+  res.setHeader('Pragma', 'no-cache');
+  res.setHeader('Expires', '0');
 
   if (req.method === 'OPTIONS') {
     return res.status(200).end();
@@ -73,22 +75,22 @@ export default async function handler(req, res) {
     // Query recent practice sessions for this handle (case-insensitive, no strict sheet_hash restriction)
     const sessions = await sql`
       SELECT 
-        id,
-        handle,
+        id, 
+        handle, 
         stake,
-        song_title AS title,
+        song_title AS title, 
         song_title,
-        voice_part AS voice,
+        voice_part AS voice, 
         voice_part,
-        duration_minutes AS duration,
+        duration_minutes AS duration, 
         duration_minutes,
-        sheet_hash,
+        sheet_hash, 
         created_at AS timestamp,
         created_at
       FROM practice_sessions
       WHERE LOWER(TRIM(handle)) = LOWER(TRIM(${cleanHandle}))
       ORDER BY created_at DESC
-      LIMIT 100
+      LIMIT 50
     `;
 
     const exists = Boolean(userProfile || (sessions && sessions.length > 0));
