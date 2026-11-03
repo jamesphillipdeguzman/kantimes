@@ -3248,6 +3248,14 @@ input[type="text"].input-invalid {
   font-weight: 700;
 }
 
+@media (max-width: 768px) {
+  #clientSidePrivacyCard,
+  .privacy-disclaimer,
+  .client-side-privacy-banner {
+    display: none !important;
+  }
+}
+
 /* ==========================================================================
    Voice Pitch Checker Component (Persistent Fixed Corner Card / Overlay)
    ========================================================================== */
