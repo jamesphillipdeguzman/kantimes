@@ -5499,9 +5499,8 @@ window.handleUnlockViaStart = handleUnlockViaStart;
 
 function wireUnlockViaStartButton() {
   const btn = document.getElementById('unlockViaStartBtn');
-  if (btn && !btn._bound) {
-    btn._bound = true;
-    btn.addEventListener('click', handleUnlockViaStart);
+  if (btn) {
+    btn.remove();
   }
 }
 window.wireUnlockViaStartButton = wireUnlockViaStartButton;
