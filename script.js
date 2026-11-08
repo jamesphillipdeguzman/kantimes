@@ -481,6 +481,33 @@ function parseCSV(text) {
 }
 
 /**
+ * Strict Song Identification:
+ * - Only entries matching the numbered song format ^\d+\.\s+ (e.g. "1. Holy Places", "2. The First Noel")
+ *   are recognized as selectable songs.
+ * - Any non-empty entry that does not match this pattern is classified as a section header/helper text.
+ */
+function isNumberedSong(title) {
+  if (!title || typeof title !== 'string') return false;
+  return /^\d+\.\s+/.test(title.trim());
+}
+
+function isSectionHeader(entry) {
+  if (!entry) return false;
+  if (typeof entry === 'object') {
+    if (entry.isHeader !== undefined) return Boolean(entry.isHeader);
+    if (entry.isSectionHeader !== undefined) return Boolean(entry.isSectionHeader);
+    if (entry.disabled !== undefined) return Boolean(entry.disabled);
+    return isSectionHeader(entry.title);
+  }
+  if (typeof entry !== 'string') return false;
+  const trimmed = entry.trim();
+  if (trimmed.length === 0) return false;
+  return !isNumberedSong(trimmed);
+}
+window.isNumberedSong = isNumberedSong;
+window.isSectionHeader = isSectionHeader;
+
+/**
  * Aggregates multiple Google Sheet rows with the same song title
  * into a single structured song object:
  * {
@@ -550,6 +577,9 @@ function groupRowsIntoSongs(rows) {
     const title = (isRowArray ? (row[titleIdx] || "") : (row.title || "")).trim();
     if (!title) continue;
 
+    const isNumbered = isNumberedSong(title);
+    const isHeader = isSectionHeader(title);
+
     const titleKey = title.toLowerCase();
     const hymnNumber = (isRowArray ? (row[hymnNumIdx] || "") : (row.hymnNumber || row.hymn_number || "")).trim();
     const category = (isRowArray ? (row[categoryIdx] || "General") : (row.category || "General")).trim();
@@ -563,6 +593,9 @@ function groupRowsIntoSongs(rows) {
       songsMap.set(titleKey, {
         id: `song-${Date.now()}-${Math.random().toString(36).substr(2, 6)}`,
         title: title,
+        isHeader: isHeader,
+        isSectionHeader: isHeader,
+        disabled: isHeader,
         hymn_number: hymnNumber,
         hymnNumber: hymnNumber,
         number: hymnNumber,
@@ -769,6 +802,9 @@ function parseRepertoireCsv(csvText) {
     // Ignore empty title rows or meta-rows like "IMPORTANT NOTE"
     if (!title || title.toUpperCase().includes('IMPORTANT NOTE')) continue;
 
+    const isNumbered = isNumberedSong(title);
+    const isHeader = isSectionHeader(title);
+
     const hymnNumber = (row[hymnNumIdx] || '').trim();
     const category = (row[eventIdx] || 'Christmas Devotional 2026').trim();
     const voicePart = (row[voicePartIdx] || 'all').trim();
@@ -791,8 +827,11 @@ function parseRepertoireCsv(csvText) {
     const pdfUrl = formatDrivePdfUrl(rawPdf);
 
     const song = {
-      id: title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, ''),
+      id: title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || `header-${i}`,
       title: title,
+      isHeader: isHeader,
+      isSectionHeader: isHeader,
+      disabled: isHeader,
       hymnNumber: hymnNumber,
       hymn_number: hymnNumber,
       number: hymnNumber,
@@ -5269,6 +5308,14 @@ const DEFAULT_USER_SETTINGS = {
   ]
 };
 
+if (Array.isArray(DEFAULT_USER_SETTINGS.songs)) {
+  DEFAULT_USER_SETTINGS.songs.forEach(s => {
+    s.isHeader = false;
+    s.isSectionHeader = false;
+    s.disabled = false;
+  });
+}
+
 function escapeHtml(str) {
   if (!str) return "";
   return String(str)
@@ -5559,26 +5606,57 @@ function populateSongDropdown(songList) {
     }
 
     let matched = false;
+    let firstValidSong = null;
+
     // Append all updated options
     songs.forEach((song) => {
+      if (!song || !song.title) return;
+      const isHeader = isSectionHeader(song);
       const opt = document.createElement('option');
-      opt.value = song.title;
-      const rawPart = song.voicePart || song.part || '';
-      const voicePart = (rawPart && rawPart.trim().toLowerCase() !== 'all') ? rawPart.trim() : '';
-      const partSuffix = voicePart ? ` (${voicePart})` : '';
-      opt.textContent = `${song.title}${partSuffix}`;
-      if (savedSong && (savedSong === song.title || savedSong === song.id)) {
-        opt.selected = true;
-        matched = true;
+
+      if (isHeader) {
+        opt.value = '';
+        opt.disabled = true;
+        opt.textContent = song.title;
+        opt.className = 'repertoire-section-header-opt';
+        opt.setAttribute('aria-disabled', 'true');
+        opt.style.fontWeight = '700';
+        opt.style.color = '#94a3b8';
+      } else {
+        opt.value = song.title;
+        opt.disabled = false;
+        const rawPart = song.voicePart || song.part || '';
+        const voicePart = (rawPart && rawPart.trim().toLowerCase() !== 'all') ? rawPart.trim() : '';
+        const partSuffix = voicePart ? ` (${voicePart})` : '';
+        opt.textContent = `${song.title}${partSuffix}`;
+
+        if (!firstValidSong) {
+          firstValidSong = song.title;
+        }
+
+        if (savedSong && (savedSong === song.title || savedSong === song.id)) {
+          opt.selected = true;
+          matched = true;
+        }
       }
       songSelect.appendChild(opt);
     });
 
-    // If currently rehearsed song was deleted or changed, fall back to first available song cleanly
-    if (!matched && songSelect.options.length > 0) {
-      songSelect.options[0].selected = true;
-      localStorage.setItem("kantime_target_song", songSelect.options[0].value);
-      localStorage.setItem("kantimes_target_song", songSelect.options[0].value);
+    // If currently rehearsed song was not matched or was invalid, fall back to first available valid song cleanly
+    if (!matched && firstValidSong) {
+      songSelect.value = firstValidSong;
+      localStorage.setItem("kantime_target_song", firstValidSong);
+      localStorage.setItem("kantimes_target_song", firstValidSong);
+    } else if (matched && savedSong) {
+      songSelect.value = savedSong;
+    }
+
+    // Safety: Ensure dropdown never remains on a disabled or empty option
+    const currentOpt = songSelect.selectedOptions && songSelect.selectedOptions[0];
+    if ((!currentOpt || currentOpt.disabled || !songSelect.value) && firstValidSong) {
+      songSelect.value = firstValidSong;
+      localStorage.setItem("kantime_target_song", firstValidSong);
+      localStorage.setItem("kantimes_target_song", firstValidSong);
     }
   });
 
@@ -5608,10 +5686,11 @@ function populateSongSelectDropdown() {
 function getSongResource(songKeyOrTitle) {
   const settings = getUserSettings();
   const songs = settings.songs || [];
-  let found = songs.find(s => s.id === songKeyOrTitle || s.title === songKeyOrTitle);
-  if (!found && songs.length > 0) {
-    const visibleSongs = settings.showPastRepertoire ? songs : songs.filter(s => !s.isArchived);
-    found = visibleSongs.length > 0 ? visibleSongs[0] : songs[0];
+  const validSongs = songs.filter(s => !isSectionHeader(s));
+  let found = validSongs.find(s => s.id === songKeyOrTitle || s.title === songKeyOrTitle);
+  if (!found && validSongs.length > 0) {
+    const visibleSongs = settings.showPastRepertoire ? validSongs : validSongs.filter(s => !s.isArchived);
+    found = visibleSongs.length > 0 ? visibleSongs[0] : validSongs[0];
   }
   if (found) {
     if (!found.resourceUrl && found.sheetUrl) {
@@ -6643,12 +6722,36 @@ function renderSelectedSongResource(songKey) {
 
 function handleSongSelectionChange() {
   const targetSelect = document.getElementById("songSelect") || document.querySelector(".rehearsal-song-select") || document.getElementById("targetSong");
-  const selectedSong = targetSelect ? targetSelect.value : "";
+  if (!targetSelect) return;
+
+  const currentOpt = targetSelect.selectedOptions && targetSelect.selectedOptions[0];
+  let selectedSong = targetSelect.value;
+
+  // Validation: If selected option is disabled, empty, or a section header
+  const isInvalid = !selectedSong ||
+    (currentOpt && currentOpt.disabled) ||
+    isSectionHeader(selectedSong);
+
+  if (isInvalid) {
+    const savedSong = localStorage.getItem("kantime_target_song") || localStorage.getItem("kantimes_target_song");
+    const validSavedOpt = (savedSong && !isSectionHeader(savedSong))
+      ? Array.from(targetSelect.options).find(o => !o.disabled && o.value === savedSong)
+      : null;
+    const fallbackOpt = validSavedOpt || Array.from(targetSelect.options).find(o => !o.disabled && o.value && !isSectionHeader(o.value));
+
+    if (fallbackOpt) {
+      targetSelect.value = fallbackOpt.value;
+      selectedSong = fallbackOpt.value;
+    } else {
+      selectedSong = "";
+    }
+  }
+
   if (selectedSong) {
     localStorage.setItem("kantime_target_song", selectedSong);
     localStorage.setItem("kantimes_target_song", selectedSong);
+    renderSelectedSongResource(selectedSong);
   }
-  renderSelectedSongResource(selectedSong);
 }
 
 // --- PROFILE STORAGE & GATED DASHBOARD ACCESS ---
@@ -7868,13 +7971,18 @@ function restoreTimerState() {
   const savedSong = localStorage.getItem("kantime_target_song");
   const targetSelect = document.getElementById("targetSong");
   if (targetSelect) {
-    if (savedSong && Array.from(targetSelect.options).some(o => o.value === savedSong)) {
-      targetSelect.value = savedSong;
-    } else if (targetSelect.options.length > 0) {
-      targetSelect.selectedIndex = 0;
-      if (targetSelect.value) {
-        localStorage.setItem("kantime_target_song", targetSelect.value);
-        localStorage.setItem("kantimes_target_song", targetSelect.value);
+    const validSavedOpt = (savedSong && !isSectionHeader(savedSong))
+      ? Array.from(targetSelect.options).find(o => !o.disabled && o.value === savedSong)
+      : null;
+
+    if (validSavedOpt) {
+      targetSelect.value = validSavedOpt.value;
+    } else {
+      const firstValid = Array.from(targetSelect.options).find(o => !o.disabled && o.value && !isSectionHeader(o.value));
+      if (firstValid) {
+        targetSelect.value = firstValid.value;
+        localStorage.setItem("kantime_target_song", firstValid.value);
+        localStorage.setItem("kantimes_target_song", firstValid.value);
       }
     }
   }
@@ -9722,15 +9830,18 @@ function updateRepertoireUI(songsList) {
   // Populate the main dropdown (#songSelect) with activeSongs only
   populateSongDropdown(activeSongs.length > 0 ? activeSongs : songs);
 
-  // If currently rehearsed song was archived, select first active song
+  // If currently rehearsed song was archived or invalid, select first active valid song
   const select = document.getElementById("targetSong") || document.getElementById("songSelect") || document.querySelector(".rehearsal-song-select");
-  if (select && select.value) {
-    const currentSongArchived = archivedSongs.some(s => s.title === select.value || s.id === select.value);
-    if (currentSongArchived && activeSongs.length > 0) {
-      select.value = activeSongs[0].title;
-      localStorage.setItem("kantime_target_song", activeSongs[0].title);
-      localStorage.setItem("kantimes_target_song", activeSongs[0].title);
-      renderSelectedSongResource(activeSongs[0].title);
+  if (select) {
+    const isCurrentValid = select.value && !isSectionHeader(select.value) && !archivedSongs.some(s => s.title === select.value || s.id === select.value);
+    if (!isCurrentValid && activeSongs.length > 0) {
+      const firstValid = activeSongs.find(s => !isSectionHeader(s));
+      if (firstValid) {
+        select.value = firstValid.title;
+        localStorage.setItem("kantime_target_song", firstValid.title);
+        localStorage.setItem("kantimes_target_song", firstValid.title);
+        renderSelectedSongResource(firstValid.title);
+      }
     }
   }
 
@@ -9757,7 +9868,8 @@ function renderRepertoireList() {
 
   const settings = getUserSettings();
   const songs = settings.songs || [];
-  if (countEl) countEl.innerText = songs.length;
+  const selectableSongs = songs.filter(s => !isSectionHeader(s));
+  if (countEl) countEl.innerText = selectableSongs.length;
 
   if (songs.length === 0) {
     container.innerHTML = `<div style="text-align:center; padding:16px; color:var(--text-muted); font-size:0.85rem;">No pieces in repertoire yet. Click "+ Add Song" above!</div>`;
@@ -9777,17 +9889,27 @@ function renderRepertoireList() {
   let html = "";
   Object.keys(groups).forEach(groupName => {
     const groupSongs = groups[groupName];
-    const isArchivedGroup = groupSongs.every(s => Boolean(s.isArchived));
+    const groupPieces = groupSongs.filter(s => !isSectionHeader(s));
+    const isArchivedGroup = groupPieces.length > 0 && groupPieces.every(s => Boolean(s.isArchived));
 
     html += `
       <div class="repertoire-event-group">
         <div class="repertoire-event-group-header">
           <span>🏷️ ${escapeHtml(groupName)}</span>
-          <span class="badge-settings-pill">${groupSongs.length} ${groupSongs.length === 1 ? 'piece' : 'pieces'}${isArchivedGroup ? ' (Archived)' : ''}</span>
+          <span class="badge-settings-pill">${groupPieces.length} ${groupPieces.length === 1 ? 'piece' : 'pieces'}${isArchivedGroup ? ' (Archived)' : ''}</span>
         </div>
     `;
 
     groupSongs.forEach(song => {
+      if (isSectionHeader(song)) {
+        html += `
+          <div class="repertoire-list-header-item" style="padding: 8px 12px; margin: 6px 0; background: rgba(148, 163, 184, 0.1); border-radius: 6px; font-weight: 700; color: var(--text-muted, #94a3b8); font-size: 0.85rem;">
+            📌 ${escapeHtml(song.title)}
+          </div>
+        `;
+        return;
+      }
+
       const partBadge = song.part && song.part !== "All"
         ? `<span class="part-badge" data-voice="${escapeHtml(song.part)}">${escapeHtml(song.part)}</span>`
         : `<span class="part-badge" style="background:#f1f5f9; color:#475569;">All Parts</span>`;

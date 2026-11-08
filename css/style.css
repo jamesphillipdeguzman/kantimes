@@ -3256,6 +3256,17 @@ input[type="text"].input-invalid {
   }
 }
 
+/* Repertoire Section Headers in Song Select Dropdown */
+.repertoire-section-header-opt,
+option[disabled].repertoire-section-header-opt {
+  font-weight: 700 !important;
+  color: var(--text-muted, #94a3b8) !important;
+  background-color: var(--bg-card, #1e293b) !important;
+  font-style: italic;
+  letter-spacing: 0.03em;
+  padding: 6px 10px;
+}
+
 /* ==========================================================================
    Voice Pitch Checker Component (Persistent Fixed Corner Card / Overlay)
    ========================================================================== */
