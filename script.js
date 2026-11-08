@@ -2227,36 +2227,42 @@ async function bootstrapPracticeSync() {
         } catch (e) {
           localLogs = [];
         }
-        const logMap = new Map();
+        // Preserve PostgreSQL newest-first order without overriding with client date sorting
+        const merged = [];
+        const seenKeys = new Set();
 
-        // Merge local and remote logs using unique session ID / timestamp
-        sessions.forEach(s => logMap.set(s.id || `${s.title}-${s.timestamp}`, {
-          id: s.id,
-          session_id: s.id,
-          song: s.title,
-          title: s.title,
-          songTitle: s.title,
-          voice: s.voice,
-          voice_part: s.voice,
-          part: s.voice,
-          stake: s.stake,
-          duration: Number(s.duration || 0),
-          minutes: Number(s.duration || 0),
-          durationMinutes: Number(s.duration || 0),
-          timestamp: typeof s.timestamp === 'number' ? s.timestamp : (new Date(s.timestamp).getTime() || Date.now()),
-          created_at: typeof s.timestamp === 'string' ? s.timestamp : new Date(s.timestamp).toISOString(),
-          synced: true
-        }));
-
-        localLogs.forEach(l => {
-          const key = l.id || `${l.title || l.song}-${l.timestamp || l.created_at}`;
-          if (!logMap.has(key)) logMap.set(key, l);
+        // 1. Unsynced local logs first
+        localLogs.filter(l => l && !l.synced).forEach(l => {
+          const key = l.id ? `id_${l.id}` : `${l.title || l.song}-${l.timestamp || l.created_at}`;
+          if (!seenKeys.has(key)) {
+            seenKeys.add(key);
+            merged.push(l);
+          }
         });
 
-        const merged = Array.from(logMap.values()).sort((a, b) => {
-          const tA = (typeof getNormalizedLogDate === 'function' ? getNormalizedLogDate(a) : new Date(a.timestamp || a.created_at)).getTime();
-          const tB = (typeof getNormalizedLogDate === 'function' ? getNormalizedLogDate(b) : new Date(b.timestamp || b.created_at)).getTime();
-          return tB - tA;
+        // 2. Server records in exact PostgreSQL order (ORDER BY created_at DESC)
+        sessions.forEach(s => {
+          const key = s.id ? `id_${s.id}` : `${s.title}-${s.timestamp}`;
+          if (!seenKeys.has(key)) {
+            seenKeys.add(key);
+            merged.push({
+              id: s.id,
+              session_id: s.id,
+              song: s.title,
+              title: s.title,
+              songTitle: s.title,
+              voice: s.voice,
+              voice_part: s.voice,
+              part: s.voice,
+              stake: s.stake,
+              duration: Number(s.duration || 0),
+              minutes: Number(s.duration || 0),
+              durationMinutes: Number(s.duration || 0),
+              timestamp: typeof s.timestamp === 'number' ? s.timestamp : (new Date(s.timestamp).getTime() || Date.now()),
+              created_at: typeof s.timestamp === 'string' ? s.timestamp : new Date(s.timestamp).toISOString(),
+              synced: true
+            });
+          }
         });
 
         localStorage.setItem('kantimes_practice_logs', JSON.stringify(merged));
@@ -3605,7 +3611,7 @@ function formatLogTimestamp(timestamp) {
   const diffHours = Math.floor(diffMin / 60);
   if (diffHours < 24) return `${diffHours}h ago`;
   const d = new Date(timeNum);
-  return d.toLocaleDateString(undefined, { month: "short", day: "numeric" });
+  return d.toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone: "Asia/Manila" });
 }
 
 /**
@@ -3628,10 +3634,13 @@ function renderPracticeMilestonesUI(customLogs) {
       ? window.serverPracticeLogs
       : getPracticeLogs());
 
-  // Strictly sort chronological (newest first)
-  const sortedSessions = (rawLogs || []).slice().sort((a, b) => new Date(b.timestamp || b.created_at || 0) - new Date(a.timestamp || a.created_at || 0));
-  const summary = getWeeklyPracticeSummary(sortedSessions);
-  const logs = sortedSessions;
+  // Server records from PostgreSQL are already ORDER BY created_at DESC.
+  // Do not override API sorting with frontend re-sorting.
+  const logs = (Array.isArray(rawLogs) ? rawLogs : []).slice();
+  if (!window.serverPracticeLogs || window.serverPracticeLogs.length === 0) {
+    logs.sort((a, b) => new Date(b.timestamp || b.created_at || 0) - new Date(a.timestamp || a.created_at || 0));
+  }
+  const summary = getWeeklyPracticeSummary(logs);
 
   // 1. Identity Ribbon
   const handleEl = document.getElementById("milestonesHandleDisplay");
@@ -3805,27 +3814,30 @@ async function loadMilestonesData(targetHandle) {
           };
         });
 
-        const logMap = new Map();
-        // Server records are authoritative source of truth
-        remoteFormatted.forEach(r => {
-          const key = r.id ? `id_${r.id}` : `${r.title}-${r.timestamp}`;
-          logMap.set(key, r);
-        });
+        // Maintain PostgreSQL newest-first order without overriding with client date sorting
+        const authoritativeLogs = [];
+        const seenKeys = new Set();
 
-        // Add local unsynced logs if they haven't synced to server yet (skip stale logs >24h)
+        // 1. Unsynced local logs first (newest pending offline logs)
         const now = Date.now();
         unsyncedLocal.forEach(l => {
           if (!l || l.synced) return;
           const logTime = new Date(l.timestamp || l.created_at || 0).getTime();
           if (now - logTime > 24 * 60 * 60 * 1000) return;
           const key = l.id ? `id_${l.id}` : `${l.title || l.song}-${l.timestamp || l.created_at}`;
-          if (!logMap.has(key)) {
-            logMap.set(key, l);
+          if (!seenKeys.has(key)) {
+            seenKeys.add(key);
+            authoritativeLogs.push(l);
           }
         });
 
-        const authoritativeLogs = Array.from(logMap.values()).sort((a, b) => {
-          return new Date(b.timestamp || b.created_at || 0) - new Date(a.timestamp || a.created_at || 0);
+        // 2. Authoritative server records in exact PostgreSQL order (ORDER BY created_at DESC)
+        remoteFormatted.forEach(r => {
+          const key = r.id ? `id_${r.id}` : `${r.title}-${r.timestamp}`;
+          if (!seenKeys.has(key)) {
+            seenKeys.add(key);
+            authoritativeLogs.push(r);
+          }
         });
 
         window.serverPracticeLogs = authoritativeLogs;
