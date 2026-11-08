@@ -13,7 +13,7 @@ async function ensureSchema(sql) {
         song_title TEXT,
         duration_minutes NUMERIC DEFAULT 0,
         sheet_hash TEXT,
-        created_at TIMESTAMPTZ DEFAULT NOW()
+        created_at TIMESTAMPTZ DEFAULT (now() AT TIME ZONE 'Asia/Manila')
       );
     `;
     schemaEnsured = true;
@@ -85,8 +85,8 @@ export default async function handler(req, res) {
         duration_minutes AS duration, 
         duration_minutes,
         sheet_hash, 
-        created_at AS timestamp,
-        created_at
+        to_char(created_at, 'YYYY-MM-DD"T"HH24:MI:SS.MS"+08:00"') AS timestamp,
+        to_char(created_at, 'YYYY-MM-DD"T"HH24:MI:SS.MS"+08:00"') AS created_at
       FROM practice_sessions
       WHERE LOWER(TRIM(handle)) = LOWER(TRIM(${cleanHandle}))
       ORDER BY created_at DESC

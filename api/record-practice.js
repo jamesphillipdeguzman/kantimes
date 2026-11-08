@@ -13,7 +13,7 @@ async function ensureSchema(sql) {
         song_title TEXT,
         duration_minutes NUMERIC DEFAULT 0,
         sheet_hash TEXT,
-        created_at TIMESTAMPTZ DEFAULT NOW()
+        created_at TIMESTAMPTZ DEFAULT (now() AT TIME ZONE 'Asia/Manila')
       );
     `;
     await sql`
