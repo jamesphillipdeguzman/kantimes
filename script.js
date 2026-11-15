@@ -603,28 +603,32 @@ function parseCSV(text) {
 }
 
 /**
- * Strict Song Identification:
- * - Only entries matching the numbered song format ^\d+\.\s+ (e.g. "1. Holy Places", "2. The First Noel")
- *   are recognized as selectable songs.
- * - Any non-empty entry that does not match this pattern is classified as a section header/helper text.
+ * Helper to check if a song title starts with a numeric prefix (e.g. "1. Song Title").
+ * Note: Repertoire detection supports both numbered and unnumbered song titles;
+ * this helper is NOT used to filter songs or detect section headers.
  */
 function isNumberedSong(title) {
   if (!title || typeof title !== 'string') return false;
   return /^\d+\.\s+/.test(title.trim());
 }
 
+/**
+ * Determines whether a repertoire entry is a section header (disabled group label).
+ * Only lines explicitly wrapped in double dashes (e.g. "--Christmas Songs--") are treated as section headers.
+ * Ordinary unnumbered song titles and titles containing hyphens are treated as valid selectable songs.
+ */
 function isSectionHeader(entry) {
   if (!entry) return false;
   if (typeof entry === 'object') {
-    if (entry.isHeader !== undefined) return Boolean(entry.isHeader);
-    if (entry.isSectionHeader !== undefined) return Boolean(entry.isSectionHeader);
-    if (entry.disabled !== undefined) return Boolean(entry.disabled);
-    return isSectionHeader(entry.title);
+    if (typeof entry.title === 'string' && entry.title.trim()) {
+      return isSectionHeader(entry.title);
+    }
+    return Boolean(entry.isHeader || entry.isSectionHeader || entry.disabled);
   }
   if (typeof entry !== 'string') return false;
   const trimmed = entry.trim();
   if (trimmed.length === 0) return false;
-  return !isNumberedSong(trimmed);
+  return /^--\s*[^-].*--$/.test(trimmed);
 }
 window.isNumberedSong = isNumberedSong;
 window.isSectionHeader = isSectionHeader;
@@ -699,7 +703,6 @@ function groupRowsIntoSongs(rows) {
     const title = (isRowArray ? (row[titleIdx] || "") : (row.title || "")).trim();
     if (!title) continue;
 
-    const isNumbered = isNumberedSong(title);
     const isHeader = isSectionHeader(title);
 
     const titleKey = title.toLowerCase();
@@ -924,7 +927,6 @@ function parseRepertoireCsv(csvText) {
     // Ignore empty title rows or meta-rows like "IMPORTANT NOTE"
     if (!title || title.toUpperCase().includes('IMPORTANT NOTE')) continue;
 
-    const isNumbered = isNumberedSong(title);
     const isHeader = isSectionHeader(title);
 
     const hymnNumber = (row[hymnNumIdx] || '').trim();
@@ -1017,6 +1019,15 @@ window.parseRepertoireCsv = parseRepertoireCsv;
  */
 function setActiveRepertoire(parsedSongs) {
   let songs = Array.isArray(parsedSongs) ? parsedSongs : [];
+
+  // Normalize header flags on every song so cached/parsed entries reflect current header rules
+  songs.forEach(s => {
+    if (!s || typeof s !== 'object') return;
+    const isHeader = isSectionHeader(s.title);
+    s.isHeader = isHeader;
+    s.isSectionHeader = isHeader;
+    s.disabled = isHeader;
+  });
 
   // Apply persisted archived IDs so sheet syncs preserve archive state
   try {
