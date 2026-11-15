@@ -613,9 +613,28 @@ function isNumberedSong(title) {
 }
 
 /**
+ * Classifies a repertoire row title into a selectable song or a disabled section header.
+ * - Any non-empty title beginning with an alphanumeric character (A-Z, a-z, 0-9) is a valid selectable song.
+ * - Any title beginning with a special character or symbol (including "--") is a disabled section header.
+ */
+function parseRepertoireItem(rowTitle) {
+  const title = String(rowTitle || '').trim();
+  if (!title) return null;
+
+  const startsWithAlphanumeric = /^[a-zA-Z0-9]/.test(title);
+  const isHeader = title.startsWith('--') || !startsWithAlphanumeric;
+
+  return {
+    title,
+    isHeader,
+    disabled: isHeader
+  };
+}
+
+/**
  * Determines whether a repertoire entry is a section header (disabled group label).
- * Only lines explicitly wrapped in double dashes (e.g. "--Christmas Songs--") are treated as section headers.
- * Ordinary unnumbered song titles and titles containing hyphens are treated as valid selectable songs.
+ * Any title beginning with a non-alphanumeric symbol (including "--") is a disabled section header;
+ * any non-empty title beginning with A-Z, a-z, or 0-9 is a valid selectable song.
  */
 function isSectionHeader(entry) {
   if (!entry) return false;
@@ -626,10 +645,10 @@ function isSectionHeader(entry) {
     return Boolean(entry.isHeader || entry.isSectionHeader || entry.disabled);
   }
   if (typeof entry !== 'string') return false;
-  const trimmed = entry.trim();
-  if (trimmed.length === 0) return false;
-  return /^--\s*[^-].*--$/.test(trimmed);
+  const parsed = parseRepertoireItem(entry);
+  return parsed ? parsed.isHeader : false;
 }
+window.parseRepertoireItem = parseRepertoireItem;
 window.isNumberedSong = isNumberedSong;
 window.isSectionHeader = isSectionHeader;
 
