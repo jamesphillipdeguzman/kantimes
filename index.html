@@ -260,6 +260,17 @@
     <!-- Main Dashboard (Gated: Timer, Repertoire Resources, Leaderboards) -->
     <div id="mainDashboard" class="fade-in" style="display: none;">
 
+      <!-- Database Sync Status / Outage Warning Banner -->
+      <div id="dbSyncStatusBanner" class="alert alert-warning border border-warning p-2 px-3 mb-3 rounded d-none" role="status" aria-live="polite" style="display: none; font-size: 0.85rem; align-items: center; justify-content: space-between; gap: 8px;">
+        <div class="d-flex align-items-center gap-2">
+          <span>⚠️</span>
+          <span id="dbSyncStatusText">Unable to reach Neon database. Displayed data may be outdated.</span>
+        </div>
+        <button type="button" id="retryDbSyncBtn" class="btn btn-sm btn-outline-dark fw-semibold" onclick="if(typeof syncAllServerState==='function')syncAllServerState({force:true});">
+          🔄 Retry Sync
+        </button>
+      </div>
+
       <!-- Sticky Subtle Prompt for Anonymous / Unlinked Random Handle -->
       <div id="anonymousSyncReminder" class="alert alert-dark border border-secondary p-2 px-3 mb-3 rounded d-none" style="font-size: 0.85rem; background: rgba(30, 41, 59, 0.85); backdrop-filter: blur(8px);">
         <div class="d-flex align-items-center justify-content-between flex-wrap gap-2">
@@ -1052,11 +1063,16 @@
               </div>
             </div>
 
-            <!-- Restore Existing Handle from Another Device -->
-            <div class="d-flex align-items-center justify-content-between mt-1 mb-2">
+            <!-- Restore Existing Handle / Log Out -->
+            <div class="d-flex align-items-center justify-content-between flex-wrap gap-2 mt-1 mb-2">
               <button type="button" id="toggleRestoreHandleBtn"
                 class="btn btn-link btn-sm p-0 text-decoration-none text-info">
                 🔗 Already have a handle from another device?
+              </button>
+              <button type="button" id="btnLogoutHandle"
+                class="btn btn-outline-danger btn-sm"
+                onclick="if(typeof logoutUserProfile==='function')logoutUserProfile();">
+                🚪 Log Out / Switch Account
               </button>
             </div>
             <div id="restoreHandleContainer" class="d-none mb-3 p-2 rounded bg-dark border border-secondary">
@@ -1096,6 +1112,7 @@
                 <option value="Alto">Alto</option>
                 <option value="Tenor">Tenor</option>
                 <option value="Bass">Bass</option>
+                <option value="Primary">Primary</option>
                 <option value="Accompanist">Accompanist (Piano, Organ, Instrumental)</option>
                 <option value="Director">Choir Director / Conductor</option>
               </select>

@@ -77,36 +77,158 @@ function getStakeStorageKey(baseKey, customSheet = "") {
   return `${getStorageScope()}_${baseKey.replace(/^kantimes_/, '')}`;
 }
 
+// ==========================================================================
+// CENTRALIZED SERVER-STATE STORE & DATABASE SYNC STATUS (NEON POSTGRESQL)
+// ==========================================================================
+window.serverPracticeLogs = [];
+window.serverUserProfile = null;
+window.serverStats = { totalMinutes: 0, totalSessions: 0 };
+window.latestStandingsData = null;
+window.dbSyncState = {
+  status: 'idle', // 'idle' | 'syncing' | 'ok' | 'offline' | 'error'
+  message: '',
+  lastSyncedAt: null
+};
+
+const HANDLE_COOKIE_NAME = 'kantimes_handle';
+
+function generateUuidV4() {
+  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+    return crypto.randomUUID();
+  }
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function (c) {
+    const r = Math.random() * 16 | 0;
+    const v = c === 'x' ? r : (r & 0x3 | 0x8);
+    return v.toString(16);
+  });
+}
+
+function setPersistedHandle(handle) {
+  const clean = (handle || '').trim().toUpperCase();
+  if (!clean) return;
+  try {
+    localStorage.setItem('kantimes_user_handle', clean);
+    localStorage.setItem('kantimes_persistent_handle', clean);
+    localStorage.setItem('kantimes_onboarding_completed', 'true');
+  } catch (e) { }
+  try {
+    sessionStorage.setItem('kantimes_user_handle', clean);
+  } catch (e) { }
+  try {
+    document.cookie = `${HANDLE_COOKIE_NAME}=${encodeURIComponent(clean)}; path=/; max-age=${60 * 60 * 24 * 365}; SameSite=Lax`;
+  } catch (e) { }
+}
+
+function clearPersistedHandle() {
+  const keysToRemove = [
+    'kantimes_user_handle',
+    'kantimes_persistent_handle',
+    'kantimes_user_identity',
+    'kantimes_onboarding_completed',
+    'kantimes_practice_logs',
+    'kantime_session_history',
+    'offline_practice_queue',
+    'choir_name',
+    'choir_nickname',
+    'kantimes_persistent_nickname',
+    'choir_voice',
+    'choir_section',
+    'choir_stake',
+    'choir_avatar'
+  ];
+  keysToRemove.forEach(k => {
+    try { localStorage.removeItem(k); } catch (e) { }
+  });
+  try { sessionStorage.removeItem('kantimes_user_handle'); } catch (e) { }
+  try {
+    document.cookie = `${HANDLE_COOKIE_NAME}=; path=/; max-age=0; SameSite=Lax`;
+  } catch (e) { }
+  window.serverPracticeLogs = [];
+  window.serverUserProfile = null;
+  window.serverStats = { totalMinutes: 0, totalSessions: 0 };
+}
+
+function resolveAuthenticatedHandle() {
+  let handle = '';
+  try {
+    handle = localStorage.getItem('kantimes_user_handle') || localStorage.getItem('kantimes_persistent_handle') || '';
+  } catch (e) { }
+
+  if (!handle) {
+    try {
+      handle = sessionStorage.getItem('kantimes_user_handle') || '';
+    } catch (e) { }
+  }
+
+  if (!handle && typeof document !== 'undefined' && document.cookie) {
+    const match = document.cookie.match(new RegExp(`(?:^|;\\s*)${HANDLE_COOKIE_NAME}=([^;]+)`));
+    if (match && match[1]) {
+      try {
+        handle = decodeURIComponent(match[1]).trim().toUpperCase();
+      } catch (e) { }
+    }
+  }
+
+  if (!handle) {
+    try {
+      const rawId = localStorage.getItem('kantimes_user_identity');
+      if (rawId) {
+        const parsed = JSON.parse(rawId);
+        if (parsed && parsed.handle && !String(parsed.handle).startsWith('CHOIR#')) {
+          handle = String(parsed.handle).trim().toUpperCase();
+        }
+      }
+    } catch (e) { }
+  }
+
+  if (handle) {
+    handle = handle.trim().toUpperCase();
+    setPersistedHandle(handle);
+    return handle;
+  }
+  return '';
+}
+
+function setDbSyncStatus(status, message = '') {
+  window.dbSyncState = {
+    status,
+    message,
+    lastSyncedAt: status === 'ok' ? new Date().toISOString() : window.dbSyncState?.lastSyncedAt || null
+  };
+  const banner = document.getElementById('dbSyncStatusBanner');
+  const textEl = document.getElementById('dbSyncStatusText');
+  if (!banner) return;
+
+  if (status === 'error' || status === 'offline') {
+    if (textEl) {
+      textEl.textContent = message || (status === 'offline'
+        ? 'Offline — Unable to reach Neon database. Displayed data may be outdated.'
+        : 'Unable to reach Neon database. Displayed data may be outdated.');
+    }
+    banner.classList.remove('d-none');
+    banner.style.display = 'flex';
+  } else {
+    banner.classList.add('d-none');
+    banner.style.display = 'none';
+  }
+}
+window.setDbSyncStatus = setDbSyncStatus;
+window.resolveAuthenticatedHandle = resolveAuthenticatedHandle;
+window.setPersistedHandle = setPersistedHandle;
+window.clearPersistedHandle = clearPersistedHandle;
+
 /**
- * Returns array of recorded practice logs strictly scoped by the active sheet identifier.
+ * Returns the authoritative practice logs from synchronized Neon PostgreSQL server state.
  */
 function getPracticeLogs() {
-  if (Array.isArray(window.serverPracticeLogs) && window.serverPracticeLogs.length > 0) {
-    return window.serverPracticeLogs;
-  }
-  const key = `${getStorageScope()}_practice_logs`;
-  try {
-    const raw = localStorage.getItem(key) || (getStorageScope() === "kantimes_default" || getStorageScope() === "kantimes_defaulttemplate" ? localStorage.getItem("kantimes_practice_logs") : null);
-    const parsed = raw ? JSON.parse(raw) : [];
-    return Array.isArray(parsed) ? parsed : [];
-  } catch (e) {
-    return [];
-  }
+  return Array.isArray(window.serverPracticeLogs) ? window.serverPracticeLogs : [];
 }
 
 /**
- * Persists practice logs strictly scoped by the active sheet identifier.
+ * Updates the in-memory server-synced practice logs state.
  */
 function savePracticeLogs(logs) {
-  if (Array.isArray(logs)) {
-    window.serverPracticeLogs = logs;
-  }
-  const key = `${getStorageScope()}_practice_logs`;
-  try {
-    localStorage.setItem(key, JSON.stringify(logs));
-  } catch (e) {
-    console.warn("Could not save practice logs to scoped storage:", e);
-  }
+  window.serverPracticeLogs = Array.isArray(logs) ? logs : [];
 }
 
 /**
@@ -1770,9 +1892,11 @@ function getUserIdentity() {
  */
 function getDisplayHandle(identity = getUserIdentity()) {
   if (!identity) return "Choir Member";
+  const resolved = resolveAuthenticatedHandle();
+  if (resolved) return resolved;
+
   let nick = (identity.nickname || identity.initials || "").trim();
   if (!nick && identity.fullName) {
-    // Generate initials from fullName, e.g. "James Phillip De Guzman" -> "JPDG"
     nick = identity.fullName
       .split(/\s+/)
       .map(part => part[0])
@@ -1790,140 +1914,89 @@ function getDisplayHandle(identity = getUserIdentity()) {
   if (!nick) {
     nick = "CHOIR";
   }
-  let tag = identity.tag || "USR1";
-  try {
-    const savedHandle = typeof localStorage !== "undefined"
-      ? (localStorage.getItem("kantimes_user_handle") || localStorage.getItem("kantimes_persistent_handle"))
-      : null;
-    if (savedHandle && savedHandle.includes("#")) {
-      const parts = savedHandle.split("#");
-      if (parts[1]) tag = parts[1];
-      if ((!nick || nick === "CHOIR") && parts[0] && parts[0] !== "CHOIR") {
-        nick = parts[0];
-      }
-    }
-  } catch (e) { }
+  const tag = identity.tag || "USR1";
   return `${nick.toUpperCase()}#${tag}`;
 }
 
+let inFlightSessionLock = false;
+
 /**
- * Auto-credits and logs a completed practice activity session to scoped localStorage.
- * Records session under current user handle and voice part, updates session history, and triggers
- * immediate standings board refresh.
+ * Persists a completed practice session directly to Neon PostgreSQL FIRST,
+ * then refreshes UI from the confirmed server state.
+ * Never fabricates success when Neon is offline or unreachable.
  */
 async function recordCompletedPracticeSession(durationMinutes, songTitle, part) {
-  // Always round to the nearest whole integer to ensure clean database inserts
   const rawMinutes = parseFloat(durationMinutes) || 0;
   const cleanMinutes = Math.max(1, Math.round(rawMinutes));
   if (cleanMinutes <= 0) return null;
 
+  if (inFlightSessionLock) {
+    return null;
+  }
+
   const identity = getUserIdentity();
-  let userProfile = { ...identity };
-  try {
-    const rawProfile = localStorage.getItem("kantimes_user_identity");
-    if (rawProfile) Object.assign(userProfile, JSON.parse(rawProfile));
-  } catch (e) { }
-
-  const currentHandle = userProfile.handle || (typeof getDisplayHandle === "function" ? getDisplayHandle(userProfile) : `${userProfile.nickname || "CHOIR"}#${userProfile.tag || "USR1"}`);
-  const currentVoice = part || userProfile.voice || userProfile.part || userProfile.section || "Tenor";
-  const currentStake = userProfile.stake || identity.stake || "Unassigned Stake";
+  const currentHandle = resolveAuthenticatedHandle() || getDisplayHandle(identity);
+  const currentVoice = part || window.serverUserProfile?.primary_voice || identity.voice || identity.part || "Tenor";
+  const currentStake = window.serverUserProfile?.stake || identity.stake || "Unassigned Stake";
   const currentSong = songTitle || (document.getElementById("targetSong") ? document.getElementById("targetSong").value : "") || "General Practice";
-
-  let logs = getPracticeLogs();
   const sheetHash = getActiveSheetHash();
 
-  const sessionUid = "session_" + Date.now() + "_" + Math.floor(Math.random() * 10000);
-  const sessionEntry = {
-    id: sessionUid,
-    session_id: sessionUid,
+  if (typeof navigator !== 'undefined' && navigator.onLine === false) {
+    setDbSyncStatus('offline', 'Offline — Cannot save practice session without a connection to Neon PostgreSQL.');
+    showToast('⚠️ You are offline. Reconnect to save your practice session to the database.');
+    return null;
+  }
+
+  inFlightSessionLock = true;
+  const sessionUuid = generateUuidV4();
+  const postPayload = {
+    id: sessionUuid,
     handle: currentHandle,
-    voice: currentVoice,
-    part: currentVoice,
-    voice_part: currentVoice,
     stake: currentStake,
-    songTitle: currentSong,
+    voice_part: currentVoice,
     song_title: currentSong,
-    durationMinutes: cleanMinutes,
     duration_minutes: cleanMinutes,
-    duration: cleanMinutes,
-    minutes: cleanMinutes,
     sheet_hash: sheetHash,
-    timestamp: new Date().toISOString(),
-    created_at: new Date().toISOString(),
-    synced: false
+    created_at: new Date().toISOString()
   };
 
-  // 1. Prepend to sheet-scoped practice logs
-  logs.unshift(sessionEntry);
-  if (logs.length > 50) {
-    logs = logs.slice(0, 50);
-  }
-  savePracticeLogs(logs);
-
-  // 2. Also save to localStorage under kantimes_practice_logs
   try {
-    let globalLogs = JSON.parse(localStorage.getItem('kantimes_practice_logs') || '[]');
-    if (!Array.isArray(globalLogs)) globalLogs = [];
-    globalLogs.unshift(sessionEntry);
-    if (globalLogs.length > 50) globalLogs = globalLogs.slice(0, 50);
-    localStorage.setItem('kantimes_practice_logs', JSON.stringify(globalLogs));
-  } catch (e) { }
+    setDbSyncStatus('syncing');
+    const res = await fetch('/api/record-practice', {
+      method: 'POST',
+      cache: 'no-store',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(postPayload)
+    });
 
-  // Save into session history for weekly stats
-  recordCompletedSession(cleanMinutes);
-
-  // Auto-credit and immediately re-render section standings board
-  renderSectionStandings();
-
-  updatePracticeSummaryUI();
-  if (typeof renderPracticeMilestonesUI === "function") {
-    renderPracticeMilestonesUI();
-  }
-
-  // 3. Immediate Remote Post & Fresh Server Pull
-  if (typeof navigator !== 'undefined' && navigator.onLine) {
-    try {
-      const postPayload = {
-        handle: currentHandle,
-        stake: currentStake,
-        voice_part: currentVoice,
-        song_title: currentSong,
-        duration_minutes: cleanMinutes,
-        sheet_hash: sheetHash
-      };
-      const res = await fetch('/api/record-practice', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(postPayload)
-      }).catch(() => null);
-
-      if (res && res.ok) {
-        sessionEntry.synced = true;
-        try {
-          const stored = JSON.parse(localStorage.getItem('kantimes_practice_logs') || '[]');
-          const target = stored.find(s => s && s.id === sessionUid);
-          if (target) target.synced = true;
-          localStorage.setItem('kantimes_practice_logs', JSON.stringify(stored));
-        } catch (e) { }
-
-        // Immediately trigger fresh fetch of user's remote history & standings
-        if (typeof loadMilestonesData === 'function') {
-          await loadMilestonesData();
-        }
-        if (typeof loadStandingsData === 'function') {
-          await loadStandingsData();
-        }
-        return sessionEntry;
-      }
-    } catch (err) {
-      console.warn('Direct practice post deferred, running queue sync:', err);
+    if (!res.ok) {
+      const errData = await res.json().catch(() => ({}));
+      throw new Error(errData.error || `HTTP ${res.status}`);
     }
+
+    const resData = await res.json();
+    const confirmedSession = resData.session || (Array.isArray(resData.sessions) ? resData.sessions[0] : null) || postPayload;
+
+    setDbSyncStatus('ok');
+    showToast(`Logged +${cleanMinutes}m to Neon! 🔥`);
+
+    // Refresh all server-backed UI from Neon PostgreSQL
+    if (typeof syncAllServerState === 'function') {
+      await syncAllServerState({ force: true });
+    } else {
+      await loadMilestonesData(currentHandle);
+      await loadStandingsData();
+    }
+
+    return confirmedSession;
+  } catch (err) {
+    console.error('[Kantimes] Failed to persist practice session to Neon:', err);
+    setDbSyncStatus('error', 'Failed to save practice session to Neon PostgreSQL. Please check your connection and try again.');
+    showToast('⚠️ Could not save session to database. Please check your connection.');
+    return null;
+  } finally {
+    inFlightSessionLock = false;
   }
-
-  // Fallback to queue sync if offline or direct post failed
-  syncPracticeToNeon();
-
-  return sessionEntry;
 }
 
 /**
@@ -1940,138 +2013,21 @@ function getActiveSheetHash() {
 }
 
 /**
- * Background Sync function: pushes unsynced practice logs to Neon PostgreSQL (/api/record-practice or /api/sync-practice).
+ * Legacy sync stubs kept as no-ops for backwards compatibility.
+ * Database-first architecture persists directly via recordCompletedPracticeSession().
  */
-let isNeonSyncing = false;
 async function syncPracticeToNeon() {
-  if (!navigator.onLine || isNeonSyncing) return;
-  const logs = JSON.parse(localStorage.getItem('kantimes_practice_logs') || '[]');
-  const pending = logs.filter(item => item && !item.synced);
-  if (pending.length === 0) return;
-
-  isNeonSyncing = true;
-  try {
-    const payload = pending.map(s => {
-      const rawMin = parseFloat(s.duration_minutes !== undefined ? s.duration_minutes : (s.duration || s.minutes || 0)) || 0;
-      const cleanMin = Math.max(1, Math.round(rawMin));
-      return {
-        handle: (s.handle || 'ANON#0000').trim().toUpperCase(),
-        stake: s.stake || localStorage.getItem('choir_stake') || 'Iloilo Philippines Stake',
-        voice_part: s.voice_part || s.voice || s.part || 'Tenor',
-        song_title: s.song_title || s.songTitle || s.song || 'General Practice',
-        duration_minutes: cleanMin,
-        sheet_hash: s.sheet_hash || s.sheetHash || 'sh_wn0peb',
-        created_at: s.created_at || s.timestamp || new Date().toISOString()
-      };
-    });
-
-    let res = await fetch('/api/record-practice', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ sessions: payload })
-    }).catch(() => null);
-
-    if (!res || !res.ok) {
-      res = await fetch('/api/sync-practice', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ sessions: payload })
-      }).catch(() => null);
-    }
-
-    if (res && res.ok) {
-      pending.forEach(item => { item.synced = true; });
-      localStorage.setItem('kantimes_practice_logs', JSON.stringify(logs));
-      if (typeof savePracticeLogs === 'function') {
-        savePracticeLogs(logs);
-      }
-      // Re-fetch live Neon standings after syncing
-      if (typeof loadStandingsData === 'function') {
-        await loadStandingsData();
-      } else if (typeof renderSectionStandings === 'function') {
-        renderSectionStandings();
-      }
-    }
-  } catch (e) {
-    console.warn('Neon sync deferred (offline or unreachable):', e);
-  } finally {
-    isNeonSyncing = false;
-  }
+  return;
 }
 const syncLogsToNeon = syncPracticeToNeon;
 
-/**
- * Auto-Retry & Backfill Unsynced Local Sessions:
- * Iterates through kantimes_practice_logs, dispatches unsynced sessions to /api/record-practice,
- * and refreshes Section Standings so they reflect all completed minutes.
- */
-let isAutoRetryingUnsynced = false;
 async function autoRetryUnsyncedSessions() {
-  if (typeof navigator !== 'undefined' && navigator.onLine === false) return;
-  if (isAutoRetryingUnsynced) return;
-
-  let logs = [];
-  try {
-    logs = JSON.parse(localStorage.getItem('kantimes_practice_logs') || '[]');
-  } catch (e) {
-    logs = [];
-  }
-  if (!Array.isArray(logs) || logs.length === 0) return;
-
-  const unsynced = logs.filter(item => item && !item.synced);
-  if (unsynced.length === 0) return;
-
-  isAutoRetryingUnsynced = true;
-  try {
-    const payload = unsynced.map(s => {
-      const rawMin = parseFloat(s.duration_minutes !== undefined ? s.duration_minutes : (s.duration || s.minutes || 0)) || 0;
-      const cleanMin = Math.max(1, Math.round(rawMin));
-      return {
-        handle: (s.handle || 'ANON#0000').trim().toUpperCase(),
-        stake: s.stake || localStorage.getItem('choir_stake') || 'Iloilo Philippines Stake',
-        voice_part: s.voice_part || s.voice || s.part || 'Tenor',
-        song_title: s.song_title || s.songTitle || s.song || 'General Practice',
-        duration_minutes: cleanMin,
-        sheet_hash: s.sheet_hash || s.sheetHash || 'sh_wn0peb'
-      };
-    });
-
-    let res = await fetch('/api/record-practice', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ sessions: payload })
-    }).catch(() => null);
-
-    if (!res || !res.ok) {
-      res = await fetch('/api/sync-practice', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ sessions: payload })
-      }).catch(() => null);
-    }
-
-    if (res && res.ok) {
-      unsynced.forEach(item => { item.synced = true; });
-      localStorage.setItem('kantimes_practice_logs', JSON.stringify(logs));
-      if (typeof savePracticeLogs === 'function') {
-        savePracticeLogs(logs);
-      }
-      if (typeof loadStandingsData === 'function') {
-        await loadStandingsData();
-      }
-    }
-  } catch (err) {
-    console.warn('Auto-retry unsynced sessions deferred:', err);
-  } finally {
-    isAutoRetryingUnsynced = false;
-  }
+  return;
 }
 window.autoRetryUnsyncedSessions = autoRetryUnsyncedSessions;
 
 /**
- * Bidirectional Pull & Reconciliation:
- * Fetches remote user practice sessions from Neon PostgreSQL (/api/user-history)
- * and reconciles them with local practice logs to sync across all devices.
+ * Fetches authoritative remote user practice sessions from Neon PostgreSQL (/api/user-history).
  */
 async function pullUserHistoryFromNeon(targetHandle) {
   if (typeof loadMilestonesData === 'function') {
@@ -2192,100 +2148,61 @@ window.dismissInAppBrowserWarning = dismissInAppBrowserWarning;
 
 /**
  * Background Sync Pull on App Launch:
- * Fetches remote practice history from Neon to backfill local storage on startup.
+ * Delegates to centralized server-state sync.
  */
 async function bootstrapPracticeSync() {
-  let handle = localStorage.getItem('kantimes_user_handle');
-  if (!handle) {
-    handle = localStorage.getItem('kantimes_persistent_handle');
-    if (handle) {
-      localStorage.setItem('kantimes_user_handle', handle);
-    }
-  }
-  if (!handle && typeof getUserIdentity === 'function') {
-    const id = getUserIdentity();
-    if (id && id.handle && !id.handle.startsWith('CHOIR#')) {
-      handle = id.handle;
-      localStorage.setItem('kantimes_user_handle', handle);
-    }
-  }
-
-  if (!handle) {
-    if (typeof checkAnonymousSyncReminder === 'function') checkAnonymousSyncReminder();
-    return;
-  }
-
-  try {
-    // Fetch remote practice history from Neon to backfill local storage
-    const res = await fetch(`/api/user-history?handle=${encodeURIComponent(handle)}&_t=${Date.now()}`);
-    if (res.ok) {
-      const { sessions } = await res.json();
-      if (Array.isArray(sessions) && sessions.length > 0) {
-        let localLogs = [];
-        try {
-          localLogs = JSON.parse(localStorage.getItem('kantimes_practice_logs') || '[]');
-        } catch (e) {
-          localLogs = [];
-        }
-        // Preserve PostgreSQL newest-first order without overriding with client date sorting
-        const merged = [];
-        const seenKeys = new Set();
-
-        // 1. Unsynced local logs first
-        localLogs.filter(l => l && !l.synced).forEach(l => {
-          const key = l.id ? `id_${l.id}` : `${l.title || l.song}-${l.timestamp || l.created_at}`;
-          if (!seenKeys.has(key)) {
-            seenKeys.add(key);
-            merged.push(l);
-          }
-        });
-
-        // 2. Server records in exact PostgreSQL order (ORDER BY created_at DESC)
-        sessions.forEach(s => {
-          const key = s.id ? `id_${s.id}` : `${s.title}-${s.timestamp}`;
-          if (!seenKeys.has(key)) {
-            seenKeys.add(key);
-            merged.push({
-              id: s.id,
-              session_id: s.id,
-              song: s.title,
-              title: s.title,
-              songTitle: s.title,
-              voice: s.voice,
-              voice_part: s.voice,
-              part: s.voice,
-              stake: s.stake,
-              duration: Number(s.duration || 0),
-              minutes: Number(s.duration || 0),
-              durationMinutes: Number(s.duration || 0),
-              timestamp: typeof s.timestamp === 'number' ? s.timestamp : (new Date(s.timestamp).getTime() || Date.now()),
-              created_at: typeof s.timestamp === 'string' ? s.timestamp : new Date(s.timestamp).toISOString(),
-              synced: true
-            });
-          }
-        });
-
-        localStorage.setItem('kantimes_practice_logs', JSON.stringify(merged));
-        if (typeof savePracticeLogs === 'function') savePracticeLogs(merged);
-        if (typeof updateMilestonesUI === 'function') updateMilestonesUI();
-        if (typeof renderPracticeMilestonesUI === 'function') renderPracticeMilestonesUI();
-        if (typeof updatePracticeSummaryUI === 'function') updatePracticeSummaryUI();
-        if (typeof renderMainStandingsCards === 'function') renderMainStandingsCards();
-      }
-    }
-  } catch (err) {
-    console.warn('Initial telemetry pull failed:', err);
-  } finally {
-    if (typeof checkAnonymousSyncReminder === 'function') checkAnonymousSyncReminder();
+  if (typeof syncAllServerState === 'function') {
+    return await syncAllServerState();
   }
 }
 window.bootstrapPracticeSync = bootstrapPracticeSync;
 
 /**
- * Links an existing handle from another device and restores practice history, voice part, stake, and avatar.
+ * Logs out the current handle, clears local identity/cache, and returns to onboarding.
+ */
+function logoutUserProfile() {
+  clearPersistedHandle();
+
+  const onboardingNick = document.getElementById('onboardingNickname');
+  if (onboardingNick) onboardingNick.value = '';
+  const onboardingFull = document.getElementById('onboardingFullName');
+  if (onboardingFull) onboardingFull.value = '';
+  const existingOnboarding = document.getElementById('existingHandleInputOnboarding');
+  if (existingOnboarding) existingOnboarding.value = '';
+  const existingSettings = document.getElementById('existingHandleInput');
+  if (existingSettings) existingSettings.value = '';
+
+  const settingsModal = document.getElementById('settingsModal');
+  if (settingsModal) {
+    settingsModal.classList.remove('active', 'open', 'show');
+    settingsModal.style.display = 'none';
+  }
+  document.body.style.overflow = '';
+
+  const profileCard = document.getElementById('profileCard');
+  if (profileCard) profileCard.style.display = 'block';
+  const activeBanner = document.getElementById('activeProfileBanner');
+  if (activeBanner) activeBanner.style.display = 'none';
+  const mainDashboard = document.getElementById('mainDashboard');
+  if (mainDashboard) mainDashboard.style.display = 'none';
+
+  renderPracticeMilestonesUI([]);
+  if (typeof showToast === 'function') {
+    showToast('Signed out. Enter your handle or create a new profile.');
+  }
+}
+window.logoutUserProfile = logoutUserProfile;
+
+/**
+ * Links an existing handle from another device and restores practice history, voice part, stake, and avatar
+ * strictly from Neon PostgreSQL.
  */
 async function linkExistingHandle(rawInput, statusEl) {
-  const clean = (rawInput || '').trim().toUpperCase();
+  let clean = (rawInput || '').trim().toUpperCase();
+  if (!clean && typeof rawInput === 'string') {
+    const el = document.getElementById(rawInput);
+    if (el && el.value) clean = el.value.trim().toUpperCase();
+  }
   if (!statusEl) statusEl = document.getElementById('restoreHandleStatus') || document.getElementById('restoreHandleStatusOnboarding');
 
   if (!clean) {
@@ -2296,7 +2213,6 @@ async function linkExistingHandle(rawInput, statusEl) {
     return false;
   }
 
-  // Validate format: 2-12 uppercase characters, '#', 4-character tag
   const match = clean.match(/^([A-Z0-9_\-\.]{2,12})#([A-Z0-9]{4})$/);
   if (!match) {
     if (statusEl) {
@@ -2310,75 +2226,41 @@ async function linkExistingHandle(rawInput, statusEl) {
   const tag = match[2];
   const formattedHandle = `${nickname}#${tag}`;
 
-  // Safe Fallback: Never assign remote profile data to Full Name input or choir_name
-  const currentFullName = localStorage.getItem('choir_name') || '';
-  if (currentFullName && currentFullName !== 'undefined' && currentFullName !== 'null') {
-    const nameEl = document.getElementById('choirNameInput');
-    if (nameEl) nameEl.value = currentFullName;
-  }
-
-  const choirNameInput = document.getElementById('choirNameInput') || document.getElementById('profileFullName') || document.getElementById('onboardingFullName');
-  let existingTypedName = choirNameInput ? choirNameInput.value.trim() : '';
-  if (existingTypedName === 'undefined' || existingTypedName === 'null') {
-    existingTypedName = '';
-  }
-
-  const safeFullName = (currentFullName && currentFullName !== 'undefined' && currentFullName !== 'null')
-    ? currentFullName
-    : (existingTypedName && existingTypedName !== 'undefined' && existingTypedName !== 'null' ? existingTypedName : '');
-
   if (statusEl) {
-    statusEl.textContent = `🔍 Linking ${formattedHandle} and syncing history...`;
+    statusEl.textContent = `🔍 Linking ${formattedHandle} and syncing from Neon...`;
     statusEl.className = 'form-text mt-1 d-block text-info';
   }
 
   try {
-    // 1. Await fetch from /api/register-handle?handle=${inputHandle}
-    let profileData = null;
-    try {
-      const regRes = await fetch(`/api/register-handle?handle=${encodeURIComponent(formattedHandle)}`).catch(() => null);
-      if (regRes && regRes.ok) {
-        const regJson = await regRes.json().catch(() => ({}));
-        if (regJson && (regJson.profile || regJson.primary_voice || regJson.handle)) {
-          profileData = regJson.profile || regJson;
-        }
-      }
-    } catch (err) {
-      console.warn('Could not query /api/register-handle:', err);
+    // 1. Fetch authoritative profile and history from Neon PostgreSQL
+    const [regRes, histRes] = await Promise.all([
+      fetch(`/api/register-handle?handle=${encodeURIComponent(formattedHandle)}&_t=${Date.now()}`, { cache: 'no-store' }),
+      fetch(`/api/user-history?handle=${encodeURIComponent(formattedHandle)}&_t=${Date.now()}`, { cache: 'no-store' })
+    ]);
+
+    if (!histRes.ok && !regRes.ok) {
+      throw new Error(`Database error (${histRes.status})`);
     }
 
-    // 2. Query user history for full practice history reconciliation
-    let historyData = {};
-    try {
-      const histRes = await fetch(`/api/user-history?handle=${encodeURIComponent(formattedHandle)}`).catch(() => null);
-      if (histRes && histRes.ok) {
-        historyData = await histRes.json().catch(() => ({}));
-        if (!profileData && historyData.profile) {
-          profileData = historyData.profile;
-        }
-      }
-    } catch (err) {
-      console.warn('Could not query /api/user-history:', err);
-    }
+    const regJson = regRes.ok ? await regRes.json().catch(() => ({})) : {};
+    const historyData = histRes.ok ? await histRes.json().catch(() => ({})) : {};
 
+    const profileData = historyData.profile || regJson.profile || (regJson.handle ? regJson : null);
     const hasProfile = Boolean(profileData && (profileData.handle || profileData.primary_voice || profileData.stake));
-    const hasSessions = Boolean(historyData && Array.isArray(historyData.sessions) && historyData.sessions.length > 0);
+    const hasSessions = Boolean(Array.isArray(historyData.sessions) && historyData.sessions.length > 0);
     const exists = Boolean(hasProfile || hasSessions || historyData.exists);
 
-    // 3. Extract remote voice part and stake
     let remoteVoice = (profileData && (profileData.primary_voice || profileData.voice)) ||
       (historyData.sessions && (historyData.sessions[0]?.voice || historyData.sessions[0]?.voice_part)) ||
       'Tenor';
-    const validRoles = ['Soprano', 'Alto', 'Tenor', 'Bass', 'Accompanist', 'Director'];
+    const validRoles = ['Soprano', 'Alto', 'Tenor', 'Bass', 'Primary', 'Accompanist', 'Director'];
     const matchedRole = validRoles.find(r => r.toLowerCase() === (remoteVoice || '').toLowerCase());
     if (matchedRole) remoteVoice = matchedRole;
 
     const remoteStake = (profileData && profileData.stake) || (historyData.sessions && historyData.sessions[0]?.stake) || '';
     const remoteAvatar = (profileData && profileData.avatar_id && profileData.avatar_id !== 'default') ? profileData.avatar_id : '';
-
-    // 3b. Auto-hydrate and restore Choir Google Sheet URL and ID if saved on remote profile
-    const remoteSheetUrl = (profileData && profileData.sheet_url) || (historyData.profile && historyData.profile.sheet_url) || '';
-    const remoteSheetId = (profileData && profileData.sheet_id) || (historyData.profile && historyData.profile.sheet_id) || '';
+    const remoteSheetUrl = (profileData && profileData.sheet_url) || '';
+    const remoteSheetId = (profileData && profileData.sheet_id) || '';
 
     if (remoteSheetUrl) {
       localStorage.setItem('kantimes_sheet_url', remoteSheetUrl);
@@ -2396,7 +2278,6 @@ async function linkExistingHandle(rawInput, statusEl) {
       ].filter(Boolean);
       sheetInputs.forEach(inp => { inp.value = remoteSheetUrl; });
 
-      // Trigger existing repertoire loader to pull songs immediately
       if (typeof syncRepertoireFromGoogleSheet === 'function') {
         syncRepertoireFromGoogleSheet(remoteSheetUrl);
       } else if (typeof loadRepertoire === 'function') {
@@ -2406,13 +2287,10 @@ async function linkExistingHandle(rawInput, statusEl) {
       }
     }
 
-    // 4. Populate stake select and trigger change events
     const stakeSelect = document.getElementById('choirStakeSelect') || document.getElementById('profileStake') || document.getElementById('onboardingStake');
     if (stakeSelect) {
       await populateStakeSelect(stakeSelect, remoteStake);
-      if (stakeSelect.tagName === 'INPUT' && remoteStake) {
-        stakeSelect.value = remoteStake;
-      }
+      if (stakeSelect.tagName === 'INPUT' && remoteStake) stakeSelect.value = remoteStake;
     }
 
     const otherStakeEls = [
@@ -2423,62 +2301,30 @@ async function linkExistingHandle(rawInput, statusEl) {
 
     for (const el of otherStakeEls) {
       await populateStakeSelect(el, remoteStake);
-      if (el.tagName === 'INPUT' && remoteStake) {
-        el.value = remoteStake;
-      }
+      if (el.tagName === 'INPUT' && remoteStake) el.value = remoteStake;
     }
 
-    // 5. Set choirVoiceSelect value
     const choirVoiceSelect = document.getElementById('choirVoiceSelect') || document.getElementById('profileVoicePart') || document.getElementById('onboardingVoicePart');
-    if (choirVoiceSelect) {
-      choirVoiceSelect.value = remoteVoice;
-    }
-    const otherVoiceSelects = [
+    if (choirVoiceSelect) choirVoiceSelect.value = remoteVoice;
+    [
       document.getElementById('profileVoicePart'),
       document.getElementById('onboardingVoicePart'),
       document.getElementById('memberSection'),
       document.getElementById('choirVoiceSelect')
-    ].filter(el => el && el !== choirVoiceSelect);
-    otherVoiceSelects.forEach(sel => { sel.value = remoteVoice; });
+    ].filter(el => el && el !== choirVoiceSelect).forEach(sel => { sel.value = remoteVoice; });
 
-    // 6. Trigger native change events on both inputs so helper text and validations update
-    const changeEvt = new Event('change', { bubbles: true });
-    if (stakeSelect && typeof stakeSelect.dispatchEvent === 'function') {
-      stakeSelect.dispatchEvent(changeEvt);
-    }
-    if (choirVoiceSelect && typeof choirVoiceSelect.dispatchEvent === 'function') {
-      choirVoiceSelect.dispatchEvent(changeEvt);
-    }
-    otherStakeEls.forEach(el => el.dispatchEvent && el.dispatchEvent(changeEvt));
-    otherVoiceSelects.forEach(el => el.dispatchEvent && el.dispatchEvent(changeEvt));
-
-    // 7. Save keys uniformly to localStorage (Never write "undefined" to choir_name)
-    localStorage.setItem('kantimes_user_handle', formattedHandle);
-    localStorage.setItem('kantimes_persistent_handle', formattedHandle);
+    // Persist authenticated handle (cookie + sessionStorage + localStorage)
+    setPersistedHandle(formattedHandle);
     localStorage.setItem('choir_nickname', nickname);
     localStorage.setItem('kantimes_persistent_nickname', nickname);
-    if (remoteStake) {
-      localStorage.setItem('choir_stake', remoteStake);
-    }
+    if (remoteStake) localStorage.setItem('choir_stake', remoteStake);
+    else localStorage.removeItem('choir_stake');
     localStorage.setItem('choir_section', remoteVoice);
     localStorage.setItem('choir_voice', remoteVoice);
-    if (safeFullName && safeFullName !== 'undefined' && safeFullName !== 'null') {
-      localStorage.setItem('choir_name', safeFullName);
-    } else {
-      localStorage.removeItem('choir_name');
-    }
-    if (remoteAvatar) {
-      localStorage.setItem('choir_avatar', remoteAvatar);
-    }
-    localStorage.setItem('kantimes_onboarding_completed', 'true');
+    if (remoteAvatar) localStorage.setItem('choir_avatar', remoteAvatar);
+    else localStorage.removeItem('choir_avatar');
 
-    // 8. Update identity state (Never write "undefined" to identity.fullName)
-    let identity;
-    try {
-      identity = getUserIdentity();
-    } catch (e) {
-      identity = {};
-    }
+    const identity = getUserIdentity();
     identity.nickname = nickname;
     identity.initials = nickname;
     identity.tag = tag;
@@ -2486,133 +2332,65 @@ async function linkExistingHandle(rawInput, statusEl) {
     identity.part = remoteVoice;
     identity.voice = remoteVoice;
     identity.section = remoteVoice;
-    identity.fullName = (safeFullName && safeFullName !== 'undefined' && safeFullName !== 'null') ? safeFullName : '';
-    if (remoteStake) identity.stake = remoteStake;
-    if (remoteAvatar) identity.avatar = remoteAvatar;
+    identity.stake = remoteStake;
+    identity.avatar = remoteAvatar || 'default-avatar.png';
     identity.isConfigured = true;
     localStorage.setItem('kantimes_user_identity', JSON.stringify(identity));
 
-    // 9. Update input fields across both modals (keeping user full name intact and clean)
-    const nickInputs = [
-      document.getElementById('profileNickname'),
-      document.getElementById('onboardingNickname'),
-      document.getElementById('memberName')
-    ].filter(Boolean);
-    nickInputs.forEach(inp => { inp.value = nickname; });
+    // Update UI inputs
+    [document.getElementById('profileNickname'), document.getElementById('onboardingNickname'), document.getElementById('memberName')]
+      .filter(Boolean).forEach(inp => { inp.value = nickname; });
 
-    const nameInputs = [
-      document.getElementById('profileFullName'),
-      document.getElementById('onboardingFullName'),
-      document.getElementById('choirNameInput'),
-      document.getElementById('settingMemberName')
-    ].filter(Boolean);
-
-    if (safeFullName && safeFullName !== 'undefined' && safeFullName !== 'null') {
-      nameInputs.forEach(inp => { inp.value = safeFullName; });
-    } else {
-      nameInputs.forEach(inp => {
-        if (inp.value === 'undefined' || inp.value === 'null') inp.value = '';
-      });
-    }
-
-    // 10. Update handle displays
-    const displayHandles = [
-      document.getElementById('profileModalDisplayHandle'),
-      document.getElementById('onboardingModalDisplayHandle'),
-      document.getElementById('milestonesHandleDisplay'),
-      document.getElementById('headerProfileHandle')
-    ].filter(Boolean);
-    displayHandles.forEach(el => { el.textContent = formattedHandle; });
+    [document.getElementById('profileModalDisplayHandle'), document.getElementById('onboardingModalDisplayHandle'), document.getElementById('milestonesHandleDisplay'), document.getElementById('headerProfileHandle')]
+      .filter(Boolean).forEach(el => { el.textContent = formattedHandle; });
 
     const tagEl = document.getElementById('profileModalFixedTag');
     if (tagEl) tagEl.textContent = `#${tag}`;
 
     if (typeof updateIdentityUI === 'function') updateIdentityUI();
     if (typeof updateHeaderIdentityBadge === 'function') updateHeaderIdentityBadge();
-    if (typeof updateActiveProfileDisplay === 'function') updateActiveProfileDisplay();
+    if (typeof updateActiveProfileDisplay === 'function') updateActiveProfileDisplay(nickname, remoteVoice, remoteAvatar);
 
-    // 11. Hydrate and merge server practice sessions into local logs
-    if (Array.isArray(historyData.sessions) && historyData.sessions.length > 0) {
-      const remoteLogs = historyData.sessions.map(s => {
-        const dur = Number(s.duration !== undefined ? s.duration : (s.duration_minutes !== undefined ? s.duration_minutes : (s.minutes || 0)));
-        const songTitle = s.title || s.song_title || s.songTitle || s.song || 'Rehearsal';
-        const voice = s.voice || s.voice_part || s.part || remoteVoice || 'Tenor';
-        const rawTime = s.timestamp || s.created_at || new Date().toISOString();
-        const timeNum = typeof rawTime === 'number' ? rawTime : (new Date(rawTime).getTime() || Date.now());
-        const timeIso = typeof rawTime === 'string' ? rawTime : new Date(timeNum).toISOString();
-
-        return {
-          id: s.id,
-          session_id: s.id,
-          handle: s.handle || formattedHandle,
-          stake: s.stake || remoteStake || '',
-          song: songTitle,
-          title: songTitle,
-          songTitle: songTitle,
-          song_title: songTitle,
-          voice: voice,
-          voice_part: voice,
-          part: voice,
-          duration: dur,
-          duration_minutes: dur,
-          durationMinutes: dur,
-          minutes: dur,
-          timestamp: timeNum,
-          created_at: timeIso,
-          sheet_hash: s.sheet_hash || 'default',
-          synced: true
-        };
-      });
-
-      let localLogs = [];
-      try {
-        localLogs = (typeof getPracticeLogs === 'function' ? getPracticeLogs() : []) || [];
-        if (!localLogs.length) {
-          localLogs = JSON.parse(localStorage.getItem('kantimes_practice_logs') || '[]');
-        }
-      } catch (e) {
-        localLogs = [];
-      }
-
-      const mergedMap = new Map();
-      const getLogKey = (log) => {
-        if (log.id) return `id_${log.id}`;
-        if (log.session_id) return `id_${log.session_id}`;
-        const title = log.title || log.song || log.songTitle || log.song_title || 'Rehearsal';
-        const time = log.timestamp || log.created_at || '';
-        return `${title}-${time}`;
+    // Replace in-memory server state strictly with Neon records
+    window.serverUserProfile = profileData || null;
+    window.serverStats = historyData.stats || { totalMinutes: 0, totalSessions: 0 };
+    const remoteLogs = Array.isArray(historyData.sessions) ? historyData.sessions.map(s => {
+      const dur = Number(s.duration !== undefined ? s.duration : (s.duration_minutes !== undefined ? s.duration_minutes : (s.minutes || 0)));
+      const songTitle = s.title || s.song_title || s.songTitle || s.song || 'Rehearsal';
+      const voice = s.voice || s.voice_part || s.part || remoteVoice || 'Tenor';
+      const rawTime = s.created_at || s.timestamp || new Date().toISOString();
+      const timeNum = typeof rawTime === 'number' ? rawTime : (new Date(rawTime).getTime() || Date.now());
+      return {
+        id: s.id,
+        session_id: s.id,
+        handle: s.handle || formattedHandle,
+        stake: s.stake || remoteStake || '',
+        song: songTitle,
+        title: songTitle,
+        songTitle: songTitle,
+        song_title: songTitle,
+        voice: voice,
+        voice_part: voice,
+        part: voice,
+        duration: dur,
+        duration_minutes: dur,
+        durationMinutes: dur,
+        minutes: dur,
+        timestamp: timeNum,
+        created_at: typeof rawTime === 'string' ? rawTime : new Date(timeNum).toISOString(),
+        sheet_hash: s.sheet_hash || 'default',
+        synced: true
       };
+    }) : [];
+    savePracticeLogs(remoteLogs);
+    setDbSyncStatus('ok');
 
-      // Local logs take precedence to avoid overwriting newer offline sessions
-      localLogs.forEach(log => {
-        mergedMap.set(getLogKey(log), log);
-      });
-
-      // Add remote logs
-      remoteLogs.forEach(rLog => {
-        const key = getLogKey(rLog);
-        if (!mergedMap.has(key)) {
-          mergedMap.set(key, rLog);
-        }
-      });
-
-      const updatedLogs = Array.from(mergedMap.values()).sort((a, b) => {
-        return new Date(b.timestamp || b.created_at || 0) - new Date(a.timestamp || a.created_at || 0);
-      });
-
-      localStorage.setItem('kantimes_practice_logs', JSON.stringify(updatedLogs));
-      if (typeof savePracticeLogs === 'function') {
-        savePracticeLogs(updatedLogs);
-      }
-    }
-
-    // 12. Update UI feedback
     if (statusEl) {
       if (exists) {
-        statusEl.textContent = `✅ Device linked to ${formattedHandle}! Practice history synced.`;
+        statusEl.textContent = `✅ Linked ${formattedHandle}! Loaded ${remoteLogs.length} sessions from Neon.`;
         statusEl.className = 'form-text mt-1 d-block text-success';
       } else {
-        statusEl.textContent = `ℹ️ Linked ${formattedHandle} locally! New practices will record under this handle.`;
+        statusEl.textContent = `ℹ️ Linked ${formattedHandle}. No prior sessions found on Neon yet.`;
         statusEl.className = 'form-text mt-1 d-block text-warning';
       }
     }
@@ -2621,18 +2399,15 @@ async function linkExistingHandle(rawInput, statusEl) {
       showToast(`Device linked to ${formattedHandle}! 🎶`);
     }
 
-    // 13. Refresh views immediately
-    if (typeof updateMilestonesUI === 'function') updateMilestonesUI();
-    if (typeof renderPracticeMilestonesUI === 'function') renderPracticeMilestonesUI();
-    if (typeof updatePracticeSummaryUI === 'function') updatePracticeSummaryUI();
-    if (typeof renderPracticeSummary === 'function') renderPracticeSummary();
-    if (typeof renderSectionStandings === 'function') renderSectionStandings();
-    if (typeof loadLeaderboard === 'function') loadLeaderboard();
-    if (typeof renderMainStandingsCards === 'function') renderMainStandingsCards();
+    if (typeof syncAllServerState === 'function') {
+      await syncAllServerState({ force: true });
+    } else {
+      renderPracticeMilestonesUI(remoteLogs);
+      if (typeof loadStandingsData === 'function') await loadStandingsData();
+    }
     if (typeof checkAndRenderSavedSheetBanner === 'function') checkAndRenderSavedSheetBanner();
     if (typeof checkAnonymousSyncReminder === 'function') checkAnonymousSyncReminder();
 
-    // If linked from Onboarding modal, close onboarding and display main dashboard
     const profileCard = document.getElementById('profileCard');
     const mainDashboard = document.getElementById('mainDashboard');
     const activeProfileBanner = document.getElementById('activeProfileBanner');
@@ -2645,8 +2420,9 @@ async function linkExistingHandle(rawInput, statusEl) {
     return true;
   } catch (err) {
     console.warn('[Kantimes] Error linking handle:', err);
+    setDbSyncStatus('error', 'Unable to reach Neon database to verify handle.');
     if (statusEl) {
-      statusEl.textContent = `⚠️ Network error linking handle. Please try again.`;
+      statusEl.textContent = `⚠️ Could not reach Neon database. Please try again.`;
       statusEl.className = 'form-text mt-1 d-block text-danger';
     }
     return false;
@@ -2963,36 +2739,27 @@ function getNormalizedLogDate(log) {
 }
 
 /**
- * Checks if a log falls within the current calendar week (Sunday to Saturday) OR rolling past 7 days.
+ * Checks if a log falls within the current Asia/Manila calendar week (Sunday to Saturday) OR rolling past 7 days.
  */
 function isLogWithinThisWeek(logDate) {
   if (!(logDate instanceof Date) || isNaN(logDate.getTime())) return false;
-  const now = new Date();
+  const MANILA_OFFSET_MS = 8 * 60 * 60 * 1000;
+  const nowManila = new Date(Date.now() + MANILA_OFFSET_MS);
+  const startOfWeekManila = new Date(nowManila);
+  startOfWeekManila.setUTCDate(nowManila.getUTCDate() - nowManila.getUTCDay());
+  startOfWeekManila.setUTCHours(0, 0, 0, 0);
+  const startOfWeekUtcMs = startOfWeekManila.getTime() - MANILA_OFFSET_MS;
 
-  // 1. Calendar week check (Sunday at 00:00:00.000)
-  const startOfWeek = new Date(now);
-  startOfWeek.setDate(now.getDate() - now.getDay());
-  startOfWeek.setHours(0, 0, 0, 0);
-
-  // 2. Rolling 7 days check
   const sevenDaysAgo = Date.now() - (7 * 24 * 60 * 60 * 1000);
-
   const time = logDate.getTime();
-  return time >= startOfWeek.getTime() || time >= sevenDaysAgo;
+  return time >= startOfWeekUtcMs || time >= sevenDaysAgo;
 }
 
 /**
- * Calculates weekly practice stats (current calendar week or past 7 days):
- * - totalMinutes
- * - unique songs practiced
- * - session count
+ * Calculates weekly practice stats (current calendar week or past 7 days) from server-synced logs.
  */
 function getWeeklyPracticeSummary(customLogs) {
-  const logs = Array.isArray(customLogs)
-    ? customLogs
-    : (Array.isArray(window.serverPracticeLogs) && window.serverPracticeLogs.length > 0
-      ? window.serverPracticeLogs
-      : getPracticeLogs());
+  const logs = Array.isArray(customLogs) ? customLogs : getPracticeLogs();
   const validWeeklyLogs = logs.filter(item => {
     if (!item) return false;
     const logDate = getNormalizedLogDate(item);
@@ -3173,6 +2940,7 @@ const CHORAL_ROLE_HINTS = {
   'Alto': 'Vocal section for lower treble voices.',
   'Tenor': 'Vocal section for higher male/tenor voices.',
   'Bass': 'Vocal section for lower male/bass voices.',
+  'Primary': 'Primary children choir section.',
   'Accompanist': 'For pianists, organists, and instrumentalists rehearsing the accompaniment.',
   'Director': 'For choir directors and conductors studying scores and conducting rehearsals.'
 };
@@ -3327,10 +3095,8 @@ function saveProfileVoiceSettings(e) {
 
   // 2. Persist to localStorage
   try {
+    setPersistedHandle(newHandle);
     localStorage.setItem("kantimes_user_identity", JSON.stringify(identity));
-    localStorage.setItem("kantimes_onboarding_completed", "true");
-    localStorage.setItem("kantimes_user_handle", newHandle);
-    localStorage.setItem("kantimes_persistent_handle", newHandle);
   } catch (err) {
     console.error("[Kantimes] Error writing identity to localStorage:", err);
   }
@@ -3352,26 +3118,7 @@ function saveProfileVoiceSettings(e) {
     console.warn("[Kantimes] Error syncing choir keys:", err);
   }
 
-  // 3b. Cascade handle rename to local practice logs immediately
-  if (oldHandle && oldHandle !== newHandle) {
-    try {
-      const logs = getPracticeLogs();
-      let modified = false;
-      logs.forEach(log => {
-        if (log && log.handle === oldHandle) {
-          log.handle = newHandle;
-          modified = true;
-        }
-      });
-      if (modified) {
-        savePracticeLogs(logs);
-      }
-    } catch (e) {
-      console.warn("[Kantimes] Error cascading handle rename to local practice logs:", e);
-    }
-  }
-
-  // 3c. Register / Rename handle in Neon PostgreSQL database
+  // 3b. Register / Rename handle in Neon PostgreSQL database
   try {
     const activeSheetUrl = localStorage.getItem('kantimes_sheet_url') || localStorage.getItem('choir_custom_sheet_url') || localStorage.getItem('kantimes_active_sheet_id') || '';
     const activeSheetId = localStorage.getItem('kantimes_sheet_id') || localStorage.getItem('choir_sheet_id') || (activeSheetUrl && typeof extractSheetId === 'function' ? extractSheetId(activeSheetUrl) : '') || '';
@@ -3384,6 +3131,10 @@ function saveProfileVoiceSettings(e) {
       avatar_id: avatar || 'default',
       sheet_url: activeSheetUrl,
       sheet_id: activeSheetId
+    }).then(() => {
+      if (typeof syncAllServerState === 'function') {
+        syncAllServerState({ force: true });
+      }
     });
   } catch (err) {
     console.warn("[Kantimes] Error registering handle to Neon:", err);
@@ -3626,20 +3377,10 @@ function renderPracticeMilestonesUI(customLogs) {
   const handle = getDisplayHandle(identity);
   const part = identity.part || "All";
   const stake = (identity.stake && identity.stake.trim()) ? identity.stake.trim() : "LDS Choir";
-  
-  // Prefer explicit/server sessions if available, otherwise scoped practice logs
-  const rawLogs = Array.isArray(customLogs)
-    ? customLogs
-    : (Array.isArray(window.serverPracticeLogs) && window.serverPracticeLogs.length > 0
-      ? window.serverPracticeLogs
-      : getPracticeLogs());
 
-  // Server records from PostgreSQL are already ORDER BY created_at DESC.
-  // Do not override API sorting with frontend re-sorting.
+  // Prefer explicit/server sessions (Neon PostgreSQL is authoritative)
+  const rawLogs = Array.isArray(customLogs) ? customLogs : getPracticeLogs();
   const logs = (Array.isArray(rawLogs) ? rawLogs : []).slice();
-  if (!window.serverPracticeLogs || window.serverPracticeLogs.length === 0) {
-    logs.sort((a, b) => new Date(b.timestamp || b.created_at || 0) - new Date(a.timestamp || a.created_at || 0));
-  }
   const summary = getWeeklyPracticeSummary(logs);
 
   // 1. Identity Ribbon
@@ -3751,119 +3492,126 @@ function renderPracticeMilestonesUI(customLogs) {
   }
 }
 
-let isLoadingMilestones = false;
-async function loadMilestonesData(targetHandle) {
-  if (isLoadingMilestones) return;
-  const isOnboarded = localStorage.getItem('kantimes_onboarding_completed') === 'true';
-  const identity = (typeof getUserIdentity === 'function') ? getUserIdentity() : null;
-  const handle = targetHandle || localStorage.getItem('kantimes_user_handle') || (identity?.handle || (isOnboarded && typeof getDisplayHandle === 'function' ? getDisplayHandle(identity) : null));
+let milestonesRequestSeq = 0;
+let latestAppliedMilestonesSeq = 0;
+
+async function loadMilestonesData(targetHandle, options = {}) {
+  const handle = (targetHandle || resolveAuthenticatedHandle() || '').trim().toUpperCase();
 
   if (!handle) {
-    renderPracticeMilestonesUI();
+    window.serverPracticeLogs = [];
+    window.serverUserProfile = null;
+    window.serverStats = { totalMinutes: 0, totalSessions: 0 };
+    renderPracticeMilestonesUI([]);
     return;
   }
 
   if (typeof navigator !== 'undefined' && navigator.onLine === false) {
+    setDbSyncStatus('offline', 'Offline — Unable to reach Neon database. Displayed data may be outdated.');
     renderPracticeMilestonesUI();
     return;
   }
 
-  isLoadingMilestones = true;
+  const reqSeq = ++milestonesRequestSeq;
   try {
-    const res = await fetch(`/api/user-history?handle=${encodeURIComponent(handle)}&_t=${Date.now()}`);
-    if (res.ok) {
-      const data = await res.json();
-      if (Array.isArray(data.sessions)) {
-        let localLogs = [];
-        try {
-          localLogs = JSON.parse(localStorage.getItem('kantimes_practice_logs') || '[]');
-          if (!Array.isArray(localLogs)) localLogs = [];
-        } catch (e) {
-          localLogs = [];
-        }
-        const unsyncedLocal = localLogs.filter(l => l && !l.synced);
-
-        const remoteFormatted = data.sessions.map(s => {
-          const dur = Number(s.duration !== undefined ? s.duration : (s.duration_minutes !== undefined ? s.duration_minutes : (s.minutes || 0)));
-          const songTitle = s.title || s.song_title || s.songTitle || s.song || 'General Practice';
-          const voice = s.voice || s.voice_part || s.part || 'Tenor';
-          const rawTime = s.timestamp || s.created_at || new Date().toISOString();
-          const timeNum = typeof rawTime === 'number' ? rawTime : (new Date(rawTime).getTime() || Date.now());
-          const timeIso = typeof rawTime === 'string' ? rawTime : new Date(timeNum).toISOString();
-
-          return {
-            id: s.id,
-            session_id: s.id,
-            handle: s.handle || handle,
-            voice: voice,
-            voice_part: voice,
-            part: voice,
-            stake: s.stake || 'Iloilo Philippines Stake',
-            song: songTitle,
-            title: songTitle,
-            songTitle: songTitle,
-            song_title: songTitle,
-            durationMinutes: dur,
-            duration_minutes: dur,
-            duration: dur,
-            minutes: dur,
-            timestamp: timeNum,
-            created_at: timeIso,
-            sheet_hash: s.sheet_hash || 'default',
-            synced: true
-          };
-        });
-
-        // Maintain PostgreSQL newest-first order without overriding with client date sorting
-        const authoritativeLogs = [];
-        const seenKeys = new Set();
-
-        // 1. Unsynced local logs first (newest pending offline logs)
-        const now = Date.now();
-        unsyncedLocal.forEach(l => {
-          if (!l || l.synced) return;
-          const logTime = new Date(l.timestamp || l.created_at || 0).getTime();
-          if (now - logTime > 24 * 60 * 60 * 1000) return;
-          const key = l.id ? `id_${l.id}` : `${l.title || l.song}-${l.timestamp || l.created_at}`;
-          if (!seenKeys.has(key)) {
-            seenKeys.add(key);
-            authoritativeLogs.push(l);
-          }
-        });
-
-        // 2. Authoritative server records in exact PostgreSQL order (ORDER BY created_at DESC)
-        remoteFormatted.forEach(r => {
-          const key = r.id ? `id_${r.id}` : `${r.title}-${r.timestamp}`;
-          if (!seenKeys.has(key)) {
-            seenKeys.add(key);
-            authoritativeLogs.push(r);
-          }
-        });
-
-        window.serverPracticeLogs = authoritativeLogs;
-        try {
-          localStorage.setItem('kantimes_practice_logs', JSON.stringify(authoritativeLogs));
-          const scopedKey = `${getStorageScope()}_practice_logs`;
-          localStorage.setItem(scopedKey, JSON.stringify(authoritativeLogs));
-        } catch (e) { }
-
-        renderPracticeMilestonesUI(authoritativeLogs);
-        if (typeof updatePracticeSummaryUI === 'function') updatePracticeSummaryUI();
-        if (typeof renderPracticeSummary === 'function') renderPracticeSummary();
-        if (typeof renderSectionStandings === 'function') renderSectionStandings();
-        if (typeof renderMainStandingsCards === 'function') renderMainStandingsCards();
-      } else {
-        renderPracticeMilestonesUI();
-      }
-    } else {
-      renderPracticeMilestonesUI();
+    const res = await fetch(`/api/user-history?handle=${encodeURIComponent(handle)}&_t=${Date.now()}`, {
+      cache: 'no-store'
+    });
+    if (!res.ok) {
+      throw new Error(`HTTP ${res.status}`);
     }
+    const data = await res.json();
+
+    // Prevent older/slower API responses from overwriting newer state
+    if (reqSeq < latestAppliedMilestonesSeq) return;
+    latestAppliedMilestonesSeq = reqSeq;
+
+    setDbSyncStatus('ok');
+
+    if (data.profile) {
+      window.serverUserProfile = data.profile;
+      const serverVoice = data.profile.primary_voice;
+      const serverStake = data.profile.stake;
+      const serverAvatar = (data.profile.avatar_id && data.profile.avatar_id !== 'default') ? data.profile.avatar_id : '';
+      try {
+        const idObj = getUserIdentity();
+        if (serverVoice) {
+          idObj.part = serverVoice;
+          idObj.voice = serverVoice;
+          idObj.section = serverVoice;
+          localStorage.setItem('choir_voice', serverVoice);
+          localStorage.setItem('choir_section', serverVoice);
+        }
+        if (serverStake !== undefined && serverStake !== null) {
+          idObj.stake = serverStake;
+          if (serverStake) localStorage.setItem('choir_stake', serverStake);
+        }
+        if (serverAvatar) {
+          idObj.avatar = serverAvatar;
+          localStorage.setItem('choir_avatar', serverAvatar);
+        }
+        idObj.handle = data.profile.handle || handle;
+        idObj.isConfigured = true;
+        localStorage.setItem('kantimes_user_identity', JSON.stringify(idObj));
+      } catch (e) { }
+      if (typeof updateIdentityUI === 'function') updateIdentityUI();
+      if (typeof updateActiveProfileDisplay === 'function') {
+        updateActiveProfileDisplay(idObjNameFallback(handle), serverVoice || 'Tenor', serverAvatar);
+      }
+    }
+
+    if (data.stats) {
+      window.serverStats = data.stats;
+    }
+
+    const remoteFormatted = Array.isArray(data.sessions) ? data.sessions.map(s => {
+      const dur = Number(s.duration !== undefined ? s.duration : (s.duration_minutes !== undefined ? s.duration_minutes : (s.minutes || 0)));
+      const songTitle = s.title || s.song_title || s.songTitle || s.song || 'General Practice';
+      const voice = s.voice || s.voice_part || s.part || 'Tenor';
+      const rawTime = s.created_at || s.timestamp || new Date().toISOString();
+      const timeNum = typeof rawTime === 'number' ? rawTime : (new Date(rawTime).getTime() || Date.now());
+      const timeIso = typeof rawTime === 'string' ? rawTime : new Date(timeNum).toISOString();
+
+      return {
+        id: s.id,
+        session_id: s.id,
+        handle: s.handle || handle,
+        voice: voice,
+        voice_part: voice,
+        part: voice,
+        stake: s.stake || 'Iloilo Philippines Stake',
+        song: songTitle,
+        title: songTitle,
+        songTitle: songTitle,
+        song_title: songTitle,
+        durationMinutes: dur,
+        duration_minutes: dur,
+        duration: dur,
+        minutes: dur,
+        timestamp: timeNum,
+        created_at: timeIso,
+        sheet_hash: s.sheet_hash || 'default',
+        synced: true
+      };
+    }) : [];
+
+    savePracticeLogs(remoteFormatted);
+    renderPracticeMilestonesUI(remoteFormatted);
+    if (typeof updatePracticeSummaryUI === 'function') updatePracticeSummaryUI();
+    if (typeof renderPracticeSummary === 'function') renderPracticeSummary();
+    if (typeof checkAnonymousSyncReminder === 'function') checkAnonymousSyncReminder();
   } catch (err) {
-    console.warn('Error loading milestones from Neon, falling back to local:', err);
+    if (reqSeq < latestAppliedMilestonesSeq) return;
+    console.warn('[Kantimes] Error loading milestones from Neon:', err);
+    setDbSyncStatus('error', 'Unable to reach Neon PostgreSQL database — displayed data may be outdated.');
     renderPracticeMilestonesUI();
-  } finally {
-    isLoadingMilestones = false;
   }
+}
+
+function idObjNameFallback(handle) {
+  const saved = localStorage.getItem('choir_name');
+  if (saved && saved !== 'undefined' && saved !== 'null') return saved;
+  return (handle || 'Choir Singer').split('#')[0];
 }
 window.loadMilestonesData = loadMilestonesData;
 
@@ -4269,8 +4017,21 @@ function updateStandingsStakeDropdown() {
   const selectStake = document.getElementById('selectStandingsStake');
   if (!selectStake) return;
 
-  const logs = getPracticeLogs();
   const stakesSet = new Set();
+  if (window.latestStandingsData && Array.isArray(window.latestStandingsData.stakes)) {
+    window.latestStandingsData.stakes.forEach(s => {
+      if (s && s !== 'Unassigned Stake' && s.trim()) stakesSet.add(s.trim());
+    });
+  }
+  const roster = (window.latestStandingsData && Array.isArray(window.latestStandingsData.topRoster))
+    ? window.latestStandingsData.topRoster
+    : [];
+  roster.forEach(r => {
+    if (r && r.stake && r.stake !== 'Unassigned Stake' && r.stake !== 'Independent' && r.stake.trim()) {
+      stakesSet.add(r.stake.trim());
+    }
+  });
+  const logs = getPracticeLogs();
   logs.forEach(l => {
     if (l && l.stake && l.stake !== 'Unassigned Stake' && l.stake.trim()) {
       stakesSet.add(l.stake.trim());
@@ -4496,7 +4257,6 @@ function renderMainStandingsCards() {
     ? window.latestStandingsData.sectionTotals
     : [];
 
-  // Build lookup map: { Soprano: 0, Alto: 0, Tenor: 0, Bass: 0, Primary: 0 }
   const sectionMap = {
     'Soprano': 0,
     'Alto': 0,
@@ -4504,6 +4264,10 @@ function renderMainStandingsCards() {
     'Bass': 0,
     'Primary': 0
   };
+  currentStandingsTotalsMap['Accompanist'] = 0;
+  currentStandingsSingersMap['Accompanist'] = 0;
+  currentStandingsTotalsMap['Director'] = 0;
+  currentStandingsSingersMap['Director'] = 0;
 
   data.forEach(item => {
     const voice = (item.voice_part || item.name || item.voice || '').trim();
@@ -4514,6 +4278,7 @@ function renderMainStandingsCards() {
 
     if (match) {
       sectionMap[match] = mins;
+      currentStandingsSingersMap[match] = count;
     } else if (/accompan/i.test(voice)) {
       currentStandingsTotalsMap['Accompanist'] = mins;
       currentStandingsSingersMap['Accompanist'] = count;
@@ -4523,16 +4288,7 @@ function renderMainStandingsCards() {
     }
   });
 
-  // If live data had no entries, check if currentStandingsTotalsMap or local logs have minutes
-  if (data.length === 0) {
-    Object.keys(sectionMap).forEach(k => {
-      if (currentStandingsTotalsMap && currentStandingsTotalsMap[k]) {
-        sectionMap[k] = Number(currentStandingsTotalsMap[k]);
-      }
-    });
-  }
-
-  // Update currentStandingsTotalsMap
+  // Update currentStandingsTotalsMap strictly from server data
   currentStandingsTotalsMap = {
     ...currentStandingsTotalsMap,
     ...sectionMap
@@ -4636,9 +4392,12 @@ function renderSectionStandingsFromLocal() {
   renderMainStandingsCards();
 }
 
+let standingsRequestSeq = 0;
+let latestAppliedStandingsSeq = 0;
+
 /**
- * Standard asynchronous loader for collective standings from Neon.
- * Falls back to local logs if offline or request fails.
+ * Standard asynchronous loader for collective standings from Neon PostgreSQL.
+ * Uses request sequence tracking so older/slower responses never overwrite newer state.
  */
 async function loadStandingsData() {
   const scope = window.currentStandingsScope || 'stake'; // 'stake' or 'all'
@@ -4658,12 +4417,22 @@ async function loadStandingsData() {
   if (!userStake) userStake = 'Iloilo Philippines Stake';
   const sheetHash = typeof getActiveSheetHash === 'function' ? getActiveSheetHash() : '';
 
+  if (typeof navigator !== 'undefined' && navigator.onLine === false) {
+    setDbSyncStatus('offline', 'Offline — Unable to reach Neon database. Standings may be outdated.');
+    renderMainStandingsCards();
+    return;
+  }
+
+  const reqSeq = ++standingsRequestSeq;
   try {
-    const registeredHandle = localStorage.getItem('kantimes_user_handle') || localStorage.getItem('kantimes_persistent_handle') || (typeof getUserIdentity === 'function' ? getUserIdentity()?.handle : '') || '';
+    const registeredHandle = resolveAuthenticatedHandle();
     const queryUrl = `/api/standings?scope=${scope}&stake=${encodeURIComponent(userStake)}&sheet_hash=${encodeURIComponent(sheetHash)}&handle=${encodeURIComponent(registeredHandle)}&_t=${Date.now()}`;
-    const res = await fetch(queryUrl);
+    const res = await fetch(queryUrl, { cache: 'no-store' });
     if (!res.ok) throw new Error(`Failed to fetch standings: HTTP ${res.status}`);
     const data = await res.json();
+
+    if (reqSeq < latestAppliedStandingsSeq) return;
+    latestAppliedStandingsSeq = reqSeq;
 
     const sectionTotals = Array.isArray(data)
       ? data
@@ -4671,30 +4440,37 @@ async function loadStandingsData() {
     const topRoster = Array.isArray(data.topRoster)
       ? data.topRoster
       : (Array.isArray(data.roster) ? data.roster : []);
+    const stakes = Array.isArray(data.stakes) ? data.stakes : [];
 
     window.latestStandingsData = {
       sectionTotals,
-      topRoster
+      topRoster,
+      stakes
     };
     currentStandingsTopRoster = topRoster;
 
     if (typeof convertNeonStandingsToRanked === 'function') {
-      convertNeonStandingsToRanked(sectionTotals, topRoster);
+      cachedNeonStandings = convertNeonStandingsToRanked(sectionTotals, topRoster);
     }
 
-    if (topRoster.length > 0) {
-      cachedLeaderboardSingers = topRoster.map(r => ({
-        name: r.handle || 'Anonymous',
-        section: r.voice_part || r.voice || 'Choir',
-        avatar: r.avatar || '',
-        totalMins: Number(r.total_minutes !== undefined ? r.total_minutes : (r.minutes || 0))
-      })).sort((a, b) => b.totalMins - a.totalMins);
-      if (typeof renderLeaderboardSingers === 'function') {
-        renderLeaderboardSingers();
-      }
+    updateStandingsStakeDropdown();
+
+    cachedLeaderboardSingers = topRoster.map(r => ({
+      name: r.handle || 'Anonymous',
+      section: r.voice_part || r.voice || 'Choir',
+      avatar: r.avatar || '',
+      totalMins: Number(r.total_minutes !== undefined ? r.total_minutes : (r.minutes || 0))
+    })).sort((a, b) => b.totalMins - a.totalMins);
+
+    updateKnownSingersFromRoster(cachedLeaderboardSingers);
+    if (typeof renderLeaderboardSingers === 'function') {
+      renderLeaderboardSingers();
     }
 
     renderMainStandingsCards();
+    if (typeof updateLiveCount === 'function') {
+      updateLiveCount();
+    }
 
     if (currentOpenSection) {
       const modal = document.getElementById("sectionBreakdownModal") || document.getElementById("sectionDetailsModal");
@@ -4703,8 +4479,10 @@ async function loadStandingsData() {
       }
     }
   } catch (err) {
-    console.warn('Fallback to local standings:', err);
-    renderSectionStandingsFromLocal();
+    if (reqSeq < latestAppliedStandingsSeq) return;
+    console.warn('[Kantimes] Error loading standings from Neon:', err);
+    setDbSyncStatus('error', 'Unable to reach Neon PostgreSQL database — standings may be outdated.');
+    renderMainStandingsCards();
   }
 }
 
@@ -6802,6 +6580,7 @@ function loadProfile() {
   applyTimerDuration(getUserSettings().timerMinutes, false);
   populateSongSelectDropdown();
 
+  const resolvedHandle = typeof resolveAuthenticatedHandle === "function" ? resolveAuthenticatedHandle() : "";
   const identity = getUserIdentity();
   const savedFullName = localStorage.getItem("choir_name") || identity.fullName || "";
   const savedNickname = localStorage.getItem("choir_nickname") || identity.nickname || identity.initials || "";
@@ -6817,6 +6596,7 @@ function loadProfile() {
 
   const isOnboardingCompleted = localStorage.getItem("kantimes_onboarding_completed") === "true";
   const hasSavedHandle = Boolean(
+    resolvedHandle ||
     localStorage.getItem("kantimes_user_handle") ||
     (identity && (identity.handle || identity.isConfigured || (identity.nickname && identity.nickname.trim().length >= 2))) ||
     (savedNickname && savedNickname.trim().length >= 2) ||
@@ -6888,9 +6668,11 @@ function loadProfile() {
  * App startup check to guarantee onboarding double-prompt never recurs.
  */
 function checkFirstTimeUser() {
+  const resolvedHandle = typeof resolveAuthenticatedHandle === "function" ? resolveAuthenticatedHandle() : "";
   const isOnboardingCompleted = localStorage.getItem("kantimes_onboarding_completed") === "true";
   const identity = typeof getUserIdentity === "function" ? getUserIdentity() : {};
   const hasSavedHandle = Boolean(
+    resolvedHandle ||
     localStorage.getItem("kantimes_user_handle") ||
     identity?.handle ||
     identity?.isConfigured ||
@@ -7293,9 +7075,25 @@ function applyProfileData(name, section, avatar) {
 }
 
 function saveOnboardingProfile() {
+  const existingHandleOnboarding = document.getElementById('existingHandleInputOnboarding')?.value.trim().toUpperCase() || '';
+  if (existingHandleOnboarding && /^[A-Z0-9_\-\.]{2,12}#[A-Z0-9]{4}$/i.test(existingHandleOnboarding)) {
+    linkExistingHandle('existingHandleInputOnboarding');
+    return true;
+  }
+
   const enteredFullName = document.getElementById('onboardingFullName')?.value.trim() || '';
   const nicknameInput = document.getElementById('onboardingNickname') || document.getElementById('memberName');
   const rawNickname = nicknameInput ? nicknameInput.value.trim().toUpperCase() : '';
+
+  if (rawNickname && /^[A-Z0-9_\-\.]{2,12}#[A-Z0-9]{4}$/i.test(rawNickname)) {
+    const restoreEl = document.getElementById('existingHandleInputOnboarding');
+    if (restoreEl) {
+      restoreEl.value = rawNickname;
+      linkExistingHandle('existingHandleInputOnboarding');
+      return true;
+    }
+  }
+
   const enteredNickname = (rawNickname || enteredFullName.slice(0, 3) || 'CHOIR').toUpperCase();
 
   const voiceSelect = document.getElementById('onboardingVoicePart') || document.getElementById('memberSection');
@@ -7348,12 +7146,13 @@ function saveOnboardingProfile() {
     fullName: enteredFullName,
     nickname: enteredNickname,
     initials: enteredNickname,
-    voice: document.getElementById('onboardingVoicePart')?.value || document.getElementById('memberSection')?.value || 'All',
-    stake: document.getElementById('onboardingStake')?.value || '',
+    voice: enteredVoice,
+    stake: enteredStake,
     isConfigured: true
   };
 
   const userHandle = `${profile.nickname.toUpperCase()}#${currentTag}`;
+  setPersistedHandle(userHandle);
   localStorage.setItem('kantimes_user_identity', JSON.stringify({
     ...profile,
     tag: currentTag,
@@ -7364,8 +7163,6 @@ function saveOnboardingProfile() {
     avatar: avatar
   }));
   localStorage.setItem('kantimes_onboarding_completed', 'true');
-  localStorage.setItem('kantimes_user_handle', userHandle);
-  localStorage.setItem('kantimes_persistent_handle', userHandle);
   if (profile.fullName && profile.fullName !== 'undefined' && profile.fullName !== 'null') {
     localStorage.setItem('choir_name', profile.fullName);
   } else {
@@ -7407,9 +7204,11 @@ function saveOnboardingProfile() {
     settingsModal.style.display = 'none';
   }
 
-  // Pull remote practice history for restored handle
-  if (typeof pullUserHistoryFromNeon === "function") {
-    pullUserHistoryFromNeon();
+  // Pull authoritative server state for newly configured handle
+  if (typeof syncAllServerState === "function") {
+    syncAllServerState({ force: true });
+  } else if (typeof loadMilestonesData === "function") {
+    loadMilestonesData(userHandle);
   }
   if (typeof checkAnonymousSyncReminder === "function") {
     checkAnonymousSyncReminder();
@@ -7782,29 +7581,19 @@ const CELEBRATION_MESSAGES = [
 let isHalfwayTriggered = false;
 
 function getSessionHistory() {
-  try {
-    const raw = localStorage.getItem("kantime_session_history");
-    return raw ? JSON.parse(raw) : [];
-  } catch (e) {
-    return [];
-  }
+  return Array.isArray(window.serverPracticeLogs) ? window.serverPracticeLogs : [];
 }
 
-function recordCompletedSession(mins) {
-  const history = getSessionHistory();
-  const now = Date.now();
-  history.push({ timestamp: now, minutes: mins });
-  if (history.length > 100) history.splice(0, history.length - 100);
-  localStorage.setItem("kantime_session_history", JSON.stringify(history));
+function recordCompletedSession(_mins) {
+  // Handled by recordCompletedPracticeSession against Neon PostgreSQL
 }
 
 function getWeekSessionStats() {
-  const history = getSessionHistory();
-  const oneWeekAgo = Date.now() - (7 * 24 * 60 * 60 * 1000);
-  const weekSessions = history.filter(item => item.timestamp >= oneWeekAgo);
+  const logs = getPracticeLogs();
+  const weeklySummary = getWeeklyPracticeSummary();
   return {
-    totalSessions: history.length,
-    weekCount: weekSessions.length
+    totalSessions: Array.isArray(logs) ? logs.length : 0,
+    weekCount: Array.isArray(weeklySummary.logs) ? weeklySummary.logs.length : 0
   };
 }
 
@@ -7925,7 +7714,7 @@ function updateTimerTick() {
   }
 }
 
-function completeTimerSession() {
+async function completeTimerSession() {
   stopIdleTracking();
   setPracticeActive(false);
   const modal = document.getElementById("inactivityModal");
@@ -7961,14 +7750,14 @@ function completeTimerSession() {
   const currentSong = document.getElementById("targetSong") ? document.getElementById("targetSong").value : "";
   const identity = getUserIdentity();
   const userVoice = identity.voice || identity.part || "Tenor";
-  recordCompletedPracticeSession(currentDurationMins, currentSong, userVoice);
-  const stats = getWeekSessionStats();
 
-  const celebrationPraise = CELEBRATION_MESSAGES[Math.floor(Math.random() * CELEBRATION_MESSAGES.length)];
-  showEncouragementBanner(celebrationPraise, "🎉", "milestone");
-
-  openCompletionModal(currentDurationMins, stats);
-  submitPracticeSession(currentDurationMins);
+  const savedSession = await recordCompletedPracticeSession(currentDurationMins, currentSong, userVoice);
+  if (savedSession) {
+    const stats = getWeekSessionStats();
+    const celebrationPraise = CELEBRATION_MESSAGES[Math.floor(Math.random() * CELEBRATION_MESSAGES.length)];
+    showEncouragementBanner(celebrationPraise, "🎉", "milestone");
+    openCompletionModal(currentDurationMins, stats);
+  }
 
   renderSelectedSongResource(currentSong);
 }
@@ -8126,16 +7915,22 @@ function toggleTimer() {
 document.addEventListener("visibilitychange", () => {
   if (!document.hidden) {
     restoreTimerState();
-    if (typeof loadMilestonesData === 'function') loadMilestonesData();
-    if (typeof loadStandingsData === 'function') loadStandingsData();
-    if (typeof autoRetryUnsyncedSessions === 'function') autoRetryUnsyncedSessions();
+    if (typeof syncAllServerState === 'function') {
+      syncAllServerState();
+    } else {
+      if (typeof loadMilestonesData === 'function') loadMilestonesData();
+      if (typeof loadStandingsData === 'function') loadStandingsData();
+    }
   }
 });
 window.addEventListener("focus", () => {
   restoreTimerState();
-  if (typeof loadMilestonesData === 'function') loadMilestonesData();
-  if (typeof loadStandingsData === 'function') loadStandingsData();
-  if (typeof autoRetryUnsyncedSessions === 'function') autoRetryUnsyncedSessions();
+  if (typeof syncAllServerState === 'function') {
+    syncAllServerState();
+  } else {
+    if (typeof loadMilestonesData === 'function') loadMilestonesData();
+    if (typeof loadStandingsData === 'function') loadStandingsData();
+  }
 });
 
 function showToast(msg) {
@@ -8146,46 +7941,10 @@ function showToast(msg) {
   setTimeout(() => { t.style.display = "none"; }, 3000);
 }
 
-// --- SUBMIT PRACTICE LOG TO GOOGLE SHEETS ---
-function submitPracticeSession(minutes) {
-  const name = document.getElementById("memberName").value.trim();
-  const section = document.getElementById("memberSection").value;
-  const song = document.getElementById("targetSong").value;
-  const avatar = localStorage.getItem("choir_avatar") || "";
-  const timestamp = new Date().toISOString();
-
-  const payload = {
-    name: name,
-    section: section,
-    song: song,
-    minutes: minutes,
-    avatar: avatar,
-    timestamp: timestamp
-  };
-
-  if (!navigator.onLine) {
-    saveOfflinePracticeSession(payload);
-    showToast("Session saved offline! It will sync to the leaderboard when you reconnect. 📡");
-    return;
-  }
-
-  showToast("Logging session...");
-
-  fetch(APPS_SCRIPT_URL, {
-    method: "POST",
-    mode: "no-cors",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(payload)
-  })
-    .then(() => {
-      showToast("Logged! Salamat sa practice! 🔥");
-      setTimeout(loadLeaderboard, 1500);
-    })
-    .catch(err => {
-      saveOfflinePracticeSession(payload);
-      showToast("Session saved offline! It will sync to the leaderboard when you reconnect. 📡");
-      console.warn("Network request failed, queued offline:", err);
-    });
+// --- SUBMIT PRACTICE LOG (LEGACY NO-OP — Neon PostgreSQL is authoritative via recordCompletedPracticeSession) ---
+function submitPracticeSession(_minutes) {
+  // Intentionally no-op: all practice sessions are persisted directly to Neon PostgreSQL
+  // via recordCompletedPracticeSession() before updating the UI.
 }
 
 // --- LOAD LEADERBOARDS ---
@@ -8418,10 +8177,10 @@ function renderSectionBreakdown(sectionName, overrideData) {
     if (rIdx !== -1) rank = rIdx + 1;
   }
 
-  // 3. Populate roster directly from live remote topRoster
-  const rosterSource = (window.latestStandingsData && Array.isArray(window.latestStandingsData.topRoster) && window.latestStandingsData.topRoster.length > 0)
+  // 3. Populate roster directly from live remote topRoster (Neon PostgreSQL is authoritative)
+  const rosterSource = (window.latestStandingsData && Array.isArray(window.latestStandingsData.topRoster))
     ? window.latestStandingsData.topRoster
-    : (Array.isArray(currentStandingsTopRoster) && currentStandingsTopRoster.length > 0 ? currentStandingsTopRoster : []);
+    : (Array.isArray(currentStandingsTopRoster) ? currentStandingsTopRoster : []);
 
   let roster = [];
   if (rosterSource.length > 0) {
@@ -8433,28 +8192,6 @@ function renderSectionBreakdown(sectionName, overrideData) {
       stake: r.stake || 'Independent',
       minutes: Number(r.total_minutes !== undefined ? r.total_minutes : (r.minutes || 0))
     })).sort((a, b) => b.minutes - a.minutes);
-  }
-
-  // 4. Fallback to local practice logs if remote roster is empty
-  if (roster.length === 0) {
-    try {
-      const logs = (typeof getPracticeLogs === 'function' ? getPracticeLogs() : []) || [];
-      const localSingers = new Map();
-      logs.forEach(log => {
-        const rawV = (log.voice_part || log.voice || log.part || '').trim().toLowerCase();
-        if (rawV === normalizedSec || rawV === matchedKey.toLowerCase() || rawV.includes(normalizedSec) || normalizedSec.includes(rawV)) {
-          const h = log.handle || 'Anonymous';
-          const m = Number(log.duration_minutes || log.durationMinutes || log.minutes || 0);
-          const st = log.stake || 'Independent';
-          const prev = localSingers.get(h) || { handle: h, stake: st, minutes: 0 };
-          prev.minutes += m;
-          localSingers.set(h, prev);
-        }
-      });
-      if (localSingers.size > 0) {
-        roster = Array.from(localSingers.values()).sort((a, b) => b.minutes - a.minutes);
-      }
-    } catch (e) { }
   }
 
   // Reconcile stats if roster has items but counters were 0
@@ -8618,6 +8355,10 @@ function renderLeaderboardSingers() {
   }
 
   if (!cachedLeaderboardSingers || cachedLeaderboardSingers.length === 0) {
+    currentDisplayedSingers = [];
+    topSingersEl.innerHTML = currentLeaderboardTab === "primary"
+      ? `<div style="text-align:center; padding:16px; font-size:0.85rem; color:var(--text-muted);">No Primary children have logged practice yet. Be the first Primary Star! ⭐</div>`
+      : `<div style="text-align:center; padding:16px; font-size:0.85rem; color:var(--text-muted);">No practice sessions logged yet. Be the first!</div>`;
     return;
   }
 
@@ -8629,6 +8370,7 @@ function renderLeaderboardSingers() {
     // Displays an all-inclusive list of all participating Primary children (not capped at 10)
     singersToDisplay = cachedLeaderboardSingers.filter(s => (s.section || "").trim().toLowerCase() === "primary");
     if (singersToDisplay.length === 0) {
+      currentDisplayedSingers = [];
       topSingersEl.innerHTML = `<div style="text-align:center; padding:16px; font-size:0.85rem; color:var(--text-muted);">No Primary children have logged practice yet. Be the first Primary Star! ⭐</div>`;
       return;
     }
@@ -8636,6 +8378,7 @@ function renderLeaderboardSingers() {
     // Displays the top 10 most dedicated singers across the whole stake
     singersToDisplay = cachedLeaderboardSingers.slice(0, 10);
     if (singersToDisplay.length === 0) {
+      currentDisplayedSingers = [];
       topSingersEl.innerHTML = `<div style="text-align:center; padding:8px; font-size:0.85rem; color:var(--text-muted);">No practice sessions logged yet. Be the first!</div>`;
       return;
     }
@@ -8699,53 +8442,20 @@ function renderLeaderboardSingers() {
 }
 
 function loadLeaderboard() {
-  const topSingersEl = document.getElementById("topSingersList");
-  const sectionEl = document.getElementById("sectionList");
-
-  // Always render live/local section standings based on logged practice sessions
+  // Always render live server section standings
   renderMainStandingsCards();
 
-  // If live Neon top roster is already cached, prefer it
-  if (Array.isArray(currentStandingsTopRoster) && currentStandingsTopRoster.length > 0) {
-    cachedLeaderboardSingers = currentStandingsTopRoster.map(r => ({
-      name: r.handle,
-      section: r.voice_part || r.voice || 'Choir',
-      avatar: r.avatar || '',
-      totalMins: Number(r.total_minutes || r.minutes || 0)
-    })).sort((a, b) => b.totalMins - a.totalMins);
-    updateKnownSingersFromRoster(cachedLeaderboardSingers);
-    renderLeaderboardSingers();
-    return;
-  }
+  const rosterSource = (window.latestStandingsData && Array.isArray(window.latestStandingsData.topRoster))
+    ? window.latestStandingsData.topRoster
+    : (Array.isArray(currentStandingsTopRoster) ? currentStandingsTopRoster : []);
 
-  // Populate leaderboard dynamically from scoped practice logs
-  const logs = getPracticeLogs();
-  if (!logs || !Array.isArray(logs) || logs.length === 0) {
-    cachedLeaderboardSingers = [];
-    if (topSingersEl) {
-      topSingersEl.innerHTML = `<div style="text-align:center; padding:16px; font-size:0.85rem; color:var(--text-muted);">No practice sessions logged yet. Be the first!</div>`;
-    }
-    return;
-  }
+  cachedLeaderboardSingers = rosterSource.map(r => ({
+    name: r.handle,
+    section: r.voice_part || r.voice || 'Choir',
+    avatar: r.avatar || '',
+    totalMins: Number(r.total_minutes || r.minutes || 0)
+  })).sort((a, b) => b.totalMins - a.totalMins);
 
-  const singerTotals = {};
-  logs.forEach(log => {
-    const handle = log.handle || "Choir Member";
-    const sec = log.voice_part || log.voice || log.part || "Choir";
-    const mins = getNormalizedLogMinutes(log);
-
-    if (!singerTotals[handle]) {
-      singerTotals[handle] = {
-        name: handle,
-        section: sec,
-        avatar: "",
-        totalMins: 0
-      };
-    }
-    singerTotals[handle].totalMins += mins;
-  });
-
-  cachedLeaderboardSingers = Object.values(singerTotals).sort((a, b) => b.totalMins - a.totalMins);
   updateKnownSingersFromRoster(cachedLeaderboardSingers);
   renderLeaderboardSingers();
 }
@@ -10985,48 +10695,17 @@ function handleAudioPlaybackError(audioEl, audioUrl) {
   container.appendChild(extCard);
 }
 
-function saveOfflinePracticeSession(sessionObj) {
+function saveOfflinePracticeSession(_sessionObj) {
+  // Removed legacy localStorage offline queue; Neon PostgreSQL is the single source of truth.
   try {
-    const queue = JSON.parse(localStorage.getItem("offline_practice_queue") || "[]");
-    queue.push(sessionObj);
-    localStorage.setItem("offline_practice_queue", JSON.stringify(queue));
-  } catch (e) {
-    console.error("Failed to queue offline session:", e);
-  }
+    localStorage.removeItem("offline_practice_queue");
+  } catch (e) { }
 }
 
 function syncOfflinePracticeQueue() {
-  if (!navigator.onLine) return;
-  let queue = [];
   try {
-    queue = JSON.parse(localStorage.getItem("offline_practice_queue") || "[]");
-  } catch (e) {
-    queue = [];
-  }
-
-  if (!queue || queue.length === 0) return;
-
-  const count = queue.length;
-  showToast(`Syncing ${count} offline session${count > 1 ? 's' : ''} to leaderboard... 📡`);
-
-  const syncPromises = queue.map(session => {
-    return fetch(APPS_SCRIPT_URL, {
-      method: "POST",
-      mode: "no-cors",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(session)
-    });
-  });
-
-  Promise.all(syncPromises)
-    .then(() => {
-      localStorage.removeItem("offline_practice_queue");
-      showToast(`Synced ${count} offline session${count > 1 ? 's' : ''} successfully! 🔥`);
-      setTimeout(loadLeaderboard, 1200);
-    })
-    .catch(err => {
-      console.warn("Failed to sync offline practice queue:", err);
-    });
+    localStorage.removeItem("offline_practice_queue");
+  } catch (e) { }
 }
 
 function updateOnlineStatus() {
@@ -11042,12 +10721,15 @@ function updateOnlineStatus() {
     renderSelectedSongResource(targetSongEl.value);
   }
 
-  if (!isOffline) {
-    syncOfflinePracticeQueue();
-    syncPracticeToNeon();
-    pullUserHistoryFromNeon();
-    renderSectionStandings();
-    loadLeaderboard();
+  if (isOffline) {
+    setDbSyncStatus("offline", "Offline — Unable to reach Neon database. Practice sessions require an active connection to save.");
+  } else {
+    if (typeof syncAllServerState === "function") {
+      syncAllServerState();
+    } else {
+      loadMilestonesData();
+      loadStandingsData();
+    }
   }
 }
 
@@ -11533,14 +11215,11 @@ function switchHorizontalTab(targetId) {
   }
 
   if (targetId === 'milestonesSection' || targetId === 'standingsSection') {
-    if (typeof autoRetryUnsyncedSessions === 'function') {
-      autoRetryUnsyncedSessions();
-    }
-    if (typeof loadMilestonesData === 'function') {
-      loadMilestonesData();
-    }
-    if (typeof loadStandingsData === 'function') {
-      loadStandingsData();
+    if (typeof syncAllServerState === 'function') {
+      syncAllServerState();
+    } else {
+      if (typeof loadMilestonesData === 'function') loadMilestonesData();
+      if (typeof loadStandingsData === 'function') loadStandingsData();
     }
   }
 
@@ -14091,19 +13770,61 @@ function initAppBrandSync() {
 }
 window.initAppBrandSync = initAppBrandSync;
 
+let lastServerSyncAt = 0;
+let activeSyncPromise = null;
+
+/**
+ * Centralized Server-State Synchronization Coordinator:
+ * Fetches both user history/profile/stats and global choir standings directly from Neon PostgreSQL.
+ */
+async function syncAllServerState(options = {}) {
+  const force = Boolean(options && options.force);
+  const now = Date.now();
+  if (!force && activeSyncPromise) {
+    return activeSyncPromise;
+  }
+  if (!force && now - lastServerSyncAt < 750) {
+    return;
+  }
+  lastServerSyncAt = now;
+
+  activeSyncPromise = (async () => {
+    try {
+      const handle = resolveAuthenticatedHandle();
+      await Promise.all([
+        handle ? loadMilestonesData(handle, options) : Promise.resolve(renderPracticeMilestonesUI([])),
+        loadStandingsData(options)
+      ]);
+    } finally {
+      activeSyncPromise = null;
+    }
+  })();
+
+  return activeSyncPromise;
+}
+window.syncAllServerState = syncAllServerState;
+
 // Initial load
 window.addEventListener("DOMContentLoaded", function () {
   const footerYear = document.getElementById("footerYear");
   if (footerYear) {
     footerYear.innerText = new Date().getFullYear();
   }
+
+  // Purge any legacy localStorage practice log caches so stale local data can never override Neon
+  try {
+    localStorage.removeItem("kantimes_practice_logs");
+    localStorage.removeItem("offline_practice_queue");
+    localStorage.removeItem("kantime_session_history");
+  } catch (e) { }
+
+  resolveAuthenticatedHandle();
   initLiveFooterCounter();
   migrateLegacyStorage();
   initThemeSystem();
   initLayoutMode();
   registerServiceWorker();
   checkAppVersionOnLaunch();
-  updateOnlineStatus();
   applyHeaderTargetDate();
   applyTimerDuration(getUserSettings().timerMinutes, false);
   populateSongSelectDropdown();
@@ -14125,21 +13846,6 @@ window.addEventListener("DOMContentLoaded", function () {
   initPianoVisibility();
   initTutorialLang();
   checkInAppBrowser();
-  syncOfflinePracticeQueue();
-  syncPracticeToNeon();
-  pullUserHistoryFromNeon();
-  bootstrapPracticeSync();
-  checkAnonymousSyncReminder();
-  autoRetryUnsyncedSessions();
-  window.addEventListener('online', () => {
-    syncPracticeToNeon();
-    pullUserHistoryFromNeon();
-    bootstrapPracticeSync();
-    checkAnonymousSyncReminder();
-    autoRetryUnsyncedSessions();
-    loadStandingsData();
-    loadMilestonesData();
-  });
   initPWAInstallBanner();
   wireCopyTemplateButton();
 
@@ -14168,8 +13874,10 @@ window.addEventListener("DOMContentLoaded", function () {
   initAppBrandSync();
   initClearSheetUrlButton();
   initSheetEditButton();
-  loadStandingsData();
-  loadMilestonesData();
+
+  // Single authoritative server sync on startup
+  updateOnlineStatus();
+  syncAllServerState({ force: true, isInitialBoot: true });
 });
 
 // Close modals on Escape key
@@ -14361,9 +14069,17 @@ window.setActiveRepertoire = setActiveRepertoire;
 
 /**
  * Live Footer Presence Counter:
- * Keeps active rehearsal sessions count live without relying on retro hit counters.
+ * Derives active choir presence from synchronized Neon standings data or time-of-day baseline
+ * without calling unreliable third-party counterapi.dev endpoints that cause network timeouts.
  */
 function setFallbackCount(el) {
+  const rosterCount = Array.isArray(window.latestStandingsData?.topRoster)
+    ? window.latestStandingsData.topRoster.length
+    : 0;
+  if (rosterCount > 0) {
+    el.textContent = `${rosterCount} active choir ${rosterCount === 1 ? 'member' : 'members'} synced`;
+    return;
+  }
   const hour = new Date().getHours();
   const base = (hour >= 17 && hour <= 21) ? 4 : 2;
   el.textContent = `${base} active rehearsers online`;
@@ -14372,45 +14088,20 @@ function setFallbackCount(el) {
 async function updateLiveCount() {
   const badgeText = document.getElementById('liveVisitorCount');
   if (!badgeText) return;
-
-  // If offline or blocked, immediately use local fallback
-  if (!navigator.onLine) {
-    setFallbackCount(badgeText);
-    return;
-  }
-
-  try {
-    const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), 5000);
-
-    const res = await fetch('https://api.counterapi.dev/v1/kantimes/online?up=true', {
-      cache: 'no-store',
-      signal: controller.signal
-    }).catch(() => null); // Catch at fetch level to avoid throwing unhandled aborts
-
-    clearTimeout(timer);
-
-    if (res && res.ok) {
-      const data = await res.json();
-      badgeText.textContent = `${data.count || 2} active rehearsers online`;
-    } else {
-      setFallbackCount(badgeText);
-    }
-  } catch {
-    setFallbackCount(badgeText);
-  }
+  setFallbackCount(badgeText);
 }
 
+let liveFooterIntervalId = null;
 function initLiveFooterCounter() {
   const badgeText = document.getElementById('liveVisitorCount');
   if (!badgeText) return;
 
   updateLiveCount();
-  // Refresh every 60 seconds
-  setInterval(updateLiveCount, 60000);
+  if (!liveFooterIntervalId) {
+    liveFooterIntervalId = setInterval(updateLiveCount, 60000);
+  }
 }
 
 window.updateLiveCount = updateLiveCount;
 window.initLiveFooterCounter = initLiveFooterCounter;
-document.addEventListener('DOMContentLoaded', initLiveFooterCounter);
 

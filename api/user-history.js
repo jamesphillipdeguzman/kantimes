@@ -6,24 +6,23 @@ async function ensureSchema(sql) {
   try {
     await sql`
       CREATE TABLE IF NOT EXISTS practice_sessions (
-        id SERIAL PRIMARY KEY,
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
         handle TEXT NOT NULL,
         stake TEXT,
         voice_part TEXT,
         song_title TEXT,
         duration_minutes NUMERIC DEFAULT 0,
         sheet_hash TEXT,
-        created_at TIMESTAMPTZ DEFAULT (now() AT TIME ZONE 'Asia/Manila')
+        created_at TIMESTAMPTZ DEFAULT NOW()
       );
     `;
     schemaEnsured = true;
   } catch (e) {
-    console.warn('Could not auto-create schema:', e.message);
+    console.warn('[user-history.js] Could not auto-create schema:', e.message);
   }
 }
 
 export default async function handler(req, res) {
-  // CORS configuration
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
@@ -40,12 +39,11 @@ export default async function handler(req, res) {
   }
 
   const { handle } = req.query || {};
-
   if (!handle || typeof handle !== 'string' || !handle.trim()) {
     return res.status(400).json({ error: 'Missing handle parameter' });
   }
 
-  const cleanHandle = handle.trim();
+  const cleanHandle = handle.trim().toUpperCase();
 
   const dbUrl = process.env.DATABASE_URL || process.env.POSTGRES_URL;
   if (!dbUrl) {
@@ -56,48 +54,62 @@ export default async function handler(req, res) {
     const sql = neon(dbUrl);
     await ensureSchema(sql);
 
-    // Query handle profile from user_handles if exists
     let userProfile = null;
     try {
       const handleRows = await sql`
-        SELECT handle, primary_voice, stake, avatar_id, sheet_url, sheet_id, last_active
+        SELECT
+          UPPER(TRIM(handle)) AS handle,
+          primary_voice,
+          stake,
+          avatar_id,
+          sheet_url,
+          sheet_id,
+          to_char(last_active AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') AS last_active
         FROM user_handles
-        WHERE LOWER(TRIM(handle)) = LOWER(TRIM(${cleanHandle}))
+        WHERE UPPER(TRIM(handle)) = ${cleanHandle}
+        ORDER BY last_active DESC NULLS LAST
         LIMIT 1
       `;
       if (handleRows && handleRows.length > 0) {
         userProfile = handleRows[0];
       }
     } catch (e) {
-      console.warn('Could not query user_handles:', e.message);
+      console.warn('[user-history.js] Could not query user_handles:', e.message);
     }
 
-    // Query recent practice sessions for this handle (case-insensitive, no strict sheet_hash restriction)
     const sessions = await sql`
-      SELECT 
-        id, 
-        handle, 
+      SELECT
+        id::text AS id,
+        UPPER(TRIM(handle)) AS handle,
         stake,
-        song_title AS title, 
+        song_title AS title,
         song_title,
-        voice_part AS voice, 
+        voice_part AS voice,
         voice_part,
-        duration_minutes AS duration, 
-        duration_minutes,
-        sheet_hash, 
-        to_char(created_at, 'YYYY-MM-DD"T"HH24:MI:SS.MS"+08:00"') AS timestamp,
-        to_char(created_at, 'YYYY-MM-DD"T"HH24:MI:SS.MS"+08:00"') AS created_at
+        duration_minutes::int AS duration,
+        duration_minutes::int AS duration_minutes,
+        sheet_hash,
+        to_char(created_at AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') AS timestamp,
+        to_char(created_at AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') AS created_at
       FROM practice_sessions
-      WHERE LOWER(TRIM(handle)) = LOWER(TRIM(${cleanHandle}))
+      WHERE UPPER(TRIM(handle)) = ${cleanHandle}
       ORDER BY created_at DESC
-      LIMIT 50
+      LIMIT 200
     `;
 
-    const exists = Boolean(userProfile || (sessions && sessions.length > 0));
+    const totalMinutes = (sessions || []).reduce((sum, s) => sum + (Number(s.duration_minutes) || 0), 0);
+    const totalSessions = (sessions || []).length;
+    const exists = Boolean(userProfile || totalSessions > 0);
 
-    return res.status(200).json({ 
+    return res.status(200).json({
+      handle: userProfile?.handle || cleanHandle,
       sessions: sessions || [],
       profile: userProfile,
+      stats: {
+        totalMinutes,
+        totalSessions
+      },
+      serverTime: new Date().toISOString(),
       exists
     });
   } catch (err) {

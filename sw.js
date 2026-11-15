@@ -2,7 +2,7 @@
 // KanTimes PWA Service Worker (v2.8.0 — Dynamic Cache Invalidation & Network-First Core)
 // ==========================================================================
 
-const APP_VERSION = "2.8.0";
+const APP_VERSION = "2.8.1";
 const CACHE_NAME = `kantimes-cache-v${APP_VERSION}`;
 
 const PRECACHE_ASSETS = [
@@ -178,8 +178,14 @@ self.addEventListener("fetch", (event) => {
     return; // Pass through to normal network fetch
   }
 
-  // 1️⃣ Never intercept Google Apps Script / external API calls
-  if (url.hostname.includes("script.google.com")) return;
+  // 1️⃣ Never intercept Neon API, Google Apps Script, or external telemetry calls
+  if (
+    url.pathname.startsWith("/api/") ||
+    url.hostname.includes("script.google.com") ||
+    url.hostname.includes("counterapi.dev")
+  ) {
+    return;
+  }
 
   // 2️⃣ Version Check: Always fetch fresh from network for instant update detection
   if (url.pathname.endsWith("/version.json")) {
